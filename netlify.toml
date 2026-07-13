@@ -1,7 +1,17 @@
 [build]
-  # استخدام npm rebuild لإصلاح صلاحيات التنفيذ على Linux
-  command = "npm rebuild && npx vite build"
+  command = "npm run build"
   publish = "dist"
+
+# Baseline browser security headers. CSP is intentionally managed separately
+# after validating all embedded media and Supabase origins in staging.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
 [[redirects]]
   from = "/*"

@@ -48,6 +48,10 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 ---
 
+## ⚠️ تحذير خاص بملف 999_fix_all_missing_tables.sql
+
+هذا الملف يحتوي على مسار تاريخي يعيد إنشاء `shift_assignments` باستخدام `DROP TABLE ... CASCADE`. لا تنفذه على production كما هو. استخدمه فقط على قاعدة Staging/قاعدة فارغة، أو نفذ backfill/ALTER يدوياً بعد مراجعة نسخة البيانات. لا تعتمد على migrations الموجودة في `archive`.
+
 ## 🛡️ معايير الأمان المطبقة في الملفات
 
 - كل `CREATE TABLE` يستخدم `IF NOT EXISTS`
