@@ -1,0 +1,53 @@
+name: Kyvzon Quality Gate
+
+on:
+  push:
+    branches: [main, develop, 'remediation/**']
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Typecheck, tests, build, audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify no tracked environment files
+        shell: bash
+        run: |
+          if git ls-files --error-unmatch .env .env.local >/dev/null 2>&1; then
+            echo 'Tracked environment files are forbidden.'
+            exit 1
+          fi
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Unit and integration tests
+        run: npm run test:run -- --reporter=dot
+
+      - name: Dependency audit
+        run: npm audit --omit=optional --audit-level=high
+
+      - name: Production build
+        run: npm run build
