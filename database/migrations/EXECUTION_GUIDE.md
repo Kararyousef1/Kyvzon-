@@ -40,6 +40,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 | **6** | `007_tawathul_module.sql` | وحدة التواصل | مستقل |
 | **7** | `004_fixes_and_patches.sql` | التصحيحات | يُفضل بعد 001-006 |
 | **8** | `008_final_cleanup.sql` | التنظيف النهائي | يُنفذ أخيراً |
+| **9** | `103_secure_tenant_isolation.sql` | عزل tenant مبني على auth.uid() | يُنفذ بعد اكتمال schema ووجود `profiles.tenant_id` |
 
 ---
 

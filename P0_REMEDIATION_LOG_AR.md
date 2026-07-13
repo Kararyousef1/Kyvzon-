@@ -108,3 +108,41 @@
 6. مواءمة `admin-create-user` و`TenantService` مع schema معتمد.
 7. رفع coverage تدريجياً إلى 70% دون استثناءات مضللة.
 8. إضافة CI/CD إلزامي يمنع دمج كود يفشل type-check/tests/audit.
+
+## المرحلة التالية المنفذة — العزل والحسابات الإدارية
+
+### 8. حماية tenant من مصدر الخادم
+
+تمت إضافة `database/migrations/103_secure_tenant_isolation.sql`، وتشمل:
+
+- `current_user_tenant_id()` مشتقة من `auth.uid()` و`profiles.tenant_id`.
+- `current_user_role()` و`current_user_is_staff()`.
+- `current_user_employee_id()` لتقييد سجلات الموظف نفسه.
+- تحديث `set_session_context()` ليعيد القيم الموثوقة دون اعتبار localStorage مصدراً للصلاحية.
+- سياسات profiles للتصفح داخل tenant والتحديث الذاتي فقط.
+- سياسات staff-write للجداول الأساسية.
+- سياسات خاصة للحضور والطلبات والإجازات بحيث يرى الموظف سجلاته، ويرى staff نطاق الشركة.
+- عدم الاعتماد على `current_setting('app.current_tenant_id')` كمصدر ثقة.
+
+تم تحديث `database/migrations/EXECUTION_GUIDE.md` لإضافة migration 103 بعد اكتمال schema.
+
+> لم يتم تشغيل هذا SQL على قاعدة Supabase حقيقية من هذه البيئة؛ يجب تنفيذه على staging فارغة أولاً ثم إجراء اختبارات JWT cross-tenant قبل الإنتاج.
+
+### 9. تحسين إنشاء المستخدمين إدارياً
+
+تمت إعادة بناء `supabase/functions/admin-create-user/index.ts` بحيث:
+
+- يرفض العمل إذا لم يتم ضبط `APP_ORIGIN` أو secrets المطلوبة.
+- يتحقق من هوية وصلاحية المستدعي على الخادم.
+- يمنع الأدوار غير المسموحة والتحقق من البريد وكلمة المرور والاسم.
+- يربط المستخدم بالشركة المستخرجة من profile المستدعي، لا من payload العميل.
+- يستخدم `employee_code` و`first_name` و`last_name` المتوافقة مع schema المعتمد.
+- ينفذ rollback لمستخدم Auth عند فشل profile أو employee.
+- لا يعيد تفاصيل أخطاء Supabase الداخلية للمتصفح.
+
+### نتائج التحقق بعد المرحلة التالية
+
+- `npm run type-check`: **PASS**.
+- `npm run test:run`: **PASS — 163/163**.
+- `npm run build`: **PASS**.
+- `npm audit --omit=optional`: **0 vulnerabilities**.
