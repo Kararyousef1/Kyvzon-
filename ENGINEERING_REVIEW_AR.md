@@ -529,7 +529,7 @@ remediation/p0-security-and-build-health
 
 1. تدوير مفاتيح Supabase وAI.
 2. تنظيف Git history على GitHub.
-3. تطبيق migrations 103–106 على staging حقيقية.
+3. تطبيق migrations 103–107 على staging حقيقية.
 4. اختبار RLS بــ JWT لمستخدمين من شركتين مختلفتين.
 5. نشر Edge Functions واختبارها من frontend وZKTeco.
 6. تنفيذ backfill للصفوف التي لا تملك `tenant_id` قبل فتح وحدات HR.

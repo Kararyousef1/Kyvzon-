@@ -46,6 +46,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 | **12** | `104_device_sync_nonces.sql` | منع إعادة إرسال طلبات ZKTeco الموقعة | قبل تفعيل `zkteco-sync` |
 | **13** | `105_hr_modules_tenant_rls.sql` | إضافة tenant_id وRLS لوحدات HR | بعد إنشاء جداول 999 وقبل إدخال بيانات production |
 | **14** | `106_harden_system_settings.sql` | حماية الإعدادات وفصل landing عن AI settings | بعد 103 وقبل فتح public landing |
+| **15** | `107_employee_features_tenant_rls.sql` | عزل جداول بوابة الموظف | بعد إنشاء جداول بوابة الموظف |
 
 ---
 

@@ -157,6 +157,7 @@
 - تم حذف مسار RLS المفتوح من `999_fix_all_missing_tables.sql`؛ لم تعد جداول HR تحصل على `USING(true)` تلقائياً.
 - تمت إضافة `105_hr_modules_tenant_rls.sql` لإضافة tenant_id وRLS لوحدات HR.
 - تمت إضافة `106_harden_system_settings.sql` لفصل landing العامة عن `ai_settings` والإعدادات الداخلية.
+- تمت إضافة `107_employee_features_tenant_rls.sql` لعزل جداول بوابة الموظف.
 
 ### 11. منع Replay في ZKTeco
 

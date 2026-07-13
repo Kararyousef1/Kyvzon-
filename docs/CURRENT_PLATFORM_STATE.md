@@ -106,7 +106,7 @@ The platform has transitioned from "a working HR system" to "a well-governed, ob
 - `npm audit`: **0 vulnerabilities**.
 - تم نقل AI إلى Edge Function.
 - تم استكمال وظائف الإدارة الناقصة.
-- تم إضافة migrations 103–106.
+- تم إضافة migrations 103–107.
 - تم إصلاح مسار Tawathul الأساسي.
 - تم إزالة سياسات RLS المفتوحة من مسار 999.
 
