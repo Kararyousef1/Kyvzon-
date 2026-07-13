@@ -232,3 +232,14 @@ gen_random_uuid()
 بعد حل UUID، نفذت قاعدة التطوير migrations 0001–0006 بنجاح. توقفت 0007 بسبب ambiguity في PL/pgSQL بين متغير الحلقة `table_name` وعمود `information_schema.columns.table_name`.
 
 تمت إعادة تسمية متغيرات حلقات RLS إلى `v_table_name` مع parsing جديد لجميع canonical SQL. يجب إعادة تشغيل 0007 بعد تحديث الملف المحلي فقط؛ migrations 0001–0006 مسجلة بالفعل ولا تعاد.
+
+## إصلاح أخطاء الصفحات بعد ربط Supabase الحقيقي
+
+ظهرت أخطاء runtime لأن وضع `loginLocal` كان ينشئ ID اصطناعياً مثل `dev-*` بينما أعمدة قاعدة البيانات UUID. تم الآن:
+
+- جعل Quick Login اختيارياً ولا يعمل إلا عند ضبط `VITE_ENABLE_LOCAL_AUTH=true`.
+- إخفاؤه افتراضياً عند استخدام Supabase حقيقية.
+- توجيه التطوير المتصل إلى Supabase Auth الحقيقي.
+- إضافة migration `0008_incident_contract_fixes.sql` لإضافة `incidents.employee_id` و`department_id` وتصحيح FK الخاص بـ `reported_by`.
+
+بعد تطبيق migration 0008 يجب تسجيل الخروج من وضع التطوير المحلي، تحديث الصفحة، ثم تسجيل الدخول بالمستخدم الموجود في Supabase.

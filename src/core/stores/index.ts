@@ -287,12 +287,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   //  loginLocal (dev only)
   // ─────────────────────────────────────────────────
   loginLocal: (username, role, fullName) => {
-    if (import.meta.env.PROD) {
-      console.error('🚫 loginLocal() ممنوع في بيئة الإنتاج');
+    if (import.meta.env.PROD || import.meta.env.VITE_ENABLE_LOCAL_AUTH !== 'true') {
+      console.error('🚫 loginLocal() غير مفعّل. استخدم Supabase Auth للمشروع المتصل.');
       return;
     }
 
-    console.warn('⚠️ loginLocal() للتطوير فقط');
+    console.warn('⚠️ loginLocal() للتطوير المحلي المعزول فقط');
     const userRole = (role as UserRole) || 'employee';
 
     const normalizedUser = normalizeUser({

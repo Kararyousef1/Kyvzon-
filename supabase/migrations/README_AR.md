@@ -12,6 +12,7 @@
 0005_tawathul_rls_features.sql
 0006_hr_expansion.sql
 0007_support_and_security.sql
+0008_incident_contract_fixes.sql
 ```
 
 ## طريقة التنفيذ

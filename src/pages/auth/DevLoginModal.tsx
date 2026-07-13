@@ -100,8 +100,9 @@ export default function DevLoginModal() {
   const [open, setOpen] = useState(false);
   const { addToast } = useUIStore();
 
-  // إخفاء الزر في الإنتاج
-  if (!import.meta.env.DEV) return null;
+  // Quick login is opt-in and disabled when using a real Supabase project.
+  // It creates synthetic IDs and must never call UUID-backed database queries.
+  if (!import.meta.env.DEV || import.meta.env.VITE_ENABLE_LOCAL_AUTH !== 'true') return null;
 
   const handleDevLogin = (portal: DevPortal) => {
     const userRole = portal.role;
