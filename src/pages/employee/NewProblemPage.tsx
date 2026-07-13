@@ -131,7 +131,7 @@ export default function NewProblemPage() {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       if (!apiKey) throw new Error('API Key missing');
 
-      const prompt = `أنت خبير موارد بشرية في منصة الرافدين. قم بتحليل المشكلة التالية التي يواجهها موظف.
+      const prompt = `أنت خبير موارد بشرية في Kyvzon Platform. قم بتحليل المشكلة التالية التي يواجهها موظف.
 العنوان: ${form.title}
 الوصف: ${form.description}
 الفئة: ${form.category}

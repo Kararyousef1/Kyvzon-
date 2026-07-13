@@ -1,6 +1,6 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  أنواع البيانات الأساسية - نظام الرافدين HR
+ *  أنواع البيانات الأساسية - Kyvzon Platform
  *  تم التحديث والتوحيد لحل جميع التضاربات
  * ════════════════════════════════════════════════════════════════
  *
@@ -14,7 +14,7 @@
 
 // ═════════════════ الأنواع الأساسية ═══════════════
 
-export type UserRole = 'employee' | 'hr' | 'admin' | 'gatekeeper' | 'developer' | 'supervisor' | 'manager';
+export type UserRole = 'employee' | 'hr' | 'admin' | 'gatekeeper' | 'developer' | 'supervisor' | 'manager' | 'it_admin';
 export type Rank = 'executive' | 'manager' | 'supervisor' | 'employee';
 export type ManufacturingDept = 'syrups' | 'tablets' | 'ointments' | 'powders' | 'management' | 'hr' | 'it';
 export type GatekeeperType = 'employee_movement' | 'visitor_movement' | 'both';

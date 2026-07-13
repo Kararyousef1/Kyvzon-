@@ -17,7 +17,7 @@
 
 import { useEffect, Suspense, lazy, useState, useRef } from 'react';
 import { useAuthStore, useUIStore } from './core/stores';
-import { TenantProvider, useTenant } from './core/tenant/TenantContext';
+import { TenantProvider } from './core/tenant/TenantContext';
 import ToastContainer from './shared/components/ui/Toast';
 import SplashScreen from './shared/components/ui/SplashScreen';
 import Sidebar from './shared/components/dashboard/Sidebar';
@@ -30,10 +30,8 @@ import NotificationsPage from './pages/public/NotificationsPage';
 import MyNotificationsPage from './pages/public/MyNotificationsPage';
 import WelcomeModal from './shared/components/dashboard/WelcomeModal';
 
-// ─── Lazy Imports: Developer ─────────────────────────────────────
-const StructureManager   = lazy(() => import('./shared/components/dashboard/developer').then(m => ({ default: m.StructureManager })));
-const BiometricPage      = lazy(() => import('./shared/components/dashboard/developer').then(m => ({ default: m.BiometricSettings })));
-const DeveloperDashboard = lazy(() => import('./shared/components/dashboard/DeveloperDashboard'));
+// ─── Lazy Imports: Developer (Kyvzon Portal) ────────────────────
+const KyvzonDevPortal    = lazy(() => import('./pages/devportal/KyvzonDevPortal'));
 
 // ─── Lazy Imports: Employee ──────────────────────────────────────
 const EmployeeDashboard  = lazy(() => import('./pages/employee/EmployeeDashboard'));
@@ -94,6 +92,9 @@ const AdminSOPsReport             = lazy(() => import('./pages/admin/AdminSOPsRe
 const GatekeeperPage        = lazy(() => import('./pages/gatekeeper/GatekeeperPage'));
 const SupervisorBreaksPage  = lazy(() => import('./pages/supervisor/SupervisorBreaksPage'));
 const ManagerAttendancePage = lazy(() => import('./pages/manager/ManagerAttendancePage'));
+const TechPortal           = lazy(() => import('./pages/techportal/TechPortal'));
+const TawathulPortalPage   = lazy(() => import('./modules/tawathul/pages/TawathulPortalPage'));
+const TawathulAdminPage    = lazy(() => import('./modules/tawathul/pages/TawathulAdminPage'));
 
 // ════════════════════════════════════════════════════════════════
 //  Constants
@@ -107,6 +108,7 @@ const ROLE_DEFAULT_VIEW: Record<string, string> = {
   gatekeeper:'gatekeeper-portal',
   supervisor:'employee-dashboard',
   manager:   'manager-dashboard',
+  it_admin:  'tech-portal',
 };
 
 // صفحات تظهر في أدوار متعددة — تحديدها مسبقاً يُقلل تكرار switch
@@ -140,7 +142,7 @@ function AuthLoader({ timedOut }: { timedOut?: boolean }) {
 }
 
 function DefaultPage({ role }: { role?: string }) {
-  if (role === 'developer')  return <DeveloperDashboard />;
+  if (role === 'developer')  return <KyvzonDevPortal />;
   if (role === 'hr')         return <HRDashboard />;
   if (role === 'admin')      return <AdminDashboard />;
   if (role === 'gatekeeper') return <GatekeeperPage />;
@@ -155,11 +157,19 @@ function PageRenderer() {
   const { activeView, sidebarOpen } = useUIStore();
   const { user } = useAuthStore();
 
+  // Kyvzon Portal — تخطيطه الخاص بدون Header/Sidebar العام
+  if (activeView === 'developer-dashboard') {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <KyvzonDevPortal />
+      </Suspense>
+    );
+  }
+
   const renderPage = (): JSX.Element => {
     // صفحة تفاصيل المشكلة — معرف ديناميكي
-    if (activeView.startsWith('problem-detail-')) {
-      const id = activeView.replace('problem-detail-', '');
-      return <ProblemDetail problemId={id} />;
+    if (activeView.startsWith('problem-detail:')) {
+      return <ProblemDetail />;
     }
 
     // صفحات مشتركة بين أدوار (employee / manager / supervisor)
@@ -208,6 +218,7 @@ function PageRenderer() {
       case 'hr-team':             return <TeamPage />;
       case 'hr-talent-market':    return <TalentMarketPage />;
       case 'hr-attendance':       return <AttendancePage />;
+      case 'hr-leave-requests':   return <LeaveRequestPage />;
       case 'hr-communication':    return <HRCommunicationPage />;
       case 'hr-reports':          return <ReportsPage />;
       case 'hr-movement-analysis':return <HRMovementAnalyticsPage />;
@@ -255,13 +266,18 @@ function PageRenderer() {
       case 'admin-ai-config':              return <AIConfigPage />;
       case 'admin-attendance':             return <AttendancePage />;
 
-      // ─── Developer ───────────────────────────────────────────
-      case 'developer-dashboard':  return <DeveloperDashboard />;
-      case 'developer-attendance': return <BiometricPage />;
-      case 'developer-structure':  return <StructureManager />;
+      // ─── Developer (Kyvzon Portal) ──────────────────────────
+      case 'developer-dashboard':  return <KyvzonDevPortal />;
 
       // ─── Supervisor ──────────────────────────────────────────
       case 'supervisor-breaks':    return <SupervisorBreaksPage />;
+
+      // ─── IT/Tech Portal ──────────────────────────────────────
+      case 'tech-portal':          return <TechPortal />;
+
+      // ─── Tawathul (Communication) ────────────────────────────
+      case 'tawathul-portal':      return <TawathulPortalPage />;
+      case 'tawathul-admin':       return <TawathulAdminPage />;
 
       default: return <DefaultPage role={user?.role} />;
     }

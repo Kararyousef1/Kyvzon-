@@ -1,6 +1,6 @@
 -- ============================================================================
 -- بوابة التواصل (Tawathul) — 300 Core Schema
--- متوافق مع مشروع الرافدين HR / Multi-tenant عند التوفّر
+-- متوافق مع Kyvzon Platform / Multi-tenant عند التوفّر
 -- نفّذ مرة واحدة في Supabase SQL Editor قبل 301
 -- ============================================================================
 
@@ -44,9 +44,9 @@ WHERE name_ar IS NULL OR name_ar = '';
 INSERT INTO public.tenants (id, name_ar, name_en, slug, status, is_active)
 VALUES (
   '00000000-0000-0000-0000-000000000001',
-  'وادي الرافدين للإنتاج الدوائي',
-  'Al-Rafidain Pharma',
-  'al-rafidain',
+  'Kyvzon Platform',
+  'Kyvzon Platform',
+  'kyvzon',
   'active',
   true
 )
@@ -267,7 +267,7 @@ BEGIN
     END;
   END IF;
 
-  -- 3) افتراضي الرافدين
+  -- 3) Kyvzon
   RETURN '00000000-0000-0000-0000-000000000001'::UUID;
 END;
 $$;

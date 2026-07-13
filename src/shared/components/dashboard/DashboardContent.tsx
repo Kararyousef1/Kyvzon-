@@ -140,9 +140,9 @@ export default function DashboardContent() {
   const { activeView } = useUIStore();
 
   // Logic to extract problem ID
-  const problemId = activeView.startsWith('problem-detail-') ? activeView.split('problem-detail-')[1] : null;
+  const problemId = activeView.startsWith('problem-detail:') ? activeView.split('problem-detail:')[1] : null;
   if (problemId) {
-    return <ProblemDetail problemId={problemId} />;
+    return <ProblemDetail />;
   }
 
   // Return the component from the map, or a default if not found

@@ -1,6 +1,6 @@
 /**
  * TawathulConversationService — إدارة المحادثات (MVP)
- * متوافق مع profiles + auth.users في مشروع الرافدين
+ * متوافق مع profiles + auth.users في Kyvzon Platform
  */
 
 import { supabase } from '../../../services/supabase/supabase';

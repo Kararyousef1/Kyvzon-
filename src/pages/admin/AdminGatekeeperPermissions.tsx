@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase/supabase';
 import Card from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
-import Toast from '../../shared/components/ui/Toast';
-import { ShieldCheck, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
+import { useUIStore } from '../../core/stores';
+import { ShieldCheck, RefreshCw, AlertTriangle } from 'lucide-react';
 
 export default function AdminGatekeeperPermissions() {
+  const { addToast } = useUIStore();
   const [managers, setManagers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [dbError, setDbError] = useState(false);
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function AdminGatekeeperPermissions() {
       if (error.message?.includes('can_manage_breaks')) {
         setDbError(true);
       }
-      showToast('فشل في تحميل قائمة المدراء', 'error');
+      addToast('فشل في تحميل قائمة المدراء', 'error');
     } finally {
       setLoading(false);
     }
@@ -47,13 +47,12 @@ export default function AdminGatekeeperPermissions() {
   const handleSaveChanges = async () => {
     const changedManagers = managers.filter(m => m._changed);
     if (changedManagers.length === 0) {
-      showToast('لا توجد تغييرات لحفظها', 'success');
+      addToast('لا توجد تغييرات لحفظها', 'success');
       return;
     }
 
     try {
       setSaving(true);
-      // Process updates sequentially
       for (const m of changedManagers) {
         const { data, error } = await supabase
           .from('profiles')
@@ -68,27 +67,21 @@ export default function AdminGatekeeperPermissions() {
         }
       }
       
-      // Clear changed flags
       setManagers(managers.map(m => ({ ...m, _changed: false })));
-      showToast('تم حفظ التغييرات بنجاح', 'success');
+      addToast('تم حفظ التغييرات بنجاح', 'success');
     } catch (error: any) {
       console.error('Error saving changes:', error);
       if (error.message === 'RLS_ERROR') {
-        showToast('لم يتم الحفظ: تم المنع بواسطة نظام الحماية RLS في قاعدة البيانات', 'error');
+        addToast('لم يتم الحفظ: تم المنع بواسطة نظام الحماية RLS في قاعدة البيانات', 'error');
       } else if (error.message?.includes('can_manage_breaks')) {
         setDbError(true);
-        showToast('فشل في حفظ التغييرات. تأكد من بناء العمود في قاعدة البيانات', 'error');
+        addToast('فشل في حفظ التغييرات. تأكد من بناء العمود في قاعدة البيانات', 'error');
       } else {
-        showToast('فشل في حفظ التغييرات. تحقق من الاتصال بالخادم', 'error');
+        addToast('فشل في حفظ التغييرات. تحقق من الاتصال بالخادم', 'error');
       }
     } finally {
       setSaving(false);
     }
-  };
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
   };
 
   return (
@@ -172,8 +165,6 @@ export default function AdminGatekeeperPermissions() {
           {saving ? <RefreshCw className="w-5 h-5 animate-spin mx-auto" /> : '💾 حفظ التغييرات'}
         </Button>
       </div>
-
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }

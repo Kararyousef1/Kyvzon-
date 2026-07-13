@@ -1,7 +1,7 @@
 /**
  * ════════════════════════════════════════════════════════════════
  *  LoginPage - صفحة تسجيل الدخول (نقطة التجميع)
- *  نظام الرافدين HR
+ *  Kyvzon Platform
  * ════════════════════════════════════════════════════════════════
  *
  *  🔒 الأمان:
@@ -23,10 +23,11 @@ import { ShieldCheck, ArrowLeft, Lock, Zap } from 'lucide-react';
 import { useAuthStore } from '../../core/stores';
 import LoginBackground from './LoginBackground';
 import LoginForm from './LoginForm';
+import DevLoginModal from './DevLoginModal';
 import { useLoginSecurity } from './useLoginSecurity';
 import './login.css';
 
-const EMAIL_DOMAIN = '@alrafidain.com';
+const EMAIL_DOMAIN = '@kyvzon.com';
 
 interface LoginPageProps {
   onNavigate?: (page: string) => void;
@@ -157,8 +158,8 @@ export default function LoginPage({ onBack }: LoginPageProps) {
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-500 to-indigo-700 shadow-[0_10px_30px_-5px_rgba(99,102,241,0.6)] mb-5 ring-1 ring-white/20">
               <ShieldCheck size={40} className="text-white" strokeWidth={1.8} />
             </div>
-            <h1 className="text-2xl font-black text-white mb-1">شركة وادي الرافدين</h1>
-            <p className="text-indigo-200/80 text-sm font-medium">لإنتاج المواد الصيدلانية</p>
+            <h1 className="text-2xl font-black text-white mb-1">Kyvzon Platform</h1>
+            <p className="text-indigo-200/80 text-sm font-medium">منصة إدارة الموارد البشرية</p>
           </div>
 
           {/* جسم النموذج */}
@@ -182,6 +183,9 @@ export default function LoginPage({ onBack }: LoginPageProps) {
               onToggleShowPass={() => setShowPass((v) => !v)}
               onSubmit={handleLogin}
             />
+
+            {/* Dev Mode Quick Login */}
+            <DevLoginModal />
           </div>
         </div>
 

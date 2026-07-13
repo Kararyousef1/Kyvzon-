@@ -263,7 +263,7 @@ export default function LandingPage({
     agentsTitle: isRTL ? 'شبكة وكلائنا' : 'Agent Network',
     agentsDesc: isRTL ? 'شبكة موزعين معتمدين تمتد لتغطي كافة أنحاء البلاد' : 'Certified distributors network covering the entire country',
     prodTitle: isRTL ? 'منتجاتنا' : 'Our Products',
-    prodSubtitle: isRTL ? 'مجموعة متكاملة من الحلول الدوائية المتميزة' : 'A comprehensive range of premium pharmaceutical solutions',
+    prodSubtitle: isRTL ? 'مجموعة متكاملة من حلول الأعمال المتميزة' : 'A comprehensive range of premium business solutions',
     locTitle: isRTL ? 'موقعنا' : 'Location',
     locDesc: isRTL ? landingConfig.addressAr : landingConfig.addressEn,
     footer: isRTL
@@ -273,7 +273,7 @@ export default function LandingPage({
     contactUs: isRTL ? 'تواصل معنا' : 'Contact Us',
     discoverMore: isRTL ? 'اكتشف المزيد' : 'Discover More',
     scrollDown: isRTL ? 'للأسفل' : 'Scroll',
-    pharmaTag: isRTL ? 'للصناعات الدوائية' : 'Pharmaceuticals',
+    brandTag: isRTL ? 'Kyvzon Platform' : 'Kyvzon',
     allProducts: isRTL ? 'جميع المنتجات' : 'All Products',
     viewDetails: isRTL ? 'عرض التفاصيل' : 'View Details',
     noProducts: isRTL ? 'لا توجد منتجات' : 'No products yet',
@@ -286,7 +286,7 @@ export default function LandingPage({
     whatWeOffer: isRTL ? 'ما نقدمه' : 'What We Offer',
     visitUs: isRTL ? 'زورونا' : 'Visit Us',
     getToKnow: isRTL ? 'تعرف علينا' : 'Get to Know Us',
-    leadingBadge: isRTL ? 'شركة رائدة في الصناعات الدوائية' : 'Leading Pharmaceutical Company',
+    leadingBadge: isRTL ? 'Kyvzon - منصة رائدة' : 'Leading Kyvzon Company',
     certQuality: isRTL ? 'جودة معتمدة' : 'Certified Quality',
     fastDelivery: isRTL ? 'توزيع سريع' : 'Fast Delivery',
     longExp: isRTL ? 'خبرة طويلة' : 'Long Experience',
@@ -302,7 +302,7 @@ export default function LandingPage({
     marketingVisionText: isRTL ? landingConfig.marketingVisionTextAr : landingConfig.marketingVisionTextEn,
     marketingCommitment: isRTL ? landingConfig.marketingCommitmentAr : landingConfig.marketingCommitmentEn,
     careItems: isRTL
-      ? ['برامج دعم صحي مستمرة', 'تعاون مع مؤسسات طبية متخصصة', 'تسهيل الوصول للأدوية الحيوية', 'متابعة دورية لحالات المرضى']
+      ? ['برامج دعم فني مستمرة', 'تعاون مع شركاء تقنيين', 'تسهيل الوصول للخدمات الرقمية', 'متابعة دورية لاحتياجات العملاء']
       : ['Continuous health support programs', 'Collaboration with specialized medical institutions', 'Facilitating access to vital medicines', 'Periodic follow-up on patient cases'],
   };
 
@@ -506,7 +506,7 @@ export default function LandingPage({
                 <div className="transition-transform duration-300 group-hover:scale-105"><Logo size="md" /></div>
                 <div className={isRTL ? 'text-right' : 'text-left'}>
                   <h1 className={`font-black leading-tight transition-all duration-300 ${scrolled ? 'text-slate-900 text-base' : 'text-white text-lg'}`}>{t.companyName}</h1>
-                  <p className="text-xs font-bold transition-all duration-300" style={{ color: scrolled ? tc : 'rgba(255,255,255,0.75)' }}>{t.pharmaTag}</p>
+                  <p className="text-xs font-bold transition-all duration-300" style={{ color: scrolled ? tc : 'rgba(255,255,255,0.75)' }}>{t.brandTag}</p>
                 </div>
               </button>
 
@@ -570,7 +570,7 @@ export default function LandingPage({
                 <Logo size="md" />
                 <div>
                   <h2 className="font-black text-slate-900 text-base">{t.companyName}</h2>
-                  <p className="text-xs font-semibold" style={{ color: tc }}>{t.pharmaTag}</p>
+                  <p className="text-xs font-semibold" style={{ color: tc }}>{t.brandTag}</p>
                 </div>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
@@ -903,7 +903,7 @@ export default function LandingPage({
                   <p className="text-slate-500 max-w-2xl mx-auto text-base sm:text-lg leading-relaxed mb-10">
                     {isRTL
                       ? 'اكتشف مجموعتنا المتكاملة من المنتجات الدوائية المصنعة بأعلى معايير الجودة العالمية. تصفح منتجاتنا حسب الأصناف الدوائية (حبوب، مراهم، شرابات، مساحيق) من خلال لوحة المنتجات المخصصة.'
-                      : 'Discover our comprehensive range of pharmaceutical products manufactured to the highest global quality standards. Browse by pharmaceutical categories via the dedicated products portal.'}
+                      : 'Discover our comprehensive range of services and solutions delivered to the highest global standards.'}
                   </p>
                   <button
                     onClick={() => { setShowProductsPortal(true); window.scrollTo(0, 0); }}
@@ -983,7 +983,7 @@ export default function LandingPage({
                               finalUrl = url;
                             }
                             if (!finalUrl) {
-                              const fallbackQuery = url || landingConfig.addressAr || landingConfig.addressEn || 'Al-Rafidain+Pharmaceutical+Baghdad+Iraq';
+                              const fallbackQuery = url || landingConfig.addressAr || landingConfig.addressEn || 'Kyvzon+Baghdad+Iraq';
                               finalUrl = `https://maps.google.com/maps?q=${encodeURIComponent(fallbackQuery)}&output=embed&t=k`;
                             }
                             return finalUrl;
@@ -1075,7 +1075,7 @@ export default function LandingPage({
                       <Logo size="md" />
                       <div>
                         <h3 className="font-black text-white text-base">{t.companyName}</h3>
-                        <p className="text-xs font-semibold" style={{ color: tc }}>{t.pharmaTag}</p>
+                        <p className="text-xs font-semibold" style={{ color: tc }}>{t.brandTag}</p>
                       </div>
                     </div>
                     <p className="text-sm text-slate-500 leading-relaxed mb-6 max-w-xs">{t.heroDesc}</p>
@@ -1362,7 +1362,7 @@ export default function LandingPage({
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md" style={{ background: `linear-gradient(135deg, ${tc}, ${tc}cc)` }}><Package size={24} className="text-white" /></div>
               <div>
-                <h2 className="font-black text-xl text-slate-800">{isRTL ? 'لوحة المنتجات الدوائية' : 'Pharmaceutical Products'}</h2>
+                <h2 className="font-black text-xl text-slate-800">{isRTL ? 'لوحة المنتجات والخدمات' : 'Kyvzon Products'}</h2>
                 <p className="text-sm font-bold text-slate-500">{t.companyName}</p>
               </div>
             </div>
@@ -1379,7 +1379,7 @@ export default function LandingPage({
               {/* Categories Selection */}
               <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl border border-slate-100 mb-10">
                 <h3 className="text-center font-black text-2xl text-slate-800 mb-2">{isRTL ? 'اختر تصنيف المنتج لعرض القائمة' : 'Select Category to view products'}</h3>
-                <p className="text-center text-slate-500 font-semibold mb-8">{isRTL ? 'يرجى تحديد الصنف المطلوب (حبوب، مراهم، شرابات، مساحيق...)' : 'Please select a specific pharmaceutical category'}</p>
+                <p className="text-center text-slate-500 font-semibold mb-8">{isRTL ? 'يرجى تحديد القسم المطلوب' : 'Please select a specific category'}</p>
                 <div className="flex flex-wrap justify-center gap-3">
                   {categories.map((cat) => (
                     <button

@@ -1,9 +1,20 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  ملف التوافق العكسي - إعادة تصدير من SDK
- *  هذا الملف موجود للتوافق مع الصفحات القديمة التي تستورد من '../../lib/supabase'
- *  يرجى تحديث الاستيرادات إلى '../../sdk/supabase' مستقبلاً
+ *  Supabase Client - عميل Supabase الموحد
  * ════════════════════════════════════════════════════════════════
  */
 
-export { supabase, default } from './client';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
+
+export default supabase;

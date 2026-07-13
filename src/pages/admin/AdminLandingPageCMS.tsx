@@ -488,7 +488,7 @@ const DEFAULT_CONFIG: CMSConfig = {
 export default function AdminLandingPageCMS() {
   const { landingConfig, updateLandingConfig, addToast, setActiveView } = useUIStore();
 
-  const [config, setConfig] = useState<CMSConfig>(() => ({ ...DEFAULT_CONFIG, ...landingConfig }));
+  const [config, setConfig] = useState<CMSConfig>(() => ({ ...DEFAULT_CONFIG, ...landingConfig } as CMSConfig));
   const [activeTab, setActiveTab] = useState('general');
   const [showPreview, setShowPreview] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -507,9 +507,9 @@ export default function AdminLandingPageCMS() {
       try {
         const landingConfigData = await settingsService.findLandingConfig();
         if (landingConfigData) {
-          const merged: CMSConfig = { ...DEFAULT_CONFIG, ...landingConfig, ...(landingConfigData as Partial<CMSConfig>) };
+          const merged = { ...DEFAULT_CONFIG, ...landingConfig, ...(landingConfigData as Partial<CMSConfig>) } as CMSConfig;
           setConfig(merged);
-          updateLandingConfig(merged as Partial<LandingConfig>);
+          updateLandingConfig(merged as unknown as Partial<LandingConfig>);
         }
       } catch (err) {
         console.error('Failed to load config:', getErrorMessage(err));
@@ -537,7 +537,7 @@ export default function AdminLandingPageCMS() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      updateLandingConfig(config as Partial<LandingConfig>);
+      updateLandingConfig(config as unknown as Partial<LandingConfig>);
       await settingsService.updateLandingConfig(config as unknown as Record<string, unknown>);
       setSavedAt(new Date().toLocaleTimeString('ar-SA'));
       setHasChanges(false);
@@ -558,7 +558,7 @@ export default function AdminLandingPageCMS() {
   };
 
   const handleOpenPreview = useCallback(() => {
-    updateLandingConfig(config);
+    updateLandingConfig(config as unknown as Partial<LandingConfig>);
     setShowPreview(true);
   }, [config, updateLandingConfig]);
 
@@ -805,8 +805,8 @@ export default function AdminLandingPageCMS() {
 
                 <SectionCard title="اسم الشركة والعلامة التجارية" icon={Hash} iconColor="text-slate-600" iconBg="bg-slate-100">
                   <div className="grid md:grid-cols-2 gap-6">
-                    <Field label="اسم الشركة (عربي)" required><Input name="logoTextAr" value={config.logoTextAr} onChange={handleChange} placeholder="شركة الأدوية المتقدمة" /></Field>
-                    <Field label="Company Name (English)" required><Input name="logoTextEn" value={config.logoTextEn} onChange={handleChange} placeholder="Advanced Pharma Co." dir="ltr" /></Field>
+                    <Field label="اسم الشركة (عربي)" required><Input name="logoTextAr" value={config.logoTextAr} onChange={handleChange} placeholder="Kyvzon" /></Field>
+                    <Field label="Company Name (English)" required><Input name="logoTextEn" value={config.logoTextEn} onChange={handleChange} placeholder="Kyvzon" dir="ltr" /></Field>
                   </div>
                 </SectionCard>
 
@@ -825,7 +825,7 @@ export default function AdminLandingPageCMS() {
                       )}
                       <div className="text-center">
                         <p className="font-black text-slate-800">{config.logoTextAr || 'اسم الشركة'}</p>
-                        <p className="text-xs font-semibold" style={{ color: tc }}>للصناعات الدوائية</p>
+                        <p className="text-xs font-semibold" style={{ color: tc }}>Kyvzon Platform</p>
                       </div>
                     </div>
                   </div>
@@ -920,7 +920,7 @@ export default function AdminLandingPageCMS() {
                           <Field label="الرقم"><Input type="number" value={stat.value.toString()} onChange={e => updateStat(stat.id, 'value', Number(e.target.value))} /></Field>
                           <Field label="اللاحقة (مثل + أو %)"><Input value={stat.suffix || ''} onChange={e => updateStat(stat.id, 'suffix', e.target.value)} /></Field>
                           <Field label="التسمية (عربي)"><Input value={stat.labelAr} onChange={e => updateStat(stat.id, 'labelAr', e.target.value)} /></Field>
-                          <Field label="التسمية (إنجليزي)" dir="ltr"><Input value={stat.labelEn} onChange={e => updateStat(stat.id, 'labelEn', e.target.value)} dir="ltr" /></Field>
+                          <Field label="التسمية (إنجليزي)"><Input value={stat.labelEn} onChange={e => updateStat(stat.id, 'labelEn', e.target.value)} dir="ltr" /></Field>
                         </div>
                       </div>
                     ))}

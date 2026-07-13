@@ -58,7 +58,7 @@ interface Course {
 // ── Categories ──
 const CATEGORIES = [
   { id: 'all',          label: 'الكل',               icon: Layers,       color: 'from-slate-500 to-slate-700' },
-  { id: 'gmp-basics',   label: 'أساسيات GMP',         icon: BookOpen,     color: 'from-indigo-500 to-indigo-700' },
+  { id: 'gmp-basics',   label: 'أساسيات الجودة',         icon: BookOpen,     color: 'from-indigo-500 to-indigo-700' },
   { id: 'quality',      label: 'ضبط الجودة',          icon: Shield,       color: 'from-emerald-500 to-emerald-700' },
   { id: 'manufacturing',label: 'التصنيع',              icon: FlaskConical, color: 'from-blue-500 to-blue-700' },
   { id: 'docs',         label: 'التوثيق',             icon: FileText,     color: 'from-amber-500 to-amber-700' },
@@ -151,7 +151,7 @@ export default function TrainingPage() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-extrabold text-white">مركز التدريب الدوائي</h2>
-                  <p className="text-indigo-300 text-xs font-medium">Pharmaceutical Training Academy</p>
+                  <p className="text-indigo-300 text-xs font-medium">Kyvzon Training Academy</p>
                 </div>
               </div>
               <p className="text-slate-300 text-sm leading-relaxed max-w-xl mb-4">
@@ -160,7 +160,7 @@ export default function TrainingPage() {
               <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 flex items-start gap-3">
                 <Star size={14} className="text-amber-400 flex-shrink-0 mt-0.5 fill-amber-400" />
                 <div>
-                  <p className="text-white/80 text-xs font-medium leading-relaxed">"التدريب المستمر هو مفتاح التميز في صناعة الدواء"</p>
+                  <p className="text-white/80 text-xs font-medium leading-relaxed">"التدريب المستمر هو مفتاح التميز في عالم الأعمال"</p>
                 </div>
               </div>
             </div>

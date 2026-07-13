@@ -3,14 +3,14 @@ import type {
 } from '../../shared/types';
 
 // ════════════════════════════════════════════════════════════════
-//  بيانات وهمية Mock Data - نظام الرافدين HR
+//  بيانات وهمية Mock Data - Kyvzon Platform
 //  تستخدم في بيئة التطوير فقط
 // ════════════════════════════════════════════════════════════════
 
 export const mockUser: User = {
   id: 'dev-user-1',
   full_name: 'مستخدم تجريبي',
-  email: 'test@rafidain.local',
+  email: 'test@kyvzon.local',
   role: 'admin',
   department: 'IT',
   position: 'مطور',
@@ -23,7 +23,7 @@ export const mockEmployees: User[] = [
   {
     id: 'emp-2',
     full_name: 'أحمد محمد',
-    email: 'ahmed@rafidain.local',
+    email: 'ahmed@kyvzon.local',
     role: 'employee',
     department: 'إنتاج',
     position: 'فني إنتاج',
@@ -33,7 +33,7 @@ export const mockEmployees: User[] = [
   {
     id: 'emp-3',
     full_name: 'سارة خالد',
-    email: 'sara@rafidain.local',
+    email: 'sara@kyvzon.local',
     role: 'hr',
     department: 'الموارد البشرية',
     position: 'أخصائي موارد بشرية',
@@ -43,7 +43,7 @@ export const mockEmployees: User[] = [
   {
     id: 'emp-4',
     full_name: 'محمد علي',
-    email: 'mohammed@rafidain.local',
+    email: 'mohammed@kyvzon.local',
     role: 'manager',
     department: 'المبيعات',
     position: 'مدير مبيعات',
@@ -53,7 +53,7 @@ export const mockEmployees: User[] = [
   {
     id: 'emp-5',
     full_name: 'نور حسن',
-    email: 'noor@rafidain.local',
+    email: 'noor@kyvzon.local',
     role: 'employee',
     department: 'مراقبة الجودة',
     position: 'مفتش جودة',

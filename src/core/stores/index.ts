@@ -1,6 +1,6 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  إدارة الحالة الموحدة - نظام الرافدين HR (نسخة SDK)
+ *  Kyvzon Platform - إدارة الحالة الموحدة
  *  تمت إزالة جميع استدعاءات Supabase المباشرة
  *  والاعتماد على طبقة SDK فقط
  * ════════════════════════════════════════════════════════════════
@@ -36,11 +36,10 @@ import type {
   WellnessData, ChatMessage, AuditLog, Employee, Analytics,
 } from '../../shared/types';
 import type {
-  LandingConfig, LandingVideo, LandingProduct, LandingNavLink, LandingStat,
+  LandingConfig,
 } from '../../shared/types/landing';
 import {
-  mockUser, mockProblems, mockNotifications,
-  mockWellnessData, mockEmployees, mockAnalytics, mockAuditLogs,
+  mockUser,
 } from '../../data/dev/mockData';
 
 // ════════════════════════════════════════════════════
@@ -147,6 +146,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   //  initialize
   // ─────────────────────────────────────────────────
   initialize: async () => {
+    // ✅ إذا كان هناك مستخدم محلي (dev) - لا نحتاج للاتصال بـ Supabase
+    const currentState = get();
+    if (currentState.isAuthenticated && currentState.user?.id?.startsWith('dev-')) {
+      set({ loading: false });
+      return;
+    }
+
     set({ loading: true });
 
     try {
@@ -161,6 +167,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       const userId = session.session.user.id;
+
+      // 🔐 إصلاح أمني حرج: ضبط سياق الجلسة قبل أي استعلام بيانات
+      // بدون هذا، RLS سيرفض كل الطلبات لأن app.current_tenant_id غير مضبوط
+      try {
+        await authService.setSessionContext();
+      } catch (ctxErr) {
+        console.error('initialize: setSessionContext failed', getErrorMessage(ctxErr));
+      }
+
       let profile: User | null = null;
 
       // ✅ استخدام UserService بدلاً من supabase.from('profiles')
@@ -289,7 +304,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       permissions: getEffectivePermissions(userRole, []),
     });
 
-    set({ user: normalizedUser, isAuthenticated: true });
+    // إيقاف التحميل وتعيين المستخدم - مهم جداً لتجاوز AuthLoader
+    set({ user: normalizedUser, isAuthenticated: true, loading: false });
   },
 
   // ─────────────────────────────────────────────────
@@ -317,6 +333,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { isAuthenticated, user } = get();
     if (!isAuthenticated || !user?.id) return;
 
+    // ✅ المستخدم المحلي (dev) لا يحتاج لتحديث من Supabase
+    if (user.id.startsWith('dev-')) {
+      return;
+    }
+
     try {
       // ✅ استخدام AuthService بدلاً من supabase.auth.getSession()
       const session = await authService.getSession();
@@ -325,6 +346,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ user: null, isAuthenticated: false });
         return;
       }
+
+      // 🔐 إصلاح أمني: إعادة ضبط سياق الجلسة قبل تحديث البيانات
+      try { await authService.setSessionContext(); } catch {}
 
       // ✅ استخدام UserService بدلاً من supabase.from('profiles')
       const profile = await userService.findUserById(user.id);
@@ -377,7 +401,7 @@ interface ProblemState {
 }
 
 export const useProblemStore = create<ProblemState>((set) => ({
-  problems: mockProblems,
+  problems: [],
 
   addProblem: (problem) =>
     set((state) => ({
@@ -453,22 +477,22 @@ export type {
 
 const defaultLandingConfig: LandingConfig = {
   themeColor: '#4f46e5',
-  logoSymbol: 'ر',
+  logoSymbol: 'K',
   logoUrl: '',
-  logoTextAr: 'الرافدين',
-  logoTextEn: 'Al-Rafidain',
-  heroTitleAr: 'الابتكار في الرعاية الصحية',
-  heroTitleEn: 'Innovation in Healthcare',
-  heroDescAr: 'نحن في شركة الرافدين نسعى لتقديم أفضل المنتجات الطبية والدوائية بأعلى معايير الجودة العالمية.',
-  heroDescEn: 'At Al-Rafidain, we strive to provide the best medical and pharmaceutical products.',
-  aboutP1Ar: 'شركة الرافدين لإنتاج الأدوية هي إحدى أبرز شركات القطاع الخاص المتخصصة في إنتاج الأدوية البشرية.',
-  aboutP1En: 'Al-Rafidain Pharmaceutical Production Company is one of the most prominent private sector companies.',
-  aboutP2Ar: 'تلتزم الشركة بالامتثال التام لمعايير ممارسات التصنيع الجيدة (GMP) التي وضعتها منظمة الصحة العالمية.',
-  aboutP2En: 'The company is committed to full compliance with Good Manufacturing Practices (GMP) standards set by WHO.',
-  aboutP3Ar: 'يُعد رضا العملاء أحد الأهداف الرئيسية للشركة.',
+  logoTextAr: 'Kyvzon',
+  logoTextEn: 'Kyvzon',
+  heroTitleAr: 'منصة متكاملة لإدارة الموارد البشرية',
+  heroTitleEn: 'Comprehensive HR Management Platform',
+  heroDescAr: 'نحن في Kyvzon نقدم منصة متكاملة لإدارة الموارد البشرية بأعلى معايير الجودة.',
+  heroDescEn: 'At Kyvzon, we deliver a comprehensive HR and operations management platform.',
+  aboutP1Ar: 'Kyvzon هي منصة سحابية متكاملة لإدارة الموارد البشرية والعمليات المؤسسية.',
+  aboutP1En: 'Kyvzon is a leading cloud-based platform for enterprise resource management.',
+  aboutP2Ar: 'تلتزم Kyvzon بتقديم أعلى معايير الجودة والأمان في إدارة الموارد البشرية للشركات.',
+  aboutP2En: 'Kyvzon is committed to delivering the highest standards of quality and security in HR management.',
+  aboutP3Ar: 'يُعد رضا العملاء أحد الأهداف الرئيسية لـ Kyvzon.',
   aboutP3En: 'Customer satisfaction is a main goal and fundamental pillar of our strategy.',
-  addressAr: 'العراق، بغداد - المنطقة الصناعية',
-  addressEn: 'Iraq, Baghdad - Industrial Zone',
+  addressAr: 'العراق، بغداد',
+  addressEn: 'Iraq, Baghdad',
   mapUrl: '',
   showCareSection: true,
   showAgentsSection: true,
@@ -476,24 +500,23 @@ const defaultLandingConfig: LandingConfig = {
   showLocationSection: true,
   marketingTitleAr: 'التسويق والمبيعات',
   marketingTitleEn: 'Marketing & Sales',
-  marketingIntroAr: 'منذ تأسيسها، تهدف سياسة الشركة إلى إنشاء فريق متطور وفعال.',
-  marketingIntroEn: 'Since its establishment, Al-Rafidain policy has aimed to build an effective team.',
+  marketingIntroAr: 'منذ تأسيسها، تهدف Kyvzon إلى إنشاء فريق متطور وفعال.',
+  marketingIntroEn: 'Since its establishment, Kyvzon has aimed to build an effective team.',
   marketingVisionTitleAr: 'رؤيتنا',
   marketingVisionTitleEn: 'Our Vision',
-  marketingVisionTextAr: 'نسعى لضمان توفر أدوية عالية الجودة في جميع محافظات العراق.',
-  marketingVisionTextEn: 'We strive to ensure high-quality medicines in all Iraqi governorates.',
-  marketingCommitmentAr: 'نحن ملتزمون بالعمل من أجل عالم أكثر سعادة.',
-  marketingCommitmentEn: 'We are committed to working for a happier world.',
+  marketingVisionTextAr: 'نسعى لتمكين الشركات من إدارة مواردها البشرية بكفاءة عالية في جميع أنحاء المنطقة.',
+  marketingVisionTextEn: 'We strive to empower companies to manage their human resources efficiently across the region.',
+  marketingCommitmentAr: 'نحن ملتزمون بالعمل من أجل مستقبل أفضل.',
+  marketingCommitmentEn: 'We are committed to working for a better future.',
   showVideoSection: false,
   youtubeUrl: '',
   videos: [],
   products: [
-    { id: '1', titleAr: 'قسم الحبوب', titleEn: 'Tablets', descAr: 'منتجات دوائية عالية الجودة', descEn: 'High-quality pharmaceutical products', detailsAr: '', detailsEn: '', imageUrl: '' },
-    { id: '2', titleAr: 'قسم المساحيق', titleEn: 'Powders', descAr: 'مساحيق طبية متطورة', descEn: 'Advanced medical powders', detailsAr: '', detailsEn: '', imageUrl: '' },
+    { id: '1', titleAr: 'المنصة الرئيسية', titleEn: 'Main Platform', descAr: 'منصة متكاملة لإدارة الأعمال', descEn: 'Comprehensive business management platform', detailsAr: '', detailsEn: '', imageUrl: '' },
   ],
   stats: [
-    { id: 's1', value: 25, suffix: '+', labelAr: 'سنة خبرة', labelEn: 'Years Experience' },
-    { id: 's2', value: 500, suffix: '+', labelAr: 'منتج دوائي', labelEn: 'Products' },
+    { id: 's1', value: 100, suffix: '+', labelAr: 'شركة مشتركة', labelEn: 'Companies' },
+    { id: 's2', value: 5000, suffix: '+', labelAr: 'مستخدم نشط', labelEn: 'Active Users' },
   ],
   customNavLinks: [],
   socialLinks: {},
@@ -549,12 +572,12 @@ export const useUIStore = create<UIState>()(
       userPermissions: [],
       isLoadingConfig: false,
       isSavingConfig: false,
-      notifications: mockNotifications,
-      wellnessData: mockWellnessData,
+      notifications: [],
+      wellnessData: [],
       chatMessages: [],
-      auditLogs: mockAuditLogs,
-      employees: mockEmployees,
-      analytics: mockAnalytics,
+      auditLogs: [],
+      employees: [],
+      analytics: {} as Analytics,
       toasts: [],
 
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
@@ -691,7 +714,7 @@ export const useUIStore = create<UIState>()(
       markAllRead: () => set((state) => ({ notifications: state.notifications.map((n) => ({ ...n, read: true })) })),
     }),
     {
-      name: 'rafidain-hr-ui',
+      name: 'kyvzon-platform-ui',
       partialize: (state) => ({ activeView: state.activeView, landingConfig: state.landingConfig }),
     },
   ),

@@ -1,6 +1,6 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  Sidebar - نظام وادي الرافدين HR (نسخة مُصلحة)
+ *  Sidebar - Kyvzon Platform HR (نسخة مُصلحة)
  * ════════════════════════════════════════════════════════════════
  *
  *  🔧 الإصلاحات المُطبّقة:
@@ -24,7 +24,7 @@ import {
   ArrowRightLeft, TrendingUp, Fingerprint, ScrollText,
   FolderKanban, CalendarClock, Megaphone, ClipboardCheck,
   Receipt, CreditCard, DollarSign, ShieldAlert, FileText,
-  Briefcase, UserPlus,
+  Briefcase, UserPlus, Plus, Cpu,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../../core/stores';
 import { UserRole } from '../../types';
@@ -76,6 +76,7 @@ const NAV_SECTIONS: NavSection[] = [
     key: 'work', label: 'العمل', roles: ['employee', 'supervisor', 'manager'],
     items: [
       { id: 'employee-problems', label: 'البلاغات', icon: FolderKanban, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'problems' },
+      { id: 'new-problem', label: 'بلاغ جديد', icon: Plus, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'new-problem' },
       { id: 'employee-attendance', label: 'سجل الحضور', icon: Clock, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'my-attendance' },
       { id: 'employee-requests', label: 'طلباتي', icon: CalendarClock, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'my-leave-requests' },
     ],
@@ -183,7 +184,6 @@ const NAV_SECTIONS: NavSection[] = [
     key: 'admin-management', label: 'الإدارة', roles: ['admin'],
     items: [
       { id: 'admin-employees', label: 'إدارة الموظفين', icon: Users, roles: ['admin'], section: 'admin-management', permKey: 'employees' },
-      { id: 'admin-cms', label: 'إدارة صفحة الزوار', icon: Globe, roles: ['admin'], section: 'admin-management', permKey: 'cms' },
       { id: 'admin-settings', label: 'إعدادات النظام', icon: Settings, roles: ['admin'], section: 'admin-management', permKey: 'settings' },
       { id: 'admin-ai-config', label: 'إعدادات AI', icon: Bot, roles: ['admin'], section: 'admin-management', permKey: 'ai-config' },
     ],
@@ -209,20 +209,31 @@ const NAV_SECTIONS: NavSection[] = [
 
   // ─── 💻 DEVELOPER PORTAL ───
   {
-    key: 'dev-main', label: 'التطوير', roles: ['developer'],
+    key: 'dev-main', label: 'المنصة', roles: ['developer'],
     items: [
-      { id: 'developer-dashboard', label: 'لوحة التحكم', icon: Terminal, roles: ['developer'], section: 'dev-main', permKey: 'developer-dashboard' },
-      { id: 'developer-attendance', label: 'نظام البصمة', icon: Fingerprint, roles: ['developer'], section: 'dev-main', permKey: 'developer-attendance' },
+      { id: 'developer-dashboard', label: 'بوابة Kyvzon', icon: Terminal, roles: ['developer'], section: 'dev-main', permKey: 'developer-dashboard' },
+    ],
+  },
+
+  // ─── 🖥️ IT/TECH PORTAL ───
+  {
+    key: 'tech-main', label: 'تقنية المعلومات', roles: ['it_admin'],
+    items: [
+      { id: 'tech-portal', label: 'البوابة التقنية', icon: Cpu, roles: ['it_admin'], section: 'tech-main' },
+    ],
+  },
+
+  // ─── 💬 TAWATHUL (للجميع) ───
+  {
+    key: 'tawathul', label: 'التواصل', roles: ['employee', 'supervisor', 'manager', 'hr', 'admin'],
+    items: [
+      { id: 'tawathul-portal', label: 'بوابة التواصل', icon: MessageSquare, roles: ['employee', 'supervisor', 'manager', 'hr', 'admin'], section: 'tawathul' },
     ],
   },
   {
-    key: 'dev-system', label: 'النظام', roles: ['developer'],
+    key: 'tawathul-admin', label: 'إدارة التواصل', roles: ['hr', 'admin'],
     items: [
-      { id: 'developer-db', label: 'قاعدة البيانات', icon: Database, roles: ['developer'], section: 'dev-system', permKey: 'developer-db' },
-      { id: 'developer-structure', label: 'بنية النظام', icon: Layers, roles: ['developer'], section: 'dev-system', permKey: 'developer-structure' },
-      { id: 'developer-logs', label: 'سجل الأخطاء', icon: AlertOctagon, roles: ['developer'], section: 'dev-system', permKey: 'developer-logs' },
-      { id: 'admin-audit-log', label: 'سجل العمليات', icon: ScrollText, roles: ['developer'], section: 'dev-system', permKey: 'audit-log' },
-      { id: 'admin-reports', label: 'تقارير النظام', icon: FileBarChart, roles: ['developer'], section: 'dev-system', permKey: 'reports' },
+      { id: 'tawathul-admin', label: 'إعدادات التواصل', icon: Settings, roles: ['hr', 'admin'], section: 'tawathul-admin' },
     ],
   },
 
@@ -249,6 +260,7 @@ const ROLE_CONFIG: Record<UserRole, { label: string; portalName: string; gradien
   admin:       { label: 'مسؤول',        portalName: 'لوحة الإدارة', gradient: 'from-rose-600 to-red-700',       bg: 'from-rose-50 to-red-50',       text: 'text-rose-600' },
   gatekeeper:  { label: 'حارس',         portalName: 'بوابة الأمن',  gradient: 'from-cyan-600 to-blue-700',      bg: 'from-cyan-50 to-blue-50',      text: 'text-cyan-600' },
   developer:   { label: 'مطور',         portalName: 'بيئة التطوير', gradient: 'from-slate-700 to-slate-900',    bg: 'from-slate-100 to-slate-200',  text: 'text-slate-700' },
+  it_admin:    { label: 'تقنية معلومات', portalName: 'البوابة التقنية', gradient: 'from-cyan-600 to-blue-700',    bg: 'from-cyan-50 to-blue-50',      text: 'text-cyan-600' },
 };
 
 // ════════════════════════════════════════════════════════════════

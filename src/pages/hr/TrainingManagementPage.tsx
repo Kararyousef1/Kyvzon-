@@ -34,7 +34,7 @@ import QuizEditor from '../../shared/components/ui/QuizEditor';
 // ════════════════════════════════════════════════════
 
 type CourseLevel = 'مبتدئ' | 'متوسط' | 'متقدم' | 'خبير';
-type CourseCategory = 'gmp-basics' | 'quality' | 'manufacturing' | 'docs' | 'validation' | 'microbiology' | 'equipment' | 'regulatory' | 'supply' | 'roles' | 'safety' | 'advanced';
+type CourseCategory = 'quality-basics' | 'quality' | 'manufacturing' | 'docs' | 'validation' | 'microbiology' | 'equipment' | 'regulatory' | 'supply' | 'roles' | 'safety' | 'advanced';
 
 interface ManagedCourse {
   id: string;
@@ -138,7 +138,7 @@ interface LocalQuizRecord {
 // ════════════════════════════════════════════════════
 
 const CATEGORIES: { id: CourseCategory; label: string }[] = [
-  { id: 'gmp-basics', label: 'أساسيات GMP' },
+  { id: 'quality-basics', label: 'أساسيات الجودة' },
   { id: 'quality', label: 'ضبط الجودة' },
   { id: 'manufacturing', label: 'التصنيع' },
   { id: 'docs', label: 'التوثيق' },
@@ -227,7 +227,7 @@ const CourseEditModal = ({ course, onSave, onClose }: {
     titleEn: course?.titleEn || '',
     description: course?.description || '',
     descriptionEn: course?.descriptionEn || '',
-    category: (course?.category || 'gmp-basics') as CourseCategory,
+    category: (course?.category || 'quality-basics') as CourseCategory,
     duration: course?.duration || '2 ساعة',
     level: (course?.level || 'مبتدئ') as CourseLevel,
     points: course?.points || 50,
@@ -266,8 +266,8 @@ const CourseEditModal = ({ course, onSave, onClose }: {
         {activeTab === 'basic' && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-xs font-bold text-slate-600 mb-1">عنوان الدورة (عربي) *</label><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="أساسيات GMP" /></div>
-              <div><label className="block text-xs font-bold text-slate-600 mb-1">العنوان (English)</label><input value={form.titleEn} onChange={(e) => setForm({ ...form, titleEn: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="GMP Fundamentals" /></div>
+              <div><label className="block text-xs font-bold text-slate-600 mb-1">عنوان الدورة (عربي) *</label><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="أساسيات الجودة" /></div>
+              <div><label className="block text-xs font-bold text-slate-600 mb-1">العنوان (English)</label><input value={form.titleEn} onChange={(e) => setForm({ ...form, titleEn: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="Quality Fundamentals" /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="block text-xs font-bold text-slate-600 mb-1">الوصف (عربي)</label><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 h-20 resize-none" /></div>
@@ -282,7 +282,7 @@ const CourseEditModal = ({ course, onSave, onClose }: {
               <div><label className="block text-xs font-bold text-slate-600 mb-1">المدرب</label><input value={form.instructor} onChange={(e) => setForm({ ...form, instructor: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="د. أحمد" /></div>
               <div><label className="block text-xs font-bold text-slate-600 mb-1">النقاط</label><input type="number" value={form.points} onChange={(e) => setForm({ ...form, points: parseInt(e.target.value) || 0 })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" /></div>
             </div>
-            <div><label className="block text-xs font-bold text-slate-600 mb-1">الوسوم</label><input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="GMP, FDA, WHO" /></div>
+            <div><label className="block text-xs font-bold text-slate-600 mb-1">الوسوم</label><input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="HR, إدارة, تطوير" /></div>
             <div><label className="block text-xs font-bold text-slate-600 mb-1">الأهداف التعليمية</label><textarea value={form.objectives} onChange={(e) => setForm({ ...form, objectives: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 h-24 resize-none" /></div>
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={form.mandatory} onChange={(e) => setForm({ ...form, mandatory: e.target.checked })} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" /><span className="text-sm font-medium text-slate-700">إلزامية</span></label>
@@ -408,7 +408,7 @@ export default function TrainingManagementPage() {
         saveToLocal(newId, courseData);
         setCourses((prev) => [{
           id: newId, title: data.title || '', titleEn: data.titleEn, description: data.description || '',
-          descriptionEn: data.descriptionEn, category: data.category || 'gmp-basics', duration: data.duration || '2 ساعة',
+          descriptionEn: data.descriptionEn, category: data.category || 'quality-basics', duration: data.duration || '2 ساعة',
           level: data.level || 'مبتدئ', points: data.points || 0, mandatory: data.mandatory || false,
           instructor: data.instructor || '', tags: data.tags || [], objectives: data.objectives || [],
           modules: data.objectives?.length || 5, active: data.active ?? true, createdAt: new Date().toISOString(),

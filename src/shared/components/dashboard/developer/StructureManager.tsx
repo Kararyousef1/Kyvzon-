@@ -69,7 +69,7 @@ type TabType = 'departments' | 'positions' | 'ranks' | 'shifts' | 'roles';
 interface TabDef {
   id: TabType;
   label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number | string; className?: string }>;
 }
 
 // ════════════════════════════════════════════════════
@@ -156,7 +156,7 @@ export default function StructureManager() {
     try {
       const table = TABLE_NAMES[tab];
       if (item.id) {
-        await getServiceForTab(tab).update(item.id, item as unknown as Record<string, unknown>);
+        await getServiceForTab(tab).update(String(item.id), item as unknown as Record<string, unknown>);
         addToast('تم التحديث بنجاح', 'success');
       } else {
         await getServiceForTab(tab).create(item as unknown as Record<string, unknown>);

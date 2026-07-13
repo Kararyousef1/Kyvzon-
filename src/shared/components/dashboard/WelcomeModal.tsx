@@ -7,7 +7,7 @@ const WELCOME_KEY = 'hr_welcome_shown_v3';
 const slides = [
   {
     icon: '👋',
-    title: 'مرحباً بك في نظام الرافدين',
+    title: 'مرحباً بك في Kyvzon Platform',
     desc: 'نظام إدارة الموارد البشرية المتكامل',
     color: 'from-indigo-600 to-purple-700',
   },

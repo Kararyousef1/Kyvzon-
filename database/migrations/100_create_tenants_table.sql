@@ -1,5 +1,5 @@
 -- ============================================================================
--- وادي الرافدين للإنتاج الدوائي - HR System
+-- Kyvzon Platform
 -- Migration 100: Multi-Tenant Foundation - جدول الشركات
 -- ============================================================================
 -- هذا الملف يُنشئ البنية الأساسية لنظام Multi-Tenant
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.tenants (
   name_ar VARCHAR(200) NOT NULL,
   name_en VARCHAR(200),
   
-  -- المعرف المختصر للـ Subdomain (مثال: al-rafidain → al-rafidain.platform.com)
+  -- المعرف المختصر للـ Subdomain (مثال: kyvzon → kyvzon.platform.com)
   slug VARCHAR(100) UNIQUE NOT NULL,
   
   -- حالة الشركة

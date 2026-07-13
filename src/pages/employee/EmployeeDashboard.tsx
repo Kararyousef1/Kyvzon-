@@ -209,7 +209,7 @@ export default function EmployeeDashboard() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-2xl font-extrabold">{greeting()}، {user?.full_name || 'موظفنا العزيز'} 👋</h2>
-            <p className="text-white/70 mt-1">نظام الرافدين لإدارة الموارد البشرية</p>
+            <p className="text-white/70 mt-1">Kyvzon Platform</p>
           </div>
           <div className="flex items-center gap-2 bg-white/20 rounded-xl px-4 py-2">
             <Star className="text-yellow-300" size={18} />

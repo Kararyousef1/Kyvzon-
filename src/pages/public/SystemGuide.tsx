@@ -258,7 +258,7 @@ export default function SystemGuide({ onSkip }: { onSkip: () => void }) {
         {/* Footer */}
         <div className="mt-6 pt-4 border-t border-white/5 text-center">
           <p className="text-gray-600 text-xs">
-            نظام الرافدين لإدارة الموارد البشرية © {new Date().getFullYear()} | الإصدار 2.1.0
+            Kyvzon Platform © {new Date().getFullYear()} | الإصدار 2.1.0
           </p>
         </div>
       </div>

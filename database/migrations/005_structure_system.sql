@@ -67,19 +67,19 @@ CREATE TABLE IF NOT EXISTS structure_roles (
 -- ============================================
 
 INSERT INTO structure_departments (name_ar, name_en, code) 
-SELECT 'قسم الشرابات', 'Syrups Dept', 'syrups'
+SELECT 'قسم التقنية', 'Tech Dept', 'tech'
 WHERE NOT EXISTS (SELECT 1 FROM structure_departments WHERE code = 'syrups');
 
 INSERT INTO structure_departments (name_ar, name_en, code)
-SELECT 'قسم الحبوب', 'Tablets Dept', 'tablets'
+SELECT 'قسم المبيعات', 'Sales Dept', 'sales'
 WHERE NOT EXISTS (SELECT 1 FROM structure_departments WHERE code = 'tablets');
 
 INSERT INTO structure_departments (name_ar, name_en, code)
-SELECT 'قسم المراهم', 'Ointments Dept', 'ointments'
+SELECT 'قسم التسويق', 'Marketing Dept', 'marketing'
 WHERE NOT EXISTS (SELECT 1 FROM structure_departments WHERE code = 'ointments');
 
 INSERT INTO structure_departments (name_ar, name_en, code)
-SELECT 'قسم المساحيق', 'Powders Dept', 'powders'
+SELECT 'قسم الدعم الفني', 'Support Dept', 'support'
 WHERE NOT EXISTS (SELECT 1 FROM structure_departments WHERE code = 'powders');
 
 INSERT INTO structure_departments (name_ar, name_en, code)

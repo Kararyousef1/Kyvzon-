@@ -15,6 +15,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { supabase } from '../../services/supabase/supabase';
 import { userService } from '../../services/sdk/UserService';
 import { gatekeeperSessionService, gatekeeperVisitorLogService, movementLogService } from '../../services/sdk/GatekeeperService';
 import { reviewService } from '../../services/sdk/ReviewService';

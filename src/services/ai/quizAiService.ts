@@ -74,7 +74,7 @@ export async function generateQuizWithAI(request: AIQuizRequest): Promise<AIQuiz
   const template = QUESTION_TEMPLATES[request.difficulty];
   const language = request.language === 'en' ? 'English' : 'Arabic';
 
-  const systemPrompt = `أنت خبير في إنشاء الاختبارات التعليمية والتدريبية المتخصصة في صناعة الأدوية.
+  const systemPrompt = `أنت خبير في إنشاء الاختبارات التعليمية والتدريبية المتخصصة في إدارة الموارد البشرية.
 مهمتك هي توليد اختبار دقيق وشامل بناءً على محتوى الدورة المقدم.
 
 مستوى الصعوبة: ${request.difficulty}

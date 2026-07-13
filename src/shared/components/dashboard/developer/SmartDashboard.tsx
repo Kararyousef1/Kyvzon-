@@ -81,7 +81,7 @@ export default function SmartDashboard({ onSwitchToClassic, realStats }: SmartDa
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg"><Terminal size={20} className="text-white" /></div>
             <div>
               <h1 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                مطور الرافدين <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">v3.0</span>
+                Kyvzon Platform <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">v3.0</span>
               </h1>
               <p className={`text-xs ${theme === 'dark' ? 'text-slate-500' : 'text-gray-500'}`}>مربوطة بـ Supabase • بيانات حقيقية</p>
             </div>

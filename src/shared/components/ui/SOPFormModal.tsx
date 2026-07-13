@@ -283,7 +283,7 @@ export default function SOPFormModal({
                   <Input value={formData.duration} onChange={v => updateField('duration', v)} type="number" dir="ltr" />
                 </Field>
                 <Field label="الكلمات الدلالية">
-                  <Input value={formData.tags} onChange={v => updateField('tags', v)} placeholder="GMP, production, safety" dir="ltr" />
+                  <Input value={formData.tags} onChange={v => updateField('tags', v)} placeholder="HR, management, quality" dir="ltr" />
                 </Field>
               </div>
 
@@ -399,7 +399,7 @@ export default function SOPFormModal({
                     </div>
                     <div className="p-4">
                       <RichContentEditor
-                        value={section.content}
+                        value={typeof section.content === 'string' ? EMPTY_CONTENT : section.content}
                         onChange={c => updateSection(section.id, { content: c })}
                         placeholder={`محتوى القسم: ${section.title}`}
                         maxHeight="300px"

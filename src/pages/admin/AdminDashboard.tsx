@@ -16,7 +16,6 @@
 import { useState, useEffect } from 'react';
 import { Users, Shield, Settings, Activity, ArrowUp, Database, Cpu, Loader } from 'lucide-react';
 import { useUIStore } from '../../core/stores';
-import { supabase } from '../../services/supabase/supabase';
 import { auditLogService, userService, incidentService, gatekeeperVisitorLogService, movementLogService } from '../../services/sdk';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Badge from '../../shared/components/ui/Badge';
@@ -46,10 +45,6 @@ interface AuditLogRow {
   profiles?: { full_name?: string } | null;
 }
 
-interface CountRecord {
-  id: string;
-}
-
 interface RecentLogItem {
   id: string;
   action: string;
@@ -71,7 +66,7 @@ interface DashboardData {
   recentLogs: RecentLogItem[];
 }
 
-type IconType = React.ComponentType<{ size?: number; className?: string }>;
+type IconType = React.ComponentType<{ size?: number | string; className?: string }>;
 
 interface SystemService {
   name: string;

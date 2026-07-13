@@ -1,6 +1,6 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  نظام الصلاحيات الموحد - نظام الرافدين HR
+ *  Kyvzon Platform - نظام الصلاحيات الموحد
  *  ⚠️ هذا هو المصدر الوحيد للصلاحيات في النظام بأكمله!
  *  تم تحديثه ليطابق جميع مسارات App.tsx والشريط الجانبي
  * ════════════════════════════════════════════════════════════════
@@ -103,6 +103,9 @@ export const PERMISSION_KEYS = [
   'developer-db',          // إدارة قاعدة البيانات
   'developer-structure',   // هيكلية النظام
   'biometric-settings',    // إعدادات البصمة
+  'tech-portal',           // البوابة التقنية
+  'tawathul-portal',       // بوابة التواصل
+  'tawathul-admin',        // إدارة إعدادات التواصل
   
 ] as const;
 
@@ -129,6 +132,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'my-leave-requests',
     'employee-permissions',
     'employee-leaves',
+    'tawathul-portal',
   ],
   
   // ═══════════════ المشرف ═══════════════
@@ -222,6 +226,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'movements',
     'hr-movements',
     'profile',
+    'tawathul-portal',
+    'tawathul-admin',
   ],
   
   // ═══════════════ الحارس ═══════════════
@@ -312,6 +318,16 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'ai-insights-dashboard',
     'profile',
   ],
+
+  // ═══════════════ تقنية المعلومات ═══════════════
+  it_admin: [
+    'tech-portal',
+    'dashboard',
+    'notifications',
+    'my-notifications',
+    'profile',
+    'attendance',
+  ],
 };
 
 /**
@@ -343,8 +359,8 @@ export function getEffectivePermissions(
   const custom = dbPermissions.filter((perm) => typeof perm === 'string');
 
   // دمج الافتراضية مع المخصصة مع إزالة التكرار (الافتراضية أولاً)
-  const merged = [...defaults];
-  const seen = new Set(defaults);
+  const merged: string[] = [...defaults];
+  const seen = new Set<string>(defaults);
   for (const perm of custom) {
     if (!seen.has(perm)) {
       merged.push(perm);
@@ -392,15 +408,17 @@ export function validatePermissionsSync(): {
     'my-notifications', 'notifications'
   ];
   
-  const permissionKeys = PERMISSION_KEYS as readonly string[];
+  // نستخدم Set لتجنب تضارب الأنواع الحرفية من `as const`
+  const pkSet = new Set<string>(PERMISSION_KEYS);
   
-  const missingInPermissions = appRoutes.filter(route => 
-    !permissionKeys.includes(route)
-  );
+  const missingInPermissions = appRoutes.filter(route => !pkSet.has(route));
   
-  const unusedPermissions = permissionKeys.filter(perm => 
-    !appRoutes.includes(perm)
-  );
+  const unusedPermissions: string[] = [];
+  for (const perm of PERMISSION_KEYS) {
+    if (!(appRoutes as string[]).includes(perm as string)) {
+      unusedPermissions.push(perm);
+    }
+  }
   
   if (process.env.NODE_ENV === 'development') {
     if (missingInPermissions.length > 0) {

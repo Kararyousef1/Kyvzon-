@@ -19,7 +19,7 @@ export interface SOPSection {
   id: string;
   title: string;
   order: number;
-  content: string;
+  content: string | RichContent;
   duration?: string;            // مدة القراءة المتوقعة للقسم
   isRequired?: boolean;          // هل القسم إلزامي
   mediaFiles?: MediaFile[];
@@ -72,14 +72,14 @@ export interface SOPDepartment {
 }
 
 export const SOP_DEPARTMENTS: SOPDepartment[] = [
-  { id: 'd1', nameAr: 'الحبوب', nameEn: 'Tablets', key: 'tablets' },
-  { id: 'd2', nameAr: 'المراهم والكريمات', nameEn: 'Ointments & Creams', key: 'ointments' },
-  { id: 'd3', nameAr: 'الشرابات والمعلقات', nameEn: 'Syrups & Suspensions', key: 'syrups' },
-  { id: 'd4', nameAr: 'المساحيق', nameEn: 'Powders', key: 'powders' },
+  { id: 'd1', nameAr: 'التقنية', nameEn: 'Technology', key: 'tech' },
+  { id: 'd2', nameAr: 'المبيعات', nameEn: 'Sales', key: 'sales' },
+  { id: 'd3', nameAr: 'التسويق', nameEn: 'Marketing', key: 'marketing' },
+  { id: 'd4', nameAr: 'الدعم الفني', nameEn: 'Support', key: 'support' },
   { id: 'd5', nameAr: 'الإدارة', nameEn: 'Management', key: 'management' },
   { id: 'd6', nameAr: 'الموارد البشرية', nameEn: 'HR', key: 'hr' },
   { id: 'd7', nameAr: 'تقنية المعلومات', nameEn: 'IT', key: 'it' },
-  { id: 'd8', nameAr: 'ضمان الجودة', nameEn: 'Quality Assurance', key: 'quality' },
+  { id: 'd8', nameAr: 'المالية', nameEn: 'Finance', key: 'finance' },
   { id: 'd9', nameAr: 'عام', nameEn: 'General', key: 'general' },
 ];
 

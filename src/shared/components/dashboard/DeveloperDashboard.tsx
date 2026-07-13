@@ -655,7 +655,7 @@ export default function DeveloperDashboard() {
 
   const [terminalHistory, setTerminalHistory] = useState<string[]>([
     '╔═══════════════════════════════════════════════════════════╗',
-    '║           نظام الرافدين — لوحة تحكم المطور                ║',
+    '║           Kyvzon Platform — لوحة تحكم المطور                ║',
     '║                   الإصدار 3.0.0                           ║',
     '╚═══════════════════════════════════════════════════════════╝',
     '',
@@ -936,7 +936,7 @@ export default function DeveloperDashboard() {
         response += '\n✓ تم التحديث';
         break;
       case 'version':
-        response = 'الرافدين HR v3.0.0 (React 18 + Supabase + TypeScript)';
+        response = 'Kyvzon Platform v3.0.0 (React 18 + Supabase + TypeScript)';
         break;
       case 'whoami':
         response = `المستخدم: ${user?.full_name ?? '—'} | الدور: ${user?.role ?? '—'} | ID: ${user?.id ?? '—'}`;
@@ -1424,7 +1424,7 @@ export default function DeveloperDashboard() {
               <div className="w-3 h-3 rounded-full bg-amber-500" />
               <div className="w-3 h-3 rounded-full bg-emerald-500" />
             </div>
-            <span className="text-sm text-gray-400 font-mono ml-4">developer@rafidain-hr:~$</span>
+            <span className="text-sm text-gray-400 font-mono ml-4">developer@kyvzon:~$</span>
             <button
               onClick={() => setTerminalHistory([])}
               className="mr-auto p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"

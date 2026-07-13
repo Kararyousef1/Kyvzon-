@@ -1,7 +1,7 @@
 /**
  * ════════════════════════════════════════════════════════════════
  *  Edge Function: admin-create-user
- *  نظام الرافدين HR — Deno Runtime (Supabase Edge)
+ *  Kyvzon Platform — Deno Runtime (Supabase Edge)
  *
  *  🔒 هذا هو البديل الآمن لـ supabaseAdmin.auth.admin.createUser()
  *  - Service Role Key يبقى في بيئة Deno الآمنة فقط

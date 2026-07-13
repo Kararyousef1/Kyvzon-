@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase/supabase';
-import { useAuthStore } from '../../core/stores';
+import { useAuthStore, useUIStore } from '../../core/stores';
 import Card from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import Input from '../../shared/components/ui/Input';
-import Toast from '../../shared/components/ui/Toast';
 import { Clock, Users, ArrowRightLeft, CheckCircle, Lock } from 'lucide-react';
 
 export default function SupervisorBreaksPage() {
   const { user } = useAuthStore();
+  const { addToast } = useUIStore();
   const [employees, setEmployees] = useState<any[]>([]);
   const [breaks, setBreaks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const [formData, setFormData] = useState({
     employee_id: '',
@@ -74,7 +73,7 @@ export default function SupervisorBreaksPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.employee_id || !formData.destination || !formData.pin_code) {
-      showToast('يرجى تعبئة جميع الحقول المطلوبة', 'error');
+      addToast('يرجى تعبئة جميع الحقول المطلوبة', 'error');
       return;
     }
     
@@ -89,7 +88,7 @@ export default function SupervisorBreaksPage() {
         .single();
 
       if (supervisorProfile?.passcode !== formData.pin_code) {
-        showToast('الرمز السري غير صحيح، لا يمكن اعتماد التصريح', 'error');
+        addToast('الرمز السري غير صحيح، لا يمكن اعتماد التصريح', 'error');
         setLoading(false);
         return;
       }
@@ -106,20 +105,15 @@ export default function SupervisorBreaksPage() {
         });
 
       if (error) throw error;
-      showToast('تم إصدار تصريح الاستراحة بنجاح', 'success');
+      addToast('تم إصدار تصريح الاستراحة بنجاح', 'success');
       setFormData({ ...formData, employee_id: '', destination: '', pin_code: '' });
       loadBreaks();
     } catch (error: any) {
       console.error('Error creating break:', error);
-      showToast('فشل في إصدار التصريح. يرجى تحديث قاعدة البيانات', 'error');
+      addToast('فشل في إصدار التصريح. يرجى تحديث قاعدة البيانات', 'error');
     } finally {
       setLoading(false);
     }
-  };
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
   };
 
   return (
@@ -256,7 +250,6 @@ export default function SupervisorBreaksPage() {
         </div>
       </div>
       
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }

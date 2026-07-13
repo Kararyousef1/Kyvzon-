@@ -8,7 +8,7 @@ import { settingsService } from '../../services/sdk/SettingsService';
 export default function SettingsPage() {
   const { addToast } = useUIStore();
   const [settings, setSettings] = useState({
-    systemName: 'الرافدين',
+    systemName: 'Kyvzon',
     language: 'ar',
     timezone: 'Asia/Riyadh',
     emailNotifications: true,

@@ -4,14 +4,14 @@ import type { LandingConfig } from '../../shared/types/landing';
 
 const defaultConfig: LandingConfig = {
   themeColor: '#4f46e5',
-  logoTextAr: 'شركتنا للأدوية',
-  logoTextEn: 'Our Pharma Co.',
+  logoTextAr: 'Kyvzon',
+  logoTextEn: 'Kyvzon',
   logoUrl: '',
   logoSymbol: '◆',
   heroTitleAr: 'ريادة في الصناعات الدوائية',
-  heroTitleEn: 'Leading Pharmaceutical Excellence',
+  heroTitleEn: 'Leading Enterprise Solutions',
   heroDescAr: 'نحن شركة رائدة في مجال الصناعات الدوائية',
-  heroDescEn: 'We are a leading pharmaceutical company',
+  heroDescEn: 'We are a leading enterprise platform',
   aboutP1Ar: '', aboutP1En: '',
   aboutP2Ar: '', aboutP2En: '',
   aboutP3Ar: '', aboutP3En: '',

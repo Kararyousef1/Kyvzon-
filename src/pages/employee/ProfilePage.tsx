@@ -464,7 +464,7 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   {cvData.education.map((edu, i) => (
                     <div key={i} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative flex flex-col sm:flex-row gap-3">
-                      <input placeholder="المؤهل (مثال: بكالوريوس صيدلة)" value={edu.degree} onChange={(e) => updateEducation(i, 'degree', e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500" />
+                      <input placeholder="المؤهل (مثال: بكالوريوس إدارة أعمال)" value={edu.degree} onChange={(e) => updateEducation(i, 'degree', e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500" />
                       <input placeholder="الجامعة / المعهد" value={edu.institution} onChange={(e) => updateEducation(i, 'institution', e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500" />
                       <input placeholder="سنة التخرج" value={edu.period} onChange={(e) => updateEducation(i, 'period', e.target.value)} className="w-full sm:w-32 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500" />
                       <button onClick={() => setCvData({ ...cvData, education: removeByIndex(cvData.education, i) })} className="p-2.5 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-xl border border-transparent hover:border-red-100 transition-all flex items-center justify-center"><Trash2 size={16} /></button>

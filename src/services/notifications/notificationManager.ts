@@ -294,7 +294,7 @@ export function createWelcomeNotification(
   return addNotification(userId, {
     type: 'welcome',
     priority: 'normal',
-    title: '👋 مرحباً بك في نظام الرافدين',
+    title: '👋 مرحباً بك في Kyvzon Platform',
     message:
       'نحن سعداء بانضمامك! يمكنك الآن تصفح لوحة التحكم ومتابعة حضورك.',
     groupKey: `welcome-${userId}`,

@@ -93,7 +93,7 @@ export function useNotifications() {
       type: 'welcome',
       priority: 'low',
       title: '👋 مرحباً بعودتك',
-      message: `أهلاً ${user.full_name || 'بك'}، يسعدنا وجودك في نظام الرافدين`,
+      message: `أهلاً ${user.full_name || 'بك'}، يسعدنا وجودك في Kyvzon Platform`,
       groupKey: `welcome-${user.id}`,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 ساعة
     });

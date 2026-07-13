@@ -25,6 +25,8 @@ export interface UserProfile {
   permissions?: string[];
   gatekeeper_type?: string;
   gatekeeper_pin?: string;
+  salary?: number;
+  salary_currency?: string;
   created_at?: string;
   updated_at?: string;
   tenant_id: string;
@@ -46,6 +48,8 @@ export interface UserUpdateInput {
   permissions?: string[];
   gatekeeper_type?: string;
   gatekeeper_pin?: string;
+  salary?: number;
+  salary_currency?: string;
   cv_data?: Record<string, unknown>;
 }
 

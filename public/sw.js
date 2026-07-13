@@ -1,6 +1,6 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  Service Worker - نظام وادي الرافدين HR
+ *  Service Worker - Kyvzon Platform
  * ════════════════════════════════════════════════════════════════
  *
  *  استراتيجية التخزين المؤقت:
@@ -12,7 +12,7 @@
  *  ════════════════════════════════════════════════════════════════
  */
 
-const SW_VERSION = 'rafidain-hr-v1';
+const SW_VERSION = 'kyvzon-platform-v1';
 const STATIC_CACHE = `${SW_VERSION}-static`;
 const RUNTIME_CACHE = `${SW_VERSION}-runtime`;
 

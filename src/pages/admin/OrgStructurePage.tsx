@@ -42,7 +42,7 @@ type RoleLevel = 'manager' | 'supervisor' | 'employee';
 
 interface TreeNodeProps {
   title: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number | string; className?: string }>;
   colorClass: string;
   isLeaf?: boolean;
   children?: React.ReactNode;

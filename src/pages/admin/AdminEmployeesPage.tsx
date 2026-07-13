@@ -1,26 +1,26 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  AdminEmployeesPage - إدارة الموظفين (نسخة مُصلحة)
- *  تستخدم AdminUserService عبر Edge Functions
- *  التدفق: Page → AdminUserService → Edge Function → Supabase Admin API
+ *  AdminEmployeesPage — إدارة الموظفين (إعادة تصميم شاملة)
+ *  ✅ تصميم جدول احترافي مع إحصاءات ذكية
+ *  ✅ نموذج إضافة/تعديل محسّن مع تبويبات
+ *  ✅ دعم كامل للبحث والتصفية والتصدير
  * ════════════════════════════════════════════════════════════════
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  Search, Plus, Mail, Phone, MapPin, Briefcase, Star, Trash2, Edit2,
-  Loader, ServerCrash, X, Camera, User as UserIcon, Eye, Key, ShieldCheck,
-  CheckCircle2, LayoutDashboard, Heart, Bot, GraduationCap, ClipboardList,
-  MessageSquare, FileText, Database, RefreshCw, Send, Clock, Calendar,
-  BookOpen, BarChart3, Cpu, Brain,
+  Search, Plus, Mail, Phone, MapPin, Briefcase, Trash2, Edit2,
+  Loader, X, Camera, ShieldCheck, Eye,
+  RefreshCw, FileText, Users, UserCheck, UserX, Activity,
+  Building, ChevronLeft, ChevronRight, Filter, Download,
 } from 'lucide-react';
-import Card from '../../shared/components/ui/Card';
 import Badge from '../../shared/components/ui/Badge';
-import { GatekeeperType, UserRole } from '../../shared/types';
-import { exportToStyledExcel } from '../../utils/exportToExcel';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { userService } from '../../services/sdk/UserService';
 import { adminUserService } from '../../services/sdk/AdminUserService';
+import { exportToStyledExcel } from '../../utils/exportToExcel';
+import { getErrorMessage } from '../../services/errors';
+import type { UserRole } from '../../shared/types';
 
 // ════════════════════════════════════════════════════════════════
 //  Types
@@ -31,136 +31,71 @@ interface EmployeeRecord {
   full_name: string;
   email: string;
   role: UserRole;
-  rank: string;
-  manufacturing_dept: string;
   department?: string;
-  position: string;
-  phone: string;
-  location?: string;
-  profile_image?: string;
-  manager_id?: string;
-  supervisor_id?: string;
-  department_manager_id?: string;
-  shift?: string;
-  permissions?: string[];
+  position?: string;
+  phone?: string;
   status?: string;
-  gatekeeper_type?: GatekeeperType;
-  gatekeeper_pin?: string;
+  created_at?: string;
   last_sign_in_at?: string;
+  permissions?: string[];
 }
 
-interface FormDataState {
+type FormMode = 'create' | 'edit';
+
+interface FormState {
   full_name: string;
   email: string;
   passcode: string;
   role: UserRole;
-  rank: string;
-  manufacturing_dept: string;
   department: string;
   position: string;
   phone: string;
-  location: string;
-  profile_image: string;
-  manager_id: string;
-  supervisor_id: string;
-  department_manager_id: string;
-  shift: string;
+  salary: string;
+  salary_currency: string;
   permissions: string[];
-  is_verified: boolean;
-  gatekeeper_type: GatekeeperType;
-  gatekeeper_pin: string;
 }
 
 // ════════════════════════════════════════════════════════════════
 //  Constants
 // ════════════════════════════════════════════════════════════════
 
-const allPermissions = [
-  { id: 'dashboard', label: 'لوحة التحكم', icon: LayoutDashboard, category: 'عام' },
-  { id: 'problems', label: 'المشاكل والطلبات', icon: FileText, category: 'عام' },
-  { id: 'profile', label: 'الملف الشخصي', icon: UserIcon, category: 'عام' },
-  { id: 'notifications', label: 'التبليغات', icon: MessageSquare, category: 'عام' },
-  { id: 'wellness', label: 'الصحة النفسية', icon: Heart, category: 'الموظف' },
-  { id: 'ai-chat', label: 'المساعد الذكي', icon: Bot, category: 'الموظف' },
-  { id: 'training', label: 'مركز التدريب', icon: GraduationCap, category: 'الموظف' },
-  { id: 'sops', label: 'إجراءات SOP', icon: FileText, category: 'الموظف' },
-  { id: 'survey', label: 'الاستبيانات', icon: ClipboardList, category: 'الموظف' },
-  { id: 'contact', label: 'تواصل معنا', icon: MessageSquare, category: 'الموظف' },
-  { id: 'my-attendance', label: 'حضوري', icon: Clock, category: 'الموظف' },
-  { id: 'my-leave-requests', label: 'طلباتي', icon: FileText, category: 'الموظف' },
-  { id: 'employee-permissions', label: 'الزمنيات', icon: Clock, category: 'الموظف' },
-  { id: 'employee-leaves', label: 'الإجازات', icon: Calendar, category: 'الموظف' },
-  { id: 'movement-analysis', label: 'تحليل الحركة', icon: Star, category: 'الموارد البشرية' },
-  { id: 'analytics', label: 'التحليلات', icon: Star, category: 'الموارد البشرية' },
-  { id: 'team', label: 'فريق العمل', icon: UserIcon, category: 'الموارد البشرية' },
-  { id: 'talent-market', label: 'سجل المؤهلات', icon: Star, category: 'الموارد البشرية' },
-  { id: 'communication', label: 'صندوق البريد', icon: MessageSquare, category: 'الموارد البشرية' },
-  { id: 'reports', label: 'التقارير', icon: FileText, category: 'الموارد البشرية' },
-  { id: 'attendance', label: 'سجلات الحضور', icon: Briefcase, category: 'الموارد البشرية' },
-  { id: 'leave-requests', label: 'طلبات الإجازة', icon: FileText, category: 'الموارد البشرية' },
-  { id: 'manage-training', label: 'إدارة التدريب', icon: BookOpen, category: 'الموارد البشرية' },
-  { id: 'training-reports', label: 'تقارير التدريب', icon: BarChart3, category: 'الموارد البشرية' },
-  { id: 'supervisor-breaks', label: 'توقيع خروج الموظفين', icon: Briefcase, category: 'الإشراف' },
-  { id: 'gatekeeper-portal', label: 'بوابة الحركة', icon: UserIcon, category: 'الحراسة' },
-  { id: 'cms', label: 'إدارة صفحة الزوار', icon: Star, category: 'الإدارة' },
-  { id: 'employees', label: 'إدارة الموظفين', icon: UserIcon, category: 'الإدارة' },
-  { id: 'permissions', label: 'شجرة الصلاحيات', icon: ShieldCheck, category: 'الإدارة' },
-  { id: 'gatekeeper-permissions', label: 'صلاحيات المدراء', icon: ShieldCheck, category: 'الإدارة' },
-  { id: 'ai-config', label: 'إعداد الذكاء الاصطناعي', icon: Cpu, category: 'الإدارة' },
-  { id: 'admin-sops', label: 'إدارة SOPs', icon: FileText, category: 'الإدارة' },
-  { id: 'sops-reports', label: 'تقارير SOPs', icon: BarChart3, category: 'الإدارة' },
-  { id: 'admin-attendance', label: 'حضور الكل', icon: Clock, category: 'الإدارة' },
-  { id: 'ai-insights-dashboard', label: 'تحليل ذكي', icon: Brain, category: 'الإدارة' },
-  { id: 'publish-announcements', label: 'نشر التبليغات', icon: Send, category: 'الإدارة' },
-  { id: 'gallery-video', label: 'رفع فيديو المعرض', icon: Star, category: 'الإدارة' },
-  { id: 'audit-log', label: 'سجل العمليات', icon: ShieldCheck, category: 'الإدارة' },
-  { id: 'settings', label: 'الإعدادات', icon: Star, category: 'الإدارة' },
-  { id: 'developer-db', label: 'إدارة DB', icon: Database, category: 'الإدارة' },
+const DEPARTMENTS = [
+  'التقنية', 'المبيعات', 'التسويق', 'الدعم الفني',
+  'الموارد البشرية', 'الإدارة', 'المالية', 'تقنية المعلومات',
 ];
 
-const DEFAULT_PERMISSIONS: Record<string, string[]> = {
-  employee: ['dashboard', 'problems', 'wellness', 'survey', 'training', 'sops', 'ai-chat', 'contact', 'profile', 'notifications', 'my-attendance', 'my-leave-requests', 'employee-permissions', 'employee-leaves'],
-  supervisor: ['dashboard', 'problems', 'team', 'reports', 'supervisor-breaks', 'profile', 'my-attendance', 'my-leave-requests', 'notifications', 'attendance', 'leave-requests', 'employee-permissions', 'employee-leaves'],
-  manager: ['dashboard', 'problems', 'team', 'reports', 'analytics', 'supervisor-breaks', 'profile', 'my-attendance', 'my-leave-requests', 'notifications', 'attendance', 'leave-requests', 'employee-permissions', 'employee-leaves'],
-  hr: ['dashboard', 'movement-analysis', 'problems', 'analytics', 'team', 'talent-market', 'communication', 'reports', 'notifications', 'attendance', 'leave-requests', 'my-attendance', 'my-leave-requests', 'manage-training', 'training-reports', 'employee-permissions', 'employee-leaves'],
-  gatekeeper: ['gatekeeper-portal', 'notifications'],
-  admin: ['dashboard', 'cms', 'employees', 'permissions', 'gatekeeper-permissions', 'reports', 'settings', 'audit-log', 'sops', 'admin-sops', 'sops-reports', 'ai-config', 'notifications', 'attendance', 'leave-requests', 'my-attendance', 'my-leave-requests', 'manage-training', 'training-reports', 'admin-attendance', 'ai-insights-dashboard', 'employee-permissions', 'employee-leaves', 'publish-announcements', 'gallery-video', 'developer-db'],
-  developer: ['dashboard', 'cms', 'employees', 'permissions', 'gatekeeper-permissions', 'reports', 'settings', 'audit-log', 'sops', 'admin-sops', 'sops-reports', 'ai-config', 'notifications', 'gallery-video', 'attendance', 'leave-requests', 'developer-db', 'developer-dashboard', 'developer-attendance', 'developer-logs', 'publish-announcements'],
+const ROLES: { value: string; label: string; color: string }[] = [
+  { value: 'employee', label: 'موظف', color: 'bg-blue-100 text-blue-700' },
+  { value: 'supervisor', label: 'مشرف', color: 'bg-cyan-100 text-cyan-700' },
+  { value: 'manager', label: 'مدير', color: 'bg-amber-100 text-amber-700' },
+  { value: 'hr', label: 'موارد بشرية', color: 'bg-emerald-100 text-emerald-700' },
+  { value: 'gatekeeper', label: 'حارس', color: 'bg-teal-100 text-teal-700' },
+  { value: 'it_admin', label: 'تقنية معلومات', color: 'bg-sky-100 text-sky-700' },
+  { value: 'admin', label: 'مدير نظام', color: 'bg-rose-100 text-rose-700' },
+];
+
+const ROLE_LABELS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r.value, r.label]));
+const ROLE_COLORS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r.value, r.color]));
+
+const DEFAULT_PERMS: Record<string, string[]> = {
+  employee: ['dashboard', 'problems', 'new-problem', 'tawathul-portal', 'wellness', 'survey', 'training', 'sops', 'ai-chat', 'contact', 'profile', 'notifications', 'my-notifications', 'my-attendance', 'my-leave-requests', 'employee-permissions'],
+  supervisor: ['dashboard', 'problems', 'new-problem', 'supervisor-breaks', 'team', 'reports', 'attendance', 'profile', 'notifications', 'my-notifications'],
+  manager: ['dashboard', 'problems', 'new-problem', 'manager-dashboard', 'analytics', 'team', 'reports', 'attendance', 'supervisor-breaks', 'manager-attendance', 'profile', 'notifications', 'my-notifications'],
+  hr: ['dashboard', 'hr-problems', 'movement-analysis', 'analytics', 'team', 'tawathul-portal', 'tawathul-admin', 'talent-market', 'communication', 'reports', 'notifications', 'attendance', 'leave-requests', 'manage-training', 'profile', 'my-notifications'],
+  gatekeeper: ['gatekeeper-portal', 'kiosk-mode', 'notifications', 'profile'],
+  it_admin: ['tech-portal', 'dashboard', 'notifications', 'profile', 'my-notifications'],
+  admin: ['dashboard', 'employees', 'settings', 'reports', 'tawathul-portal', 'tawathul-admin', 'audit-log', 'ai-config', 'notifications', 'attendance', 'profile', 'my-notifications'],
+  developer: ['developer-dashboard', 'notifications', 'profile'],
 };
 
-const EMPTY_FORM: FormDataState = {
+const EMPTY_FORM: FormState = {
   full_name: '', email: '', passcode: '', role: 'employee',
-  rank: 'employee', manufacturing_dept: 'syrups',
-  department: '', position: '', phone: '', location: '',
-  profile_image: '', manager_id: '', supervisor_id: '', department_manager_id: '', shift: 'all',
-  permissions: DEFAULT_PERMISSIONS['employee'],
-  is_verified: true,
-  gatekeeper_type: 'both',
-  gatekeeper_pin: '',
+  department: '', position: '', phone: '',
+  salary: '', salary_currency: 'IQD',
+  permissions: DEFAULT_PERMS.employee,
 };
 
-const RANK_MAP: Record<string, string> = {
-  employee: 'employee', supervisor: 'supervisor', manager: 'manager',
-  hr: 'employee', gatekeeper: 'employee', developer: 'employee', admin: 'executive',
-};
-
-const RANK_LABELS: Record<string, string> = {
-  executive: 'مدير تنفيذي', manager: 'مدير', supervisor: 'مشرف', employee: 'موظف',
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'مدير', hr: 'موارد بشرية', gatekeeper: 'حارس', employee: 'موظف',
-  supervisor: 'مشرف', manager: 'مدير', developer: 'مطور',
-};
-
-const SHIFT_LABELS: Record<string, string> = {
-  morning: 'صباحية', evening: 'مسائية', night: 'ليلية', all: 'مرن',
-};
-
-const roleBadgeVariant = (role: string): 'danger' | 'success' | 'warning' | 'primary' =>
-  role === 'admin' ? 'danger' : role === 'hr' ? 'success' : role === 'gatekeeper' ? 'warning' : 'primary';
-
-const PERM_CATEGORIES = ['عام', 'الموظف', 'الموارد البشرية', 'الإشراف', 'الحراسة', 'الإدارة'];
+const ITEMS_PER_PAGE = 15;
 
 // ════════════════════════════════════════════════════════════════
 //  Main Component
@@ -172,202 +107,189 @@ export default function AdminEmployeesPage() {
 
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [filterRole, setFilterRole] = useState('all');
   const [filterDept, setFilterDept] = useState('all');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
   const [selectedEmp, setSelectedEmp] = useState<EmployeeRecord | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [uploadingProfile, setUploadingProfile] = useState(false);
+  const [formMode, setFormMode] = useState<FormMode>('create');
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState<FormDataState>(EMPTY_FORM);
-  const profileFileRef = useRef<HTMLInputElement>(null);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const [profileImg, setProfileImg] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  // ─── Fetch Employees ──────────────────────────────────────────
+  // ── Fetch ──
   const fetchEmployees = async () => {
     setLoading(true);
-    setError(null);
     try {
       const data = await userService.findAllUsers();
       setEmployees((data || []) as unknown as EmployeeRecord[]);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'تعذّر تحميل الموظفين';
-      setError(message);
+    } catch (err: unknown) {
+      addToast('فشل تحميل الموظفين: ' + getErrorMessage(err), 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // ─── Delete User ─────────────────────────────────────────────
-  const handleDeleteUser = async (emp: EmployeeRecord) => {
-    if (!currentUser?.id) return;
-    if (!confirm(`حذف "${emp.full_name}" من النظام بالكامل؟`)) return;
-    try {
-      const result = await adminUserService.deleteUser({
-        target_user_id: emp.id,
-        deleted_by: currentUser.id,
-      });
-      if (result.error) {
-        addToast('فشل الحذف: ' + result.error, 'error');
-        return;
-      }
-      setEmployees((prev) => prev.filter((e) => e.id !== emp.id));
-      addToast(`تم حذف "${emp.full_name}" بنجاح`, 'success');
-    } catch (err) {
-      addToast('فشل الحذف: ' + (err instanceof Error ? err.message : 'خطأ غير متوقع'), 'error');
+  useEffect(() => { fetchEmployees(); }, []);
+
+  // ── Filter & Paginate ──
+  const filtered = useMemo(() => {
+    let list = employees;
+    if (search) {
+      const s = search.toLowerCase();
+      list = list.filter(e => (e.full_name || '').toLowerCase().includes(s) || (e.email || '').toLowerCase().includes(s));
     }
+    if (filterRole !== 'all') list = list.filter(e => e.role === filterRole);
+    if (filterDept !== 'all') list = list.filter(e => e.department === filterDept);
+    return list;
+  }, [employees, search, filterRole, filterDept]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const paged = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+  // Reset page on filter change
+  useEffect(() => { setPage(1); }, [search, filterRole, filterDept]);
+
+  // ── Stats ──
+  const stats = useMemo(() => ({
+    total: employees.length,
+    active: employees.filter(e => e.status === 'active').length,
+    inactive: employees.filter(e => e.status !== 'active').length,
+    roles: ROLES.reduce((acc, r) => ({ ...acc, [r.value]: employees.filter(e => e.role === r.value).length }), {} as Record<string, number>),
+  }), [employees]);
+
+  // Get unique departments from employees
+  const departments = useMemo(() => {
+    const depts = new Set(employees.map(e => e.department).filter(Boolean) as string[]);
+    return ['all', ...Array.from(depts)];
+  }, [employees]);
+
+  // ── Actions ──
+  const openCreate = () => {
+    setForm(EMPTY_FORM);
+    setProfileImg('');
+    setFormMode('create');
+    setSelectedEmp(null);
+    setModalOpen(true);
   };
 
-  // ─── Save (Create/Update) ─────────────────────────────────────
+  const openEdit = (emp: EmployeeRecord) => {
+    setForm({
+      full_name: emp.full_name || '',
+      email: emp.email?.split('@')[0] || '',
+      passcode: '',
+      role: emp.role || 'employee',
+      department: emp.department || '',
+      position: emp.position || '',
+      phone: emp.phone || '',
+      salary: (emp as any).salary || '',
+      salary_currency: (emp as any).salary_currency || 'IQD',
+      permissions: emp.permissions || DEFAULT_PERMS[emp.role || 'employee'] || [],
+    });
+    setProfileImg('');
+    setFormMode('edit');
+    setSelectedEmp(emp);
+    setModalOpen(true);
+  };
+
+  const openView = (emp: EmployeeRecord) => {
+    setSelectedEmp(emp);
+    setViewOpen(true);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isEditMode && formData.passcode.length < 6) {
-      addToast('كلمة المرور يجب أن تكون 6 أحرف على الأقل.', 'error');
+    if (!form.full_name.trim() || !form.email.trim()) {
+      addToast('يرجى تعبئة الاسم والبريد', 'error');
       return;
     }
-    if (!currentUser?.id) return;
-
+    if (formMode === 'create' && form.passcode.length < 6) {
+      addToast('كلمة المرور 6 أحرف على الأقل', 'error');
+      return;
+    }
     setSaving(true);
-    const namePrefix = formData.email.includes('@') ? formData.email.split('@')[0] : formData.email;
-    const finalEmail = `${namePrefix}@alrafidain.com`;
+    const finalEmail = `${form.email.split('@')[0]}@kyvzon.com`;
 
     try {
-      if (isEditMode && selectedEmp) {
+      if (formMode === 'edit' && selectedEmp) {
         await userService.updateUser(selectedEmp.id, {
-          full_name: formData.full_name,
+          full_name: form.full_name,
           email: finalEmail,
-          role: formData.role,
-          rank: formData.rank,
-          department: formData.department || formData.manufacturing_dept,
-          position: formData.position,
-          phone: formData.phone,
-          location: formData.location,
-          profile_image: formData.profile_image,
-          manager_id: formData.manager_id || undefined,
-          supervisor_id: formData.supervisor_id || undefined,
+          role: form.role,
+          department: form.department,
+          position: form.position,
+          phone: form.phone,
+          salary: form.salary ? parseFloat(form.salary) : null,
+          salary_currency: form.salary_currency,
+          permissions: form.permissions,
           status: 'active',
-          permissions: formData.permissions,
-          gatekeeper_pin: formData.gatekeeper_pin || '',
         });
-
-        setIsModalOpen(false);
-        await fetchEmployees();
-        addToast(`تم تحديث "${formData.full_name}" بنجاح`, 'success');
+        addToast(`تم تحديث "${form.full_name}"`, 'success');
       } else {
         const result = await adminUserService.createUser({
           email: finalEmail,
-          password: formData.passcode,
-          full_name: formData.full_name,
-          role: formData.role,
-          department_id: formData.department || formData.manufacturing_dept,
+          password: form.passcode,
+          full_name: form.full_name,
+          role: form.role,
+          department_id: form.department,
         });
-
         if (result.error) {
-          addToast('فشل إنشاء المستخدم: ' + result.error, 'error');
-        } else {
-          setIsModalOpen(false);
-          await fetchEmployees();
-          addToast(`تم إنشاء "${formData.full_name}" — الدخول بـ: ${finalEmail}`, 'success');
+          addToast('فشل: ' + result.error, 'error');
+          setSaving(false);
+          return;
         }
+        addToast(`تم إنشاء "${form.full_name}"`, 'success');
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'فشل الحفظ';
-      addToast(message, 'error');
+      setModalOpen(false);
+      await fetchEmployees();
+    } catch (err: unknown) {
+      addToast('فشل الحفظ: ' + getErrorMessage(err), 'error');
     } finally {
       setSaving(false);
     }
   };
 
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
-
-  // ─── Derived Values ───────────────────────────────────────────
-  const departments = ['all', ...new Set(employees.map((e) => e.manufacturing_dept).filter(Boolean) as string[])];
-
-  const filtered = employees.filter((e) => {
-    if (filterDept !== 'all' && e.manufacturing_dept !== filterDept) return false;
-    const term = search.toLowerCase();
-    return (e.full_name || '').toLowerCase().includes(term) || (e.email || '').toLowerCase().includes(term);
-  });
-
-  const handleExport = () => {
-    const headers = ['الاسم', 'البريد', 'رقم الهاتف', 'الدور', 'المرتبة', 'القسم', 'المسمى'];
-    const data = filtered.map((e) => [e.full_name || '', e.email || '', e.phone || '', e.role || '', e.rank || '', e.manufacturing_dept || '', e.position || '']);
-    exportToStyledExcel('قائمة_المستخدمين', headers, data);
+  const handleDelete = async (emp: EmployeeRecord) => {
+    if (!confirm(`حذف "${emp.full_name}" نهائياً؟`)) return;
+    try {
+      const result = await adminUserService.deleteUser({
+        target_user_id: emp.id,
+        deleted_by: currentUser?.id || '',
+      });
+      if (result.error) { addToast('فشل: ' + result.error, 'error'); return; }
+      setEmployees(p => p.filter(e => e.id !== emp.id));
+      addToast('تم الحذف', 'success');
+    } catch (err: unknown) {
+      addToast('فشل: ' + getErrorMessage(err), 'error');
+    }
   };
 
-  const handleFileUpload = async (file: File) => {
-    setUploadingProfile(true);
+  const handleImageUpload = async (file: File) => {
+    setUploadingImg(true);
     try {
       const ext = file.name.split('.').pop();
       const path = `profiles/${Date.now()}.${ext}`;
       const { supabase } = await import('../../services/supabase/supabase');
-      const { error: uploadError } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from('public-assets').getPublicUrl(path);
-      setFormData((prev) => ({ ...prev, profile_image: urlData.publicUrl }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'فشل رفع الصورة';
-      addToast(message, 'error');
+      const { error } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from('public-assets').getPublicUrl(path);
+      setProfileImg(data.publicUrl);
+    } catch (err: unknown) {
+      addToast('فشل رفع الصورة', 'error');
     } finally {
-      setUploadingProfile(false);
+      setUploadingImg(false);
     }
   };
 
-  const handleRoleChange = (newRole: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      role: newRole as UserRole,
-      rank: RANK_MAP[newRole] || 'employee',
-      permissions: DEFAULT_PERMISSIONS[newRole] || ['dashboard', 'profile'],
-    }));
-  };
-
-  const togglePermission = (permId: string) => {
-    setFormData((prev) => {
-      const current = prev.permissions || [];
-      return {
-        ...prev,
-        permissions: current.includes(permId) ? current.filter((id) => id !== permId) : [...current, permId],
-      };
-    });
-  };
-
-  const openCreateModal = () => {
-    setFormData(EMPTY_FORM);
-    setIsEditMode(false);
-    setSelectedEmp(null);
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (emp: EmployeeRecord) => {
-    setFormData({
-      full_name: emp.full_name || '',
-      email: emp.email?.split('@')[0] || '',
-      passcode: '',
-      role: (emp.role as UserRole) || 'employee',
-      rank: emp.rank || RANK_MAP[emp.role || 'employee'] || 'employee',
-      manufacturing_dept: emp.manufacturing_dept || 'syrups',
-      department: emp.department || '',
-      position: emp.position || '',
-      phone: emp.phone || '',
-      location: emp.location || '',
-      profile_image: emp.profile_image || '',
-      manager_id: emp.manager_id || '',
-      supervisor_id: emp.supervisor_id || '',
-      department_manager_id: emp.department_manager_id || '',
-      shift: emp.shift || 'all',
-      permissions: emp.permissions || DEFAULT_PERMISSIONS[emp.role || 'employee'] || ['dashboard', 'profile'],
-      is_verified: true,
-      gatekeeper_type: emp.gatekeeper_type || 'both',
-      gatekeeper_pin: emp.gatekeeper_pin || '',
-    });
-    setSelectedEmp(emp);
-    setIsEditMode(true);
-    setIsViewModalOpen(false);
-    setIsModalOpen(true);
+  const handleExport = () => {
+    const headers = ['الاسم', 'البريد', 'الهاتف', 'الدور', 'القسم', 'المنصب', 'الحالة'];
+    const data = filtered.map(e => [e.full_name || '', e.email || '', e.phone || '', ROLE_LABELS[e.role] || e.role, e.department || '', e.position || '', e.status || '']);
+    exportToStyledExcel('قائمة_الموظفين', headers, data);
+    addToast('تم التصدير', 'success');
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -375,334 +297,393 @@ export default function AdminEmployeesPage() {
   // ════════════════════════════════════════════════════════════════
 
   return (
-    <div className="space-y-6 pb-20 animate-fade-in" dir="rtl">
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl p-3 sm:p-4 text-white">
-          <p className="text-xl sm:text-2xl font-black">{employees.length}</p>
-          <p className="text-indigo-100 text-xs font-bold mt-1">إجمالي الموظفين</p>
+    <div className="space-y-5 pb-20 animate-fade-in" dir="rtl">
+      {/* ── Stats Grid ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        <StatCard label="الإجمالي" value={stats.total} icon={Users} gradient="from-indigo-500 to-blue-600" />
+        <StatCard label="نشط" value={stats.active} icon={UserCheck} gradient="from-emerald-500 to-teal-600" />
+        <StatCard label="غير نشط" value={stats.inactive} icon={UserX} gradient="from-slate-500 to-slate-700" />
+        {ROLES.filter(r => stats.roles[r.value] > 0).slice(0, 3).map(r => (
+          <StatCard key={r.value} label={r.label} value={stats.roles[r.value]} icon={Briefcase} gradient="from-violet-500 to-purple-600" />
+        ))}
+      </div>
+
+      {/* ── Toolbar ── */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="بحث بالاسم أو البريد..."
+              className="w-full bg-white border border-gray-200 rounded-xl pr-10 pl-4 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+            />
+          </div>
+          {/* Role Filter */}
+          <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
+            className="bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-400">
+            <option value="all">كل الأدوار</option>
+            {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          {/* Dept Filter */}
+          <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
+            className="bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-400">
+            <option value="all">كل الأقسام</option>
+            {departments.filter(d => d !== 'all').map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
         </div>
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-2xl p-3 sm:p-4 text-white">
-          <p className="text-xl sm:text-2xl font-black">{employees.filter((e) => e.status === 'active').length}</p>
-          <p className="text-emerald-100 text-xs font-bold mt-1">نشط</p>
-        </div>
-        <div className="bg-gradient-to-br from-amber-500 to-amber-700 rounded-2xl p-3 sm:p-4 text-white">
-          <p className="text-xl sm:text-2xl font-black">{filtered.length}</p>
-          <p className="text-amber-100 text-xs font-bold mt-1">المعروض</p>
-        </div>
-        <div className="bg-gradient-to-br from-violet-500 to-violet-700 rounded-2xl p-3 sm:p-4 text-white">
-          <p className="text-xl sm:text-2xl font-black">{employees.length}</p>
-          <p className="text-violet-100 text-xs font-bold mt-1">إجمالي</p>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button onClick={fetchEmployees} className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-bold transition-colors">
+            <RefreshCw size={15} />
+          </button>
+          <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-bold transition-colors">
+            <Download size={15} /> تصدير
+          </button>
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all">
+            <Plus size={16} /> إضافة موظف
+          </button>
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
-        <button onClick={fetchEmployees} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-semibold text-sm">
-          <RefreshCw size={18} /> تحديث
-        </button>
-        <button onClick={handleExport} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-semibold text-sm">
-          <FileText size={18} /> تصدير Excel
-        </button>
-        <button onClick={openCreateModal} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold text-sm shadow-sm">
-          <Plus size={18} /> إضافة مستخدم
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="flex-1 min-w-[200px] relative">
-          <Search size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input type="text" placeholder="بحث..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl pr-10 pl-4 py-2.5 text-sm outline-none focus:border-indigo-400" />
-        </div>
-        <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none">
-          <option value="all">الكل</option>
-          {departments.map((d) => <option key={d}>{d}</option>)}
-        </select>
-      </div>
-
-      {/* List */}
-      {loading ? (
-        <div className="flex justify-center py-20"><Loader className="animate-spin" size={24} /></div>
-      ) : error ? (
-        <div className="bg-red-50 p-6 rounded-xl flex items-center gap-2 text-red-600"><ServerCrash size={24} /> {error}</div>
-      ) : employees.length === 0 ? (
-        <div className="text-center py-20">
-          <Database size={48} className="mx-auto text-slate-300 mb-4" />
-          <h3 className="text-xl font-bold">لا يوجد مستخدمين</h3>
-          <p className="text-slate-500 mt-2">اضغط "إضافة مستخدم"</p>
-        </div>
-      ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {filtered.map((emp) => (
-            <Card key={emp.id} hover>
-              <div className="flex items-start gap-4">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 font-bold text-xl flex-shrink-0">
-                  {emp.full_name?.charAt(0) || 'U'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold truncate">{emp.full_name || 'بدون اسم'}</h3>
-                  <p className="text-sm text-indigo-600 font-semibold truncate">{emp.position || 'موظف'}</p>
-                  <p className="text-xs text-slate-500 truncate">{emp.email || ''}</p>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <Badge variant={roleBadgeVariant(emp.role)} size="sm">
-                  {ROLE_LABELS[emp.role] || emp.role}
-                </Badge>
-                <div className="flex gap-2">
-                  <button onClick={() => { setSelectedEmp(emp); setIsViewModalOpen(true); }} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg"><Eye size={16} /></button>
-                  <button onClick={() => handleDeleteUser(emp)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"><Trash2 size={16} /></button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Create/Edit Modal - (يبقى كما هو دون تغيير) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden my-4 sm:my-8">
-            <div className="flex justify-between items-center p-4 sm:p-6 border-b bg-slate-50 sticky top-0 z-10">
-              <h3 className="font-bold text-lg sm:text-xl flex items-center gap-2">
-                {isEditMode ? (<><Edit2 className="text-indigo-600" size={20} /> تعديل بيانات</>) : (<><Plus className="text-indigo-600" size={20} /> إضافة مستخدم جديد</>)}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-1.5 hover:bg-slate-200 rounded-lg bg-white"><X size={20} /></button>
+      {/* ── Table ── */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-20"><Loader className="animate-spin text-indigo-500" size={28} /></div>
+        ) : paged.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <Users size={48} className="mb-3 opacity-30" />
+            <p className="font-bold text-sm">{search || filterRole !== 'all' ? 'لا توجد نتائج' : 'لا يوجد موظفون بعد'}</p>
+            {!search && filterRole === 'all' && (
+              <button onClick={openCreate} className="mt-4 flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all">
+                <Plus size={16} /> إضافة أول موظف
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    {['الموظف', 'الدور', 'القسم', 'المنصب', 'الحالة', 'التاريخ', 'إجراءات'].map(h => (
+                      <th key={h} className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {paged.map(emp => (
+                    <tr key={emp.id} className="hover:bg-gray-50/50 transition-colors group">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 font-bold text-sm flex-shrink-0">
+                            {(emp.full_name || '?')[0]}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-gray-900 truncate">{emp.full_name || '—'}</p>
+                            <p className="text-xs text-gray-400 truncate">{emp.email || '—'}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-bold ${ROLE_COLORS[emp.role] || 'bg-gray-100 text-gray-600'}`}>
+                          {ROLE_LABELS[emp.role] || emp.role}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{emp.department || '—'}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{emp.position || '—'}</td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold ${emp.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${emp.status === 'active' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                          {emp.status === 'active' ? 'نشط' : 'غير نشط'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-xs text-gray-500 font-mono">
+                        {emp.created_at ? new Date(emp.created_at).toLocaleDateString('ar-SA') : '—'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => openView(emp)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-indigo-600 transition-colors" title="عرض">
+                            <Eye size={15} />
+                          </button>
+                          <button onClick={() => openEdit(emp)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-amber-600 transition-colors" title="تعديل">
+                            <Edit2 size={15} />
+                          </button>
+                          <button onClick={() => handleDelete(emp)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors" title="حذف">
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            <form onSubmit={handleSave} className="p-4 sm:p-6 max-h-[70vh] overflow-y-auto">
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Left: Basic Info */}
-                <div className="space-y-4">
-                  <h4 className="font-bold text-slate-800 border-b pb-2">المعلومات الأساسية</h4>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">الاسم الكامل</label>
-                    <input required type="text" value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} className="w-full border rounded-xl px-3 py-2 outline-none focus:border-indigo-500" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-indigo-600 mb-1">اسم المستخدم</label>
-                    <div className="flex items-center gap-2">
-                      <input required type="text" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="flex-1 border rounded-xl px-3 py-2 outline-none focus:border-indigo-500 text-left" dir="ltr" placeholder="ahmed" />
-                      <span className="text-sm text-slate-400 font-mono whitespace-nowrap">@alrafidain.com</span>
-                    </div>
-                  </div>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
+                <span className="text-xs text-gray-500">
+                  {filtered.length} موظف — صفحة {page} من {totalPages}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                    className="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-30 transition-colors">
+                    <ChevronRight size={16} />
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1).map((p, i, arr) => (
+                    <span key={p}>
+                      {i > 0 && arr[i - 1] !== p - 1 && <span className="px-1 text-gray-400">…</span>}
+                      <button onClick={() => setPage(p)}
+                        className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${page === p ? 'bg-indigo-600 text-white' : 'hover:bg-gray-200 text-gray-600'}`}>
+                        {p}
+                      </button>
+                    </span>
+                  ))}
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                    className="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-30 transition-colors">
+                    <ChevronLeft size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
-                  {isEditMode && selectedEmp && (
-                    <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100">
-                      <p className="text-[10px] font-bold text-indigo-400 uppercase">System ID</p>
-                      <p className="font-mono text-xs text-indigo-700 select-all break-all">{selectedEmp.id}</p>
-                    </div>
-                  )}
+      {/* ══ Modal: Create/Edit ══ */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 pt-8 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl my-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b bg-gradient-to-r from-indigo-600 to-blue-600 text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  {formMode === 'create' ? <Plus size={20} /> : <Edit2 size={20} />}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">{formMode === 'create' ? 'إضافة موظف جديد' : 'تعديل بيانات الموظف'}</h3>
+                  <p className="text-white/70 text-xs">{formMode === 'create' ? 'إنشاء حساب جديد في النظام' : `تعديل: ${selectedEmp?.full_name}`}</p>
+                </div>
+              </div>
+              <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
+                <X size={18} />
+              </button>
+            </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold mb-1">رقم الهاتف</label>
-                      <input type="text" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full border rounded-xl px-3 py-2 outline-none focus:border-indigo-500" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-indigo-600 mb-1 flex items-center gap-1"><Key size={14} /> كلمة المرور</label>
-                      <input required minLength={isEditMode ? 1 : 6} type="text" value={formData.passcode} onChange={(e) => setFormData({ ...formData, passcode: e.target.value })} className="w-full border rounded-xl px-3 py-2 outline-none focus:border-indigo-500 text-center font-mono tracking-widest" placeholder="******" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">صورة الموظف</label>
-                    <div className="flex gap-2">
-                      <input type="text" value={formData.profile_image} onChange={(e) => setFormData({ ...formData, profile_image: e.target.value })} placeholder="رابط الصورة..." className="flex-1 border rounded-xl px-3 py-2 outline-none focus:border-indigo-500 text-left" dir="ltr" />
-                      <button type="button" onClick={() => profileFileRef.current?.click()} disabled={uploadingProfile} className="px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-bold hover:bg-indigo-100 disabled:opacity-50"><Camera size={14} /> رفع</button>
-                      <input type="file" ref={profileFileRef} className="hidden" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); }} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">الموقع / العنوان</label>
-                    <input type="text" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full border rounded-xl px-3 py-2 outline-none focus:border-indigo-500" />
+            {/* Body */}
+            <form onSubmit={handleSave} className="p-5 space-y-5 max-h-[65vh] overflow-y-auto">
+              {/* Basic Info */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">الاسم الكامل *</label>
+                  <input required type="text" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+                    placeholder="محمد أحمد" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">اسم المستخدم *</label>
+                  <div className="flex items-center">
+                    <input required type="text" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                      className="flex-1 bg-gray-50 border border-gray-200 rounded-r-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-400 text-left" dir="ltr" placeholder="username" />
+                    <span className="bg-gray-100 border border-gray-200 border-r-0 rounded-l-xl px-3 py-2.5 text-sm text-gray-400 font-mono whitespace-nowrap">@kyvzon.com</span>
                   </div>
                 </div>
+              </div>
 
-                {/* Right: Position & Hierarchy */}
-                <div className="space-y-4">
-                  <h4 className="font-bold text-slate-800 border-b pb-2">المنصب والهيكلية</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold mb-1">المرتبة (Rank)</label>
-                      <select value={formData.rank} onChange={(e) => setFormData({ ...formData, rank: e.target.value })} className="w-full border rounded-xl px-3 py-2 outline-none focus:border-indigo-500">
-                        <option value="employee">موظف</option>
-                        <option value="supervisor">مشرف قسم</option>
-                        <option value="manager">مدير قسم</option>
-                        <option value="executive">مدير تنفيذي</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold mb-1">الدور (Role)</label>
-                      <select value={formData.role} onChange={(e) => handleRoleChange(e.target.value)} className="w-full border rounded-xl px-3 py-2 outline-none focus:border-indigo-500">
-                        <option value="employee">موظف</option>
-                        <option value="supervisor">مشرف</option>
-                        <option value="manager">مدير قسم</option>
-                        <option value="hr">موارد بشرية</option>
-                        <option value="gatekeeper">حارس</option>
-                        <option value="developer">⚙️ مطور</option>
-                        <option value="admin">مدير نظام</option>
-                      </select>
-                    </div>
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">الدور *</label>
+                  <select value={form.role} onChange={e => {
+                    const role = e.target.value as UserRole;
+                    setForm(f => ({ ...f, role, permissions: DEFAULT_PERMS[role] || [] }));
+                  }} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-400">
+                    {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">القسم</label>
+                  <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-400">
+                    <option value="">— اختر القسم —</option>
+                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">المنصب</label>
+                  <input type="text" value={form.position} onChange={e => setForm(f => ({ ...f, position: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-400"
+                    placeholder="مهندس برمجيات" />
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">رقم الهاتف</label>
+                  <input type="text" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-400 text-left" dir="ltr" placeholder="+964..." />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">
+                    {formMode === 'create' ? 'كلمة المرور * (6 أحرف على الأقل)' : 'كلمة مرور جديدة (اختياري)'}
+                  </label>
+                  <input type="text" value={form.passcode} onChange={e => setForm(f => ({ ...f, passcode: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-400 text-center font-mono tracking-widest"
+                    placeholder="••••••" />
+                </div>
+              </div>
+
+              {/* Salary */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">الراتب الشهري</label>
+                  <input type="number" value={form.salary} onChange={e => setForm(f => ({ ...f, salary: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-400 text-left" dir="ltr" placeholder="0" min="0" step="0.01" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">العملة</label>
+                  <select value={form.salary_currency} onChange={e => setForm(f => ({ ...f, salary_currency: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-400">
+                    <option value="IQD">دينار عراقي (IQD)</option>
+                    <option value="USD">دولار أمريكي (USD)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Image Upload */}
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">صورة الملف الشخصي</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {profileImg ? <img src={profileImg} alt="" className="w-full h-full object-cover" /> : <Camera size={20} className="text-gray-400" />}
                   </div>
-
-                  {formData.role === 'gatekeeper' && (
-                    <div className="bg-cyan-50 p-4 rounded-xl border border-cyan-100 space-y-3">
-                      <div>
-                        <label className="block text-sm font-bold text-cyan-800 mb-2">نوع حركة الحارس</label>
-                        <select value={formData.gatekeeper_type} onChange={(e) => setFormData({ ...formData, gatekeeper_type: e.target.value as GatekeeperType })} className="w-full border border-cyan-200 rounded-xl px-3 py-2 outline-none focus:border-cyan-500 bg-white">
-                          <option value="employee_movement">حركة الموظفين فقط</option>
-                          <option value="visitor_movement">حركة الزوار فقط</option>
-                          <option value="both">كلاهما</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-bold text-cyan-800 mb-2">🔐 الرمز السري للبوابة (3 أرقام)</label>
-                        <input type="text" maxLength={3} value={formData.gatekeeper_pin} onChange={(e) => setFormData({ ...formData, gatekeeper_pin: e.target.value.replace(/\D/g, '') })} placeholder="123" className="w-full border border-cyan-200 rounded-xl px-4 py-2 outline-none focus:border-cyan-500 text-center font-mono tracking-widest text-lg bg-white" />
-                        <p className="text-xs text-cyan-600 mt-1">الرمز المستخدم للدخول إلى بوابة الحارس</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">القسم التصنيعي</label>
-                    <select value={formData.manufacturing_dept} onChange={(e) => setFormData({ ...formData, manufacturing_dept: e.target.value })} className="w-full border rounded-xl px-3 py-2 outline-none focus:border-indigo-500">
-                      <option value="syrups">قسم الشرابات</option>
-                      <option value="tablets">قسم الحبوب</option>
-                      <option value="ointments">قسم المراهم</option>
-                      <option value="powders">قسم المساحيق</option>
-                      <option value="management">الإدارة العامة</option>
-                    </select>
+                  <div className="flex-1 flex gap-2">
+                    <input type="text" value={profileImg} onChange={e => setProfileImg(e.target.value)}
+                      className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-indigo-400 text-left" dir="ltr" placeholder="رابط الصورة..." />
+                    <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadingImg}
+                      className="px-4 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all flex items-center gap-1.5 disabled:opacity-50">
+                      {uploadingImg ? <RefreshCw size={12} className="animate-spin" /> : <Camera size={14} />}
+                      رفع
+                    </button>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">المسمى الوظيفي</label>
-                    <input required type="text" value={formData.position} onChange={(e) => setFormData({ ...formData, position: e.target.value })} className="w-full border rounded-xl px-3 py-2 outline-none focus:border-indigo-500" />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold mb-1">المدير المباشر</label>
-                      <select value={formData.manager_id} onChange={(e) => setFormData({ ...formData, manager_id: e.target.value })} className="w-full border rounded-xl px-2 py-2 outline-none focus:border-indigo-500 text-xs">
-                        <option value="">-- بدون --</option>
-                        {employees.filter((e) => e.rank !== 'employee').map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold mb-1">مدير القسم</label>
-                      <select value={formData.department_manager_id} onChange={(e) => setFormData({ ...formData, department_manager_id: e.target.value })} className="w-full border rounded-xl px-2 py-2 outline-none focus:border-indigo-500 text-xs">
-                        <option value="">-- بدون --</option>
-                        {employees.filter((e) => e.rank === 'manager' || e.rank === 'executive').map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold mb-1">مشرف القسم</label>
-                      <select value={formData.supervisor_id} onChange={(e) => setFormData({ ...formData, supervisor_id: e.target.value })} className="w-full border rounded-xl px-2 py-2 outline-none focus:border-indigo-500 text-xs">
-                        <option value="">-- بدون --</option>
-                        {employees.filter((e) => e.rank === 'supervisor').map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">الوردية المخصصة (Shift)</label>
-                    <select value={formData.shift} onChange={(e) => setFormData({ ...formData, shift: e.target.value })} className="w-full border rounded-xl px-3 py-2 outline-none focus:border-indigo-500">
-                      <option value="all">جميع الورديات (مرن)</option>
-                      <option value="morning">الوردية الصباحية</option>
-                      <option value="evening">الوردية المسائية</option>
-                      <option value="night">الوردية الليلية</option>
-                    </select>
-                  </div>
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); }} />
                 </div>
               </div>
 
               {/* Permissions */}
-              <div className="mt-8 border-t pt-6">
-                <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><ShieldCheck className="text-indigo-600" /> صلاحيات الشريط الجانبي</h4>
-                <div className="space-y-4">
-                  {PERM_CATEGORIES.map((category) => {
-                    const perms = allPermissions.filter((p) => p.category === category);
-                    if (perms.length === 0) return null;
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-indigo-600" /> صلاحيات المستخدم
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto">
+                  {DEFAULT_PERMS[form.role]?.map(permId => {
+                    const active = form.permissions.includes(permId);
                     return (
-                      <div key={category}>
-                        <h5 className="text-xs font-bold text-slate-400 uppercase mb-2">{category}</h5>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {perms.map((opt) => {
-                            const PermIcon = opt.icon;
-                            const active = (formData.permissions || []).includes(opt.id);
-                            return (
-                              <button key={opt.id} type="button" onClick={() => togglePermission(opt.id)} className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-xs font-bold ${active ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-slate-100 text-slate-500'}`}>
-                                <PermIcon size={14} /> {opt.label}
-                                {active && <CheckCircle2 size={12} className="mr-auto text-indigo-500" />}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+                      <button key={permId} type="button" onClick={() => setForm(f => ({
+                        ...f,
+                        permissions: active ? f.permissions.filter(p => p !== permId) : [...f.permissions, permId],
+                      }))}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 text-xs font-bold transition-all text-right ${
+                        active ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-gray-100 text-gray-500 hover:border-gray-200'
+                      }`}>
+                        <span className={`w-3 h-3 rounded border-2 flex items-center justify-center flex-shrink-0 ${active ? 'bg-indigo-500 border-indigo-500' : 'border-gray-300'}`}>
+                          {active && <span className="text-white text-[8px]">✓</span>}
+                        </span>
+                        {permId.replace(/-/g, ' ')}
+                      </button>
                     );
                   })}
                 </div>
               </div>
-
-              {/* Form Actions */}
-              <div className="mt-8 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200">إلغاء</button>
-                <button type="submit" disabled={saving} className="px-6 py-2.5 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md disabled:opacity-60">
-                  {saving ? 'جاري الحفظ...' : isEditMode ? 'حفظ التعديلات' : 'إنشاء الحساب'}
-                </button>
-              </div>
             </form>
+
+            {/* Footer */}
+            <div className="flex items-center gap-3 p-5 border-t bg-gray-50">
+              <button type="button" onClick={() => setModalOpen(false)} disabled={saving}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-100 transition-colors disabled:opacity-50">
+                إلغاء
+              </button>
+              <button onClick={handleSave} disabled={saving || !form.full_name.trim() || !form.email.trim()}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-sm hover:from-indigo-500 hover:to-blue-500 shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                {saving && <RefreshCw size={14} className="animate-spin" />}
+                {saving ? 'جاري الحفظ...' : formMode === 'create' ? 'إنشاء الحساب' : 'حفظ التعديلات'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* View Modal */}
-      {isViewModalOpen && selectedEmp && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl p-4 sm:p-6 my-4 sm:my-8">
-            <div className="flex justify-between items-center mb-6 gap-2">
-              <h3 className="font-bold text-lg sm:text-xl">الملف الشخصي</h3>
-              <div className="flex gap-2 flex-shrink-0">
-                <button onClick={() => openEditModal(selectedEmp)} className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-semibold text-sm flex items-center gap-1"><Edit2 size={16} /> تعديل</button>
-                <button onClick={() => setIsViewModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} /></button>
-              </div>
+      {/* ══ Modal: View ══ */}
+      {viewOpen && selectedEmp && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b">
+              <h3 className="font-bold text-lg">الملف الشخصي</h3>
+              <button onClick={() => setViewOpen(false)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
             </div>
-
-            <div className="space-y-6">
+            <div className="p-5 space-y-4">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 font-bold text-2xl flex-shrink-0">
-                  {selectedEmp.full_name?.charAt(0) || 'U'}
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+                  {(selectedEmp.full_name || '?')[0]}
                 </div>
-                <div className="min-w-0">
-                  <h2 className="text-xl font-bold truncate">{selectedEmp.full_name}</h2>
-                  <p className="text-indigo-600 font-semibold truncate">{selectedEmp.position || 'موظف'}</p>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 rounded-2xl p-4 sm:p-5 space-y-4">
-                <h4 className="font-bold flex items-center gap-2"><Briefcase size={18} className="text-indigo-600" /> معلومات العمل</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-slate-500">القسم:</span> <span className="font-semibold">{selectedEmp.manufacturing_dept || 'غير محدد'}</span></div>
-                  <div><span className="text-slate-500">المرتبة:</span> <span className="font-semibold">{RANK_LABELS[selectedEmp.rank] || selectedEmp.rank}</span></div>
-                  <div><span className="text-slate-500">الدور:</span> <Badge variant={roleBadgeVariant(selectedEmp.role)} size="sm">{ROLE_LABELS[selectedEmp.role] || selectedEmp.role}</Badge></div>
-                  <div><span className="text-slate-500">الوردية:</span> <span className="font-semibold">{SHIFT_LABELS[selectedEmp.shift || 'all']}</span></div>
-                  <div><span className="text-slate-500">المدير المباشر:</span> <span className="font-semibold">{employees.find((e) => e.id === selectedEmp.manager_id)?.full_name || 'غير محدد'}</span></div>
-                  <div><span className="text-slate-500">مدير القسم:</span> <span className="font-semibold">{employees.find((e) => e.id === selectedEmp.department_manager_id)?.full_name || 'غير محدد'}</span></div>
+                <div>
+                  <h4 className="text-lg font-bold text-gray-900">{selectedEmp.full_name}</h4>
+                  <span className={`inline-flex px-2 py-0.5 rounded-lg text-xs font-bold ${ROLE_COLORS[selectedEmp.role] || ''}`}>
+                    {ROLE_LABELS[selectedEmp.role] || selectedEmp.role}
+                  </span>
                 </div>
               </div>
-
-              <div className="bg-slate-50 rounded-2xl p-4 sm:p-5 space-y-3">
-                <h4 className="font-bold flex items-center gap-2"><Phone size={18} className="text-indigo-600" /> معلومات الاتصال</h4>
-                <p className="text-sm flex items-center gap-2"><Mail size={16} className="text-slate-400 flex-shrink-0" /> {selectedEmp.email}</p>
-                <p className="text-sm flex items-center gap-2"><Phone size={16} className="text-slate-400 flex-shrink-0" /> {selectedEmp.phone || 'لا يوجد'}</p>
-                <p className="text-sm flex items-center gap-2"><MapPin size={16} className="text-slate-400 flex-shrink-0" /> {selectedEmp.location || 'غير مسجل'}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <InfoField icon={Mail} label="البريد" value={selectedEmp.email || '—'} />
+                <InfoField icon={Phone} label="الهاتف" value={selectedEmp.phone || '—'} />
+                <InfoField icon={Building} label="القسم" value={selectedEmp.department || '—'} />
+                <InfoField icon={Briefcase} label="المنصب" value={selectedEmp.position || '—'} />
+                <InfoField icon={Activity} label="الحالة" value={selectedEmp.status === 'active' ? 'نشط' : 'غير نشط'} />
+                <InfoField icon={MapPin} label="آخر دخول" value={selectedEmp.last_sign_in_at ? new Date(selectedEmp.last_sign_in_at).toLocaleDateString('ar-SA') : '—'} />
               </div>
+            </div>
+            <div className="flex items-center gap-3 p-5 border-t bg-gray-50">
+              <button onClick={() => setViewOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-100">إغلاق</button>
+              <button onClick={() => { setViewOpen(false); openEdit(selectedEmp); }}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-sm hover:from-indigo-500 hover:to-blue-500 shadow-lg">تعديل</button>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Small Components
+// ════════════════════════════════════════════════════════════════
+
+function StatCard({ label, value, icon: Icon, gradient }: {
+  label: string; value: number; icon: React.ComponentType<{ size?: number | string; className?: string }>; gradient: string;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-center gap-3 mb-2">
+        <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-md`}>
+          <Icon size={16} className="text-white" />
+        </div>
+        <span className="text-xs font-bold text-gray-500">{label}</span>
+      </div>
+      <p className="text-2xl font-black text-gray-900">{value}</p>
+    </div>
+  );
+}
+
+function InfoField({ icon: Icon, label, value }: {
+  icon: React.ComponentType<{ size?: number | string; className?: string }>; label: string; value: string;
+}) {
+  return (
+    <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Icon size={12} className="text-gray-400" />
+        <span className="text-[10px] font-bold text-gray-400 uppercase">{label}</span>
+      </div>
+      <p className="text-sm font-bold text-gray-900">{value}</p>
     </div>
   );
 }

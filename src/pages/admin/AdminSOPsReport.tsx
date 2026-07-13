@@ -35,10 +35,10 @@ interface DepartmentStats {
 
 // ── SOP departments mapping ──
 const DEPT_MAP: Record<string, string> = {
-  tablets: 'الحبوب',
-  ointments: 'المراهم والكريمات',
-  syrups: 'الشرابات والمعلقات',
-  powders: 'المساحيق',
+  sales: 'المبيعات',
+  marketing: 'التسويق',
+  tech: 'التقنية',
+  support: 'الدعم الفني',
   management: 'الإدارة',
   hr: 'الموارد البشرية',
   it: 'تقنية المعلومات',

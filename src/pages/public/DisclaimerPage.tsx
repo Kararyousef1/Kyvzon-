@@ -15,7 +15,7 @@
 
 import { useState, useEffect } from 'react';
 
-// الرمز مخزّن كـ hash (SHA-256 من 'admin@rafidain2026')
+// الرمز مخزّن كـ hash (SHA-256 من 'admin@kyvzon2026')
 // لتغييره: استبدل هذه القيمة بـ hash الرمز الجديد
 // أداة hash: https://emn178.github.io/online-tools/sha256.html
 const CODE_HASH = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';

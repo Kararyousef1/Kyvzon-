@@ -52,5 +52,9 @@ export { timeLogService } from './TimeLogService';
 export { syncLogService } from './SyncLogService';
 export { errorLogService } from './ErrorLogService';
 
+// Tenant / Platform Management
+export { tenantService } from './TenantService';
+export type { TenantCompany, TenantSubscription, TenantStats, PlatformAuditEntry, PlatformStats } from './TenantService';
+
 // قاعدة البيانات (كلينتات) - من src/services/supabase/
 export { supabase, default as supabaseClient } from '../supabase/supabase';
