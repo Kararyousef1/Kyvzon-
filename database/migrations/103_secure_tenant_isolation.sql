@@ -133,7 +133,7 @@ CREATE POLICY kyvzon_profiles_update_self ON public.profiles
 -- ----------------------------------------------------------------------------
 DO $$
 DECLARE
-  table_name TEXT;
+  v_table_name TEXT;
   table_names CONSTANT TEXT[] := ARRAY[
     'employees',
     'departments',
@@ -142,35 +142,35 @@ DECLARE
     'holidays'
   ];
 BEGIN
-  FOREACH table_name IN ARRAY table_names LOOP
+  FOREACH v_table_name IN ARRAY table_names LOOP
     IF EXISTS (
       SELECT 1 FROM information_schema.columns
       WHERE table_schema = 'public'
-        AND information_schema.columns.table_name = table_name
+        AND information_schema.columns.table_name = v_table_name
         AND information_schema.columns.column_name = 'tenant_id'
     ) THEN
-      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', table_name);
+      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', v_table_name);
 
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || table_name || '_select', table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || table_name || '_insert', table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || table_name || '_update', table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || table_name || '_delete', table_name);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || v_table_name || '_select', v_table_name);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || v_table_name || '_insert', v_table_name);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || v_table_name || '_update', v_table_name);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || v_table_name || '_delete', v_table_name);
 
       EXECUTE format(
         'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (tenant_id = public.current_user_tenant_id())',
-        'kyvzon_' || table_name || '_select', table_name
+        'kyvzon_' || v_table_name || '_select', v_table_name
       );
       EXECUTE format(
         'CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (tenant_id = public.current_user_tenant_id() AND public.current_user_is_staff())',
-        'kyvzon_' || table_name || '_insert', table_name
+        'kyvzon_' || v_table_name || '_insert', v_table_name
       );
       EXECUTE format(
         'CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (tenant_id = public.current_user_tenant_id() AND public.current_user_is_staff()) WITH CHECK (tenant_id = public.current_user_tenant_id())',
-        'kyvzon_' || table_name || '_update', table_name
+        'kyvzon_' || v_table_name || '_update', v_table_name
       );
       EXECUTE format(
         'CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (tenant_id = public.current_user_tenant_id() AND public.current_user_is_staff())',
-        'kyvzon_' || table_name || '_delete', table_name
+        'kyvzon_' || v_table_name || '_delete', v_table_name
       );
     END IF;
   END LOOP;
@@ -182,43 +182,43 @@ $$;
 -- ----------------------------------------------------------------------------
 DO $$
 DECLARE
-  table_name TEXT;
+  v_table_name TEXT;
   table_names CONSTANT TEXT[] := ARRAY['attendance_logs', 'attendance_summary'];
 BEGIN
-  FOREACH table_name IN ARRAY table_names LOOP
+  FOREACH v_table_name IN ARRAY table_names LOOP
     IF EXISTS (
       SELECT 1 FROM information_schema.columns
       WHERE table_schema = 'public'
-        AND information_schema.columns.table_name = table_name
+        AND information_schema.columns.table_name = v_table_name
         AND information_schema.columns.column_name = 'tenant_id'
         AND EXISTS (
           SELECT 1 FROM information_schema.columns c2
           WHERE c2.table_schema = 'public'
-            AND c2.table_name = table_name
+            AND c2.table_name = v_table_name
             AND c2.column_name = 'employee_id'
         )
     ) THEN
-      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || table_name || '_select', table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || table_name || '_insert', table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || table_name || '_update', table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || table_name || '_delete', table_name);
+      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', v_table_name);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || v_table_name || '_select', v_table_name);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || v_table_name || '_insert', v_table_name);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || v_table_name || '_update', v_table_name);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || v_table_name || '_delete', v_table_name);
 
       EXECUTE format(
         'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (tenant_id = public.current_user_tenant_id() AND (public.current_user_is_staff() OR employee_id = public.current_user_employee_id()))',
-        'kyvzon_' || table_name || '_select', table_name
+        'kyvzon_' || v_table_name || '_select', v_table_name
       );
       EXECUTE format(
         'CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (tenant_id = public.current_user_tenant_id() AND public.current_user_is_staff())',
-        'kyvzon_' || table_name || '_insert', table_name
+        'kyvzon_' || v_table_name || '_insert', v_table_name
       );
       EXECUTE format(
         'CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (tenant_id = public.current_user_tenant_id() AND public.current_user_is_staff()) WITH CHECK (tenant_id = public.current_user_tenant_id())',
-        'kyvzon_' || table_name || '_update', table_name
+        'kyvzon_' || v_table_name || '_update', v_table_name
       );
       EXECUTE format(
         'CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (tenant_id = public.current_user_tenant_id() AND public.current_user_is_staff())',
-        'kyvzon_' || table_name || '_delete', table_name
+        'kyvzon_' || v_table_name || '_delete', v_table_name
       );
     END IF;
   END LOOP;
@@ -230,38 +230,38 @@ $$;
 -- ----------------------------------------------------------------------------
 DO $$
 DECLARE
-  table_name TEXT;
+  v_table_name TEXT;
   table_names CONSTANT TEXT[] := ARRAY['permissions', 'permissions_request', 'leaves'];
 BEGIN
-  FOREACH table_name IN ARRAY table_names LOOP
+  FOREACH v_table_name IN ARRAY table_names LOOP
     IF EXISTS (
       SELECT 1 FROM information_schema.columns
       WHERE table_schema = 'public'
-        AND information_schema.columns.table_name = table_name
+        AND information_schema.columns.table_name = v_table_name
         AND information_schema.columns.column_name = 'tenant_id'
         AND EXISTS (
           SELECT 1 FROM information_schema.columns c2
           WHERE c2.table_schema = 'public'
-            AND c2.table_name = table_name
+            AND c2.table_name = v_table_name
             AND c2.column_name = 'employee_id'
         )
     ) THEN
-      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || table_name || '_select', table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || table_name || '_insert', table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || table_name || '_update', table_name);
+      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', v_table_name);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || v_table_name || '_select', v_table_name);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || v_table_name || '_insert', v_table_name);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'kyvzon_' || v_table_name || '_update', v_table_name);
 
       EXECUTE format(
         'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (tenant_id = public.current_user_tenant_id() AND (public.current_user_is_staff() OR employee_id = public.current_user_employee_id()))',
-        'kyvzon_' || table_name || '_select', table_name
+        'kyvzon_' || v_table_name || '_select', v_table_name
       );
       EXECUTE format(
         'CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (tenant_id = public.current_user_tenant_id() AND (public.current_user_is_staff() OR employee_id = public.current_user_employee_id()))',
-        'kyvzon_' || table_name || '_insert', table_name
+        'kyvzon_' || v_table_name || '_insert', v_table_name
       );
       EXECUTE format(
         'CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (tenant_id = public.current_user_tenant_id() AND (public.current_user_is_staff() OR employee_id = public.current_user_employee_id())) WITH CHECK (tenant_id = public.current_user_tenant_id())',
-        'kyvzon_' || table_name || '_update', table_name
+        'kyvzon_' || v_table_name || '_update', v_table_name
       );
     END IF;
   END LOOP;

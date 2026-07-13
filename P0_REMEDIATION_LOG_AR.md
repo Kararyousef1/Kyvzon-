@@ -226,3 +226,9 @@ gen_random_uuid()
 ```
 
 المتوافق مع `pgcrypto` في Supabase. فحص PostgreSQL parsing للملفات السبعة ما زال PASS.
+
+## تصحيح ثاني بعد التنفيذ الفعلي على Supabase Cloud
+
+بعد حل UUID، نفذت قاعدة التطوير migrations 0001–0006 بنجاح. توقفت 0007 بسبب ambiguity في PL/pgSQL بين متغير الحلقة `table_name` وعمود `information_schema.columns.table_name`.
+
+تمت إعادة تسمية متغيرات حلقات RLS إلى `v_table_name` مع parsing جديد لجميع canonical SQL. يجب إعادة تشغيل 0007 بعد تحديث الملف المحلي فقط؛ migrations 0001–0006 مسجلة بالفعل ولا تعاد.
