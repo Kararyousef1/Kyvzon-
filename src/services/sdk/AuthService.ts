@@ -8,6 +8,7 @@
 
 import { supabase } from '../supabase/supabase';
 import { SdkError, SdkErrorCode } from './BaseService';
+import { logger } from '../utils/logger';
 
 export interface LoginResult {
   user: {
@@ -43,6 +44,12 @@ class AuthService {
    */
   async login(email: string, password: string): Promise<LoginResult> {
     try {
+      logger.info('AuthService.login attempt', {
+        component: 'AuthService',
+        action: 'login',
+        email,
+      });
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -83,6 +90,11 @@ class AuthService {
    */
   async setSessionContext(): Promise<SessionContextResult> {
     try {
+      logger.debug('AuthService.setSessionContext', {
+        component: 'AuthService',
+        action: 'setSessionContext',
+      });
+
       const { data, error } = await supabase.rpc('set_session_context');
       if (error) throw SdkError.fromSupabaseError(error);
 
@@ -118,9 +130,19 @@ class AuthService {
    */
   async logout(): Promise<void> {
     try {
+      logger.info('AuthService.logout', {
+        component: 'AuthService',
+        action: 'logout',
+      });
+
       const { error } = await supabase.auth.signOut();
       if (error) throw SdkError.fromSupabaseError(error);
     } catch (error) {
+      logger.error('AuthService.logout failed', {
+        component: 'AuthService',
+        action: 'logout',
+        error: error instanceof Error ? error.message : String(error),
+      });
       if (error instanceof SdkError) throw error;
       throw SdkError.fromSupabaseError(error as any);
     }
@@ -131,10 +153,20 @@ class AuthService {
    */
   async getSession(): Promise<SessionResult> {
     try {
+      logger.debug('AuthService.getSession', {
+        component: 'AuthService',
+        action: 'getSession',
+      });
+
       const { data, error } = await supabase.auth.getSession();
       if (error) throw SdkError.fromSupabaseError(error);
       return data as SessionResult;
     } catch (error) {
+      logger.error('AuthService.getSession failed', {
+        component: 'AuthService',
+        action: 'getSession',
+        error: error instanceof Error ? error.message : String(error),
+      });
       if (error instanceof SdkError) throw error;
       throw SdkError.fromSupabaseError(error as any);
     }
@@ -145,10 +177,20 @@ class AuthService {
    */
   async refreshSession(): Promise<SessionResult | null> {
     try {
+      logger.debug('AuthService.refreshSession', {
+        component: 'AuthService',
+        action: 'refreshSession',
+      });
+
       const { data, error } = await supabase.auth.refreshSession();
       if (error) throw SdkError.fromSupabaseError(error);
       return data as SessionResult;
     } catch (error) {
+      logger.error('AuthService.refreshSession failed', {
+        component: 'AuthService',
+        action: 'refreshSession',
+        error: error instanceof Error ? error.message : String(error),
+      });
       if (error instanceof SdkError) throw error;
       throw SdkError.fromSupabaseError(error as any);
     }

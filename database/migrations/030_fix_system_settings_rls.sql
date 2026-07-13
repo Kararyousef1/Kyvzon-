@@ -1,74 +1,54 @@
--- =====================================================================
--- إصلاح تحذير Supabase Security Advisor:
--- "policy_exists_rls_disabled" على الجدول public.system_settings
---
--- السبب: الجدول يحتوي على سياسات (Policies) لكن خاصية RLS غير مفعّلة،
--- مما يجعل السياسات تُتجاهل ويصبح الجدول مكشوفاً للقراءة/الكتابة العامة.
---
--- طريقة الاستخدام:
--- انسخ هذا الملف وشغّله في:
--- Supabase Dashboard > SQL Editor > New Query > Run
--- =====================================================================
+-- ════════════════════════════════════════════════════════════════
+--  FILE: 030_fix_system_settings_rls.sql
+--  PURPOSE: Enable RLS on system_settings table + Create proper policies
+--  EXECUTION ORDER: 4
+--  DEPENDS ON: 001_initial_schema.sql
+--  SAFETY LEVEL: HIGH (Security Fix)
+--  ════════════════════════════════════════════════════════════════
 
--- ---------------------------------------------------------------------
--- 0. (اختياري - للأمان) التأكد من وجود الجدول بالبنية الصحيحة.
---    إذا كان الجدول موجوداً بالفعل، هذا الأمر لن يغيّره.
--- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.system_settings (
-  id TEXT PRIMARY KEY DEFAULT 'singleton',
-  landing_config   JSONB DEFAULT '{}'::jsonb,
-  general_settings JSONB DEFAULT '{}'::jsonb,
-  ai_settings      JSONB DEFAULT '{}'::jsonb,
-  updated_at       TIMESTAMPTZ DEFAULT NOW()
+-- ════════════════════════════════════════════════════════════════
+--  SECTION 1: CREATE TABLE IF NOT EXISTS
+-- ════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS system_settings (
+    id TEXT PRIMARY KEY DEFAULT 'singleton',
+    landing_config JSONB DEFAULT '{}'::jsonb,
+    general_settings JSONB DEFAULT '{}'::jsonb,
+    ai_settings JSONB DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ---------------------------------------------------------------------
--- 1. الحل الأساسي: تفعيل Row Level Security على الجدول.
---    هذا السطر وحده هو الذي يزيل التحذير.
--- ---------------------------------------------------------------------
-ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+-- ════════════════════════════════════════════════════════════════
+--  SECTION 2: ENABLE ROW LEVEL SECURITY
+-- ════════════════════════════════════════════════════════════════
 
--- ---------------------------------------------------------------------
--- 2. حذف السياسات القديمة (إن وُجدت) لتجنّب التعارض عند إعادة التشغيل.
--- ---------------------------------------------------------------------
-DROP POLICY IF EXISTS "Everyone can read system settings"      ON public.system_settings;
-DROP POLICY IF EXISTS "Admins can manage system settings"      ON public.system_settings;
+ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 
--- ---------------------------------------------------------------------
--- 3. سياسات الأمان الصحيحة:
---    - القراءة (SELECT): متاحة للجميع لأن landing_config مطلوب
---      لعرض الصفحة الرئيسية العامة قبل تسجيل الدخول.
---    - الكتابة/التعديل (ALL): محصورة على المدير (admin) فقط.
--- ---------------------------------------------------------------------
+-- ════════════════════════════════════════════════════════════════
+--  SECTION 3: DROP OLD POLICIES (to avoid conflicts)
+-- ════════════════════════════════════════════════════════════════
 
--- السماح للجميع بقراءة الإعدادات (مطلوب لصفحة الهبوط العامة)
-CREATE POLICY "Everyone can read system settings"
-  ON public.system_settings
-  FOR SELECT
-  USING (true);
+DROP POLICY IF EXISTS "Everyone can read system settings" ON system_settings;
+DROP POLICY IF EXISTS "Admins can manage system settings" ON system_settings;
 
--- السماح للمدير فقط بالإضافة/التعديل/الحذف
-CREATE POLICY "Admins can manage system settings"
-  ON public.system_settings
-  FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-        AND profiles.role = 'admin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-        AND profiles.role = 'admin'
-    )
-  );
+-- ════════════════════════════════════════════════════════════════
+--  SECTION 4: CREATE SECURE POLICIES
+-- ════════════════════════════════════════════════════════════════
 
--- =====================================================================
--- ملاحظة أمنية مهمة:
--- إذا كانت بياناتك تحتوي على معلومات حساسة جداً في ai_settings
--- (مثل مفاتيح API)، يُفضّل عدم السماح بـ SELECT للجميع، وبدلاً من ذلك
--- فصل الإعدادات الحساسة في جدول منفصل لا يُقرأ إلا من قبل admin.
--- =====================================================================
+-- Allow everyone to read (needed for landing page before login)
+CREATE POLICY "Everyone can read system settings" ON system_settings
+    FOR SELECT USING (true);
+
+-- Allow only admins to insert/update/delete
+CREATE POLICY "Admins can manage system settings" ON system_settings
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE profiles.id = auth.uid() 
+            AND profiles.role = 'admin'
+        )
+    );
+
+-- ════════════════════════════════════════════════════════════════
+--  END OF FILE
+--  ════════════════════════════════════════════════════════════════

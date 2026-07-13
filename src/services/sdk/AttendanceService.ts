@@ -5,6 +5,7 @@
  */
 
 import { BaseService } from './BaseService';
+import { logger } from '../utils/logger';
 import type { AttendanceLogRecord, AttendanceSummaryRecord } from '../../shared/types/sdk';
 
 class AttendanceService extends BaseService<AttendanceLogRecord> {
@@ -15,6 +16,12 @@ class AttendanceService extends BaseService<AttendanceLogRecord> {
   async findLogsByEmployee(employeeId: string, options?: {
     fromDate?: string; toDate?: string; limit?: number;
   }): Promise<AttendanceLogRecord[]> {
+    logger.debug('AttendanceService.findLogsByEmployee', {
+      component: 'AttendanceService',
+      action: 'findLogsByEmployee',
+      employeeId,
+    });
+
     return this.findAll({
       filters: { employee_id: employeeId },
       orderBy: 'punch_time',
@@ -24,6 +31,12 @@ class AttendanceService extends BaseService<AttendanceLogRecord> {
   }
 
   async findLastPunch(employeeId: string): Promise<AttendanceLogRecord | null> {
+    logger.debug('AttendanceService.findLastPunch', {
+      component: 'AttendanceService',
+      action: 'findLastPunch',
+      employeeId,
+    });
+
     const logs = await this.findAll({
       filters: { employee_id: employeeId },
       orderBy: 'punch_time',
@@ -34,6 +47,10 @@ class AttendanceService extends BaseService<AttendanceLogRecord> {
   }
 
   async recordPunch(data: Partial<AttendanceLogRecord>): Promise<AttendanceLogRecord> {
+    logger.info('AttendanceService.recordPunch', {
+      component: 'AttendanceService',
+      action: 'recordPunch',
+    });
     return this.create(data);
   }
 }

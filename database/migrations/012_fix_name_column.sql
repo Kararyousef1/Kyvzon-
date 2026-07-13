@@ -1,22 +1,18 @@
--- =====================================================================
--- إصلاح مشكلة عمود "الاسم" في جدول profiles
--- 
--- المشكلة: يوجد عمود "الاسم" (عربي) في جدول profiles لا يقبل قيمة null
--- مما يسبب فشل عملية حفظ المستخدمين مع الرسالة:
--- "null value in column 'الاسم' of relation 'profiles' violates not-null constraint"
---
--- السبب: تم إضافة هذا العمود يدوياً إلى قاعدة البيانات ولا يوجد في ملفات المشروع
---
--- الحل: إزالة قيد NOT NULL من العمود أو حذفه تماماً
--- =====================================================================
+-- ════════════════════════════════════════════════════════════════
+--  FILE: 012_fix_name_column.sql
+--  PURPOSE: Ensure full_name column exists and is properly indexed
+--  EXECUTION ORDER: 18
+--  DEPENDS ON: 001_initial_schema.sql
+--  SAFETY LEVEL: MEDIUM
+--  ════════════════════════════════════════════════════════════════
 
--- الخيار 1: إزالة قيد NOT NULL من عمود "الاسم" (آمن - يحافظ على البيانات)
-ALTER TABLE public.profiles ALTER COLUMN "الاسم" DROP NOT NULL;
+-- Make sure full_name column exists
+ALTER TABLE profiles 
+    ADD COLUMN IF NOT EXISTS full_name TEXT;
 
--- الخيار 2: حذف العمود تماماً إذا كان غير مطلوب (احذف التعليق التالي لتفعيله)
--- ALTER TABLE public.profiles DROP COLUMN IF EXISTS "الاسم";
+-- Add index for search performance
+CREATE INDEX IF NOT EXISTS idx_profiles_full_name ON profiles(full_name);
 
--- =====================================================================
--- بعد تشغيل هذا الملف:
---  • سيتمكن المدير من إنشاء/تعديل حسابات الموظفين بدون أخطاء.
--- =====================================================================
+-- ════════════════════════════════════════════════════════════════
+--  END OF FILE
+--  ════════════════════════════════════════════════════════════════

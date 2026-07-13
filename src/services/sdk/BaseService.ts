@@ -14,6 +14,7 @@
  */
 
 import { supabase } from '../supabase/supabase';
+import { logger } from '../utils/logger';
 
 // ════════════════════════════════════════════════════════════════
 //  أنواع الأخطاء الموحدة
@@ -166,6 +167,12 @@ export class BaseService<T = any> {
    */
   async findAll(options?: FindAllOptions): Promise<T[]> {
     try {
+      logger.debug(`BaseService.findAll: ${this.tableName}`, {
+        component: 'BaseService',
+        action: 'findAll',
+        table: this.tableName,
+      });
+
       let query = this.addTenantFilter(
         supabase.from(this.tableName).select('*'),
       );
@@ -189,6 +196,12 @@ export class BaseService<T = any> {
       if (error) throw SdkError.fromSupabaseError(error);
       return (data || []) as T[];
     } catch (error: any) {
+      logger.error(`BaseService.findAll failed: ${this.tableName}`, {
+        component: 'BaseService',
+        action: 'findAll',
+        table: this.tableName,
+        error: error.message,
+      });
       if (error instanceof SdkError) throw error;
       throw SdkError.fromSupabaseError(error);
     }
@@ -199,6 +212,13 @@ export class BaseService<T = any> {
    */
   async findById(id: string, skipTenantFilter?: boolean): Promise<T | null> {
     try {
+      logger.debug(`BaseService.findById: ${this.tableName}`, {
+        component: 'BaseService',
+        action: 'findById',
+        table: this.tableName,
+        id,
+      });
+
       const query = this.addTenantFilter(
         supabase.from(this.tableName).select('*').eq('id', id),
         skipTenantFilter,
@@ -207,6 +227,13 @@ export class BaseService<T = any> {
       if (error) throw SdkError.fromSupabaseError(error);
       return data as T | null;
     } catch (error: any) {
+      logger.error(`BaseService.findById failed: ${this.tableName}`, {
+        component: 'BaseService',
+        action: 'findById',
+        table: this.tableName,
+        id,
+        error: error.message,
+      });
       if (error instanceof SdkError) throw error;
       throw SdkError.fromSupabaseError(error);
     }
@@ -217,6 +244,13 @@ export class BaseService<T = any> {
    */
   async findOne(column: string, value: unknown): Promise<T | null> {
     try {
+      logger.debug(`BaseService.findOne: ${this.tableName}`, {
+        component: 'BaseService',
+        action: 'findOne',
+        table: this.tableName,
+        column,
+      });
+
       const query = this.addTenantFilter(
         supabase.from(this.tableName).select('*').eq(column, value as string | number | boolean),
       );
@@ -235,6 +269,12 @@ export class BaseService<T = any> {
    */
   async create(data: Partial<T>): Promise<T> {
     try {
+      logger.info(`BaseService.create: ${this.tableName}`, {
+        component: 'BaseService',
+        action: 'create',
+        table: this.tableName,
+      });
+
       const safeData = this.injectTenantId(data);
 
       const { data: result, error } = await supabase
@@ -257,6 +297,13 @@ export class BaseService<T = any> {
    */
   async update(id: string, data: Partial<T>): Promise<T> {
     try {
+      logger.info(`BaseService.update: ${this.tableName}`, {
+        component: 'BaseService',
+        action: 'update',
+        table: this.tableName,
+        id,
+      });
+
       // إزالة tenant_id من البيانات (لا يمكن تغيير الشركة)
       const { tenant_id: _, ...safeData } = data as Record<string, unknown>;
 
@@ -279,6 +326,13 @@ export class BaseService<T = any> {
    */
   async delete(id: string): Promise<boolean> {
     try {
+      logger.warn(`BaseService.delete: ${this.tableName}`, {
+        component: 'BaseService',
+        action: 'delete',
+        table: this.tableName,
+        id,
+      });
+
       const query = this.addTenantFilter(
         supabase.from(this.tableName).delete().eq('id', id),
       );
@@ -296,6 +350,13 @@ export class BaseService<T = any> {
    */
   async softDelete(id: string): Promise<T> {
     try {
+      logger.info(`BaseService.softDelete: ${this.tableName}`, {
+        component: 'BaseService',
+        action: 'softDelete',
+        table: this.tableName,
+        id,
+      });
+
       const updateData: Record<string, unknown> = {
         deleted_at: new Date().toISOString(),
       };
@@ -330,6 +391,12 @@ export class BaseService<T = any> {
       if (error) throw SdkError.fromSupabaseError(error);
       return count || 0;
     } catch (error: any) {
+      logger.error(`BaseService.count failed: ${this.tableName}`, {
+        component: 'BaseService',
+        action: 'count',
+        table: this.tableName,
+        error: error.message,
+      });
       if (error instanceof SdkError) throw error;
       throw SdkError.fromSupabaseError(error as any);
     }

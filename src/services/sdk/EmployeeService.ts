@@ -6,6 +6,7 @@
  */
 
 import { BaseService } from './BaseService';
+import { logger } from '../utils/logger';
 
 export interface EmployeeInput {
   user_id?: string;
@@ -53,6 +54,10 @@ class EmployeeService extends BaseService<EmployeeRecord> {
    * إنشاء موظف جديد (مع حقن tenant_id تلقائياً)
    */
   async createEmployee(data: EmployeeInput): Promise<EmployeeRecord> {
+    logger.info('EmployeeService.createEmployee', {
+      component: 'EmployeeService',
+      action: 'createEmployee',
+    });
     return this.create(data as unknown as Partial<EmployeeRecord>);
   }
 
@@ -65,6 +70,12 @@ class EmployeeService extends BaseService<EmployeeRecord> {
     role?: string;
     search?: string;
   }): Promise<EmployeeRecord[]> {
+    logger.debug('EmployeeService.findAllEmployees', {
+      component: 'EmployeeService',
+      action: 'findAllEmployees',
+      filters: options,
+    });
+
     const filters: Record<string, unknown> = {};
     if (options?.departmentId) filters.department_id = options.departmentId;
     if (options?.isActive !== undefined) filters.is_active = options.isActive;
@@ -81,6 +92,11 @@ class EmployeeService extends BaseService<EmployeeRecord> {
    * جلب موظف واحد
    */
   async findEmployeeById(id: string): Promise<EmployeeRecord | null> {
+    logger.debug('EmployeeService.findEmployeeById', {
+      component: 'EmployeeService',
+      action: 'findEmployeeById',
+      id,
+    });
     return this.findById(id);
   }
 
@@ -88,6 +104,11 @@ class EmployeeService extends BaseService<EmployeeRecord> {
    * تحديث بيانات موظف
    */
   async updateEmployee(id: string, data: Partial<EmployeeInput>): Promise<EmployeeRecord> {
+    logger.info('EmployeeService.updateEmployee', {
+      component: 'EmployeeService',
+      action: 'updateEmployee',
+      id,
+    });
     return this.update(id, data as unknown as Partial<EmployeeRecord>);
   }
 
@@ -95,6 +116,11 @@ class EmployeeService extends BaseService<EmployeeRecord> {
    * حذف موظف
    */
   async deleteEmployee(id: string): Promise<boolean> {
+    logger.warn('EmployeeService.deleteEmployee', {
+      component: 'EmployeeService',
+      action: 'deleteEmployee',
+      id,
+    });
     return this.delete(id);
   }
 
