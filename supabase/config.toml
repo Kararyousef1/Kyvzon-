@@ -1,0 +1,26 @@
+# Development/linked Supabase configuration.
+# Run `supabase link --project-ref <ref>` before `supabase db push`.
+project_id = "kyvzon-dev"
+
+# Functions authenticate inside their own code:
+# JWT for AI/Admin functions; HMAC for ZKTeco.
+[functions.ai-chat]
+verify_jwt = false
+
+[functions.admin-create-user]
+verify_jwt = false
+
+[functions.admin-delete-user]
+verify_jwt = false
+
+[functions.admin-update-role]
+verify_jwt = false
+
+[functions.admin-reset-password]
+verify_jwt = false
+
+[functions.admin-toggle-status]
+verify_jwt = false
+
+[functions.zkteco-sync]
+verify_jwt = false

@@ -267,8 +267,8 @@ BEGIN
     END;
   END IF;
 
-  -- 3) Kyvzon
-  RETURN '00000000-0000-0000-0000-000000000001'::UUID;
+  -- No hard-coded tenant fallback: returning a fake tenant would break isolation.
+  RETURN NULL;
 END;
 $$;
 
@@ -347,7 +347,11 @@ $$;
 -- 11) إعداد افتراضي
 -- ---------------------------------------------------------------------------
 INSERT INTO public.tawathul_settings (tenant_id, is_enabled)
-VALUES ('00000000-0000-0000-0000-000000000001', true)
+SELECT t.id, true
+FROM public.tenants AS t
+WHERE t.deleted_at IS NULL
+ORDER BY t.created_at
+LIMIT 1
 ON CONFLICT (tenant_id) DO NOTHING;
 
 -- ============================================================================

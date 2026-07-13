@@ -52,7 +52,7 @@ remediation/p0-security-and-build-health
 | npm audit | 0 vulnerabilities |
 | أسرار working tree | أزيلت من الملفات الحالية |
 | Git history secrets | يحتاج purge خارجي وتدوير مفاتيح |
-| Database migrations | أضيفت 103–107، وتحتاج تطبيق/اختبار على staging |
+| Database migrations | تم إنشاء مسار canonical جديد تحت `supabase/migrations/0001–0007`، ويحتاج تطبيق/اختبار على staging |
 | Edge Functions | أضيفت وظائف AI/Admin، وتحتاج deployment واختبار staging |
 
 ## قاعدة التوثيق

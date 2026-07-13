@@ -14,7 +14,8 @@ DECLARE
     'performance_reviews', 'disciplinary_actions', 'shift_schedules',
     'shift_assignments', 'job_postings', 'onboarding_tasks',
     'employee_onboarding', 'offboarding_records', 'employee_documents',
-    'employee_certifications', 'payroll'
+    'employee_certifications', 'payroll', 'biometric_devices',
+    'permission_audit_logs', 'tenant_subscriptions', 'platform_audit_log'
   ];
 BEGIN
   FOREACH table_name IN ARRAY table_names LOOP

@@ -196,3 +196,21 @@ supabase/functions/_shared/adminAuth.ts
 - جعل `npm run test:coverage` يعمل بنجاح ضمن نطاق core موثق.
 - التغطية الحالية للنطاق المختبر: **72.8% statements / 65.8% branches / 72.56% functions / 74.12% lines**.
 - إضافة coverage gate إلى GitHub Actions.
+
+## إعادة التأسيس لبيئة التطوير الفارغة
+
+بما أن المستودع تطويري وقاعدة Supabase فارغة، تم إنشاء مسار canonical جديد:
+
+```text
+supabase/migrations/0001_core_schema.sql
+supabase/migrations/0002_employee_features.sql
+supabase/migrations/0003_hr_platform_modules.sql
+supabase/migrations/0004_tawathul_core.sql
+supabase/migrations/0005_tawathul_rls_features.sql
+supabase/migrations/0006_hr_expansion.sql
+supabase/migrations/0007_support_and_security.sql
+```
+
+تم إجراء فحص parsing لـ PostgreSQL على الملفات السبعة، وكلها صالحة تركيبياً. كما تم فحص جداول `.from()` الحرفية في التطبيق والـ Edge Functions، ولم يبقَ جدول مفقود في المسار canonical.
+
+هذا المسار هو الذي يجب استخدامه مع قاعدة التطوير الجديدة؛ أما `database/migrations/archive` وملفات الإصلاح القديمة فهي مرجع تاريخي.
