@@ -303,7 +303,7 @@ function PageRenderer() {
 
 export default function App() {
   const { isAuthenticated, user, loading, initialize } = useAuthStore();
-  const { setActiveView, sidebarOpen, setSidebarOpen } = useUIStore();
+  const { activeView, setActiveView, sidebarOpen, setSidebarOpen } = useUIStore();
   const [showLogin, setShowLogin]       = useState(false);
   const [authTimedOut, setAuthTimedOut] = useState(false);
   const initializedRef = useRef(false);
@@ -422,6 +422,23 @@ export default function App() {
       window.history.pushState({ loginPage: true }, '');
       setShowLogin(true);
     }} /><ToastContainer /></>;
+  }
+
+  // بوابة المطور تملك Shell/Sidebar خاصاً بها؛ لا تغلفها بـ Header/Sidebar التطبيق العام.
+  if (
+    activeView === 'developer-dashboard' &&
+    (user?.role === 'developer' || user?.role === 'it_admin')
+  ) {
+    return (
+      <div className="min-h-screen bg-slate-50" dir="rtl">
+        <AppErrorBoundary componentName="KyvzonDevPortal">
+          <Suspense fallback={<PageLoader />}>
+            <KyvzonDevPortal />
+          </Suspense>
+        </AppErrorBoundary>
+        <ToastContainer />
+      </div>
+    );
   }
 
   // ─── Main App ────────────────────────────────────────────────
