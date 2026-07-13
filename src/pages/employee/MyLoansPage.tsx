@@ -32,7 +32,7 @@ export default function MyLoansPage() {
     (async () => {
       setLoading(true);
       try {
-        const data = await employeeLoanService.findByEmployee(employeeId);
+        const data = await employeeLoanService.findByEmployee(employeeId) as unknown as EmployeeLoan[];
         setLoans((data || []) as EmployeeLoan[]);
       } catch (err) {
         console.error(getErrorMessage(err));

@@ -80,7 +80,7 @@ export default function BonusesPage() {
       await bonusService.createBonus({
         employee_id: formData.employee_id,
         bonus_type: formData.bonus_type,
-        amount: Number(formData.amount),
+        bonus_amount: Number(formData.amount)  /* was amount */,
         reason: formData.reason,
       });
       addToast('تم إنشاء المكافأة بنجاح', 'success');
@@ -94,7 +94,7 @@ export default function BonusesPage() {
 
   const handleApprove = async (bonus: Bonus) => {
     try {
-      await bonusService.approveBonus(bonus.id);
+      await bonusService.approveBonus(bonus.id, "system");
       addToast('تمت الموافقة على المكافأة', 'success');
       await fetchBonuses();
     } catch (err) {

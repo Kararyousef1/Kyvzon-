@@ -75,7 +75,7 @@ export default function HRCommunicationPage() {
               {msg.status === 'new' && <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0" />}
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-baseline">
-                  <p className="font-bold text-sm text-slate-800 truncate">{msg.profiles.full_name}</p>
+                  <p className="font-bold text-sm text-slate-800 truncate">{(msg.profiles?.full_name ?? "")}</p>
                   <p className="text-xs text-slate-400 flex-shrink-0">{formatDistanceToNow(new Date(msg.created_at), { locale: ar, addSuffix: true })}</p>
                 </div>
                 <p className="text-xs text-slate-600 truncate">{msg.subject}</p>
@@ -94,7 +94,7 @@ export default function HRCommunicationPage() {
                 <div>
                   <h3 className="font-extrabold text-slate-800 text-lg">{selected.subject}</h3>
                   <p className="text-sm text-slate-500 mt-1">
-                    من: <span className="font-semibold text-slate-700">{selected.profiles.full_name}</span> ({selected.profiles.department})
+                    من: <span className="font-semibold text-slate-700">{(selected.profiles?.full_name ?? "")}</span> ({(selected.profiles?.department ?? "")})
                   </p>
                 </div>
                 <Badge className={priorityStyles[selected.priority]}>{selected.priority === 'urgent' ? 'عاجلة' : selected.priority === 'low' ? 'منخفضة' : 'عادية'}</Badge>

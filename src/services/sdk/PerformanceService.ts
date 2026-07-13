@@ -7,12 +7,13 @@
  */
 
 import { BaseService } from './BaseService';
+import type { PerformanceCycleRecord } from '../../shared/types/sdk';
 
 // ─────────────────────────────────────────────────
 //  Performance Cycles
 // ─────────────────────────────────────────────────
 
-class PerformanceCycleService extends BaseService {
+class PerformanceCycleService extends BaseService<PerformanceCycleRecord> {
   constructor() {
     super('performance_cycles');
   }

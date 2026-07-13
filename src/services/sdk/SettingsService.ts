@@ -6,8 +6,9 @@
  */
 
 import { BaseService } from './BaseService';
+import type { SettingsRecord } from '../../shared/types/sdk';
 
-class SettingsService extends BaseService {
+class SettingsService extends BaseService<SettingsRecord> {
   constructor() {
     super('system_settings');
   }

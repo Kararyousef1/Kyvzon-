@@ -223,7 +223,7 @@ export default function AdminEmployeesPage() {
           department: form.department,
           position: form.position,
           phone: form.phone,
-          salary: form.salary ? parseFloat(form.salary) : null,
+          salary: form.salary ? parseFloat(form.salary) : undefined,
           salary_currency: form.salary_currency,
           permissions: form.permissions,
           status: 'active',

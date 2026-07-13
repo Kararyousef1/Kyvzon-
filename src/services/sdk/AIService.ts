@@ -6,8 +6,9 @@
  */
 
 import { BaseService } from './BaseService';
+import type { AiInsightRecord } from '../../shared/types/sdk';
 
-class AIService extends BaseService {
+class AIService extends BaseService<AiInsightRecord> {
   constructor() {
     super('ai_insights');
   }

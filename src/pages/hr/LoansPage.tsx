@@ -56,11 +56,11 @@ export default function LoansPage() {
     try {
       await employeeLoanService.createLoan({
         employee_id: formData.employee_id,
-        amount: Number(formData.amount),
-        reason: formData.purpose,
-        installment_count: Number(formData.months_count),
-        monthly_installment: installment,
-      });
+        loan_amount: Number(formData.amount),
+        purpose: formData.purpose,
+        total_installments: Number(formData.months_count),
+        installment_amount: installment,
+      } as any);
       addToast('تم إنشاء طلب السلفة بنجاح', 'success');
       setShowCreateModal(false);
       setFormData({ employee_id: '', amount: 0, months_count: 12, purpose: '', start_date: format(new Date(), 'yyyy-MM-dd') });

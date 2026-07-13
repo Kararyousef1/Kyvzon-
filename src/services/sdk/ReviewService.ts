@@ -6,8 +6,9 @@
  */
 
 import { BaseService } from './BaseService';
+import type { CustomerReviewRecord } from '../../shared/types/sdk';
 
-class ReviewService extends BaseService {
+class ReviewService extends BaseService<CustomerReviewRecord> {
   constructor() {
     super('customer_reviews');
   }

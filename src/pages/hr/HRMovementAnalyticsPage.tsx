@@ -154,9 +154,9 @@ export default function HRMovementAnalyticsPage() {
         setEmployees((emps || []) as EmployeeBasic[]);
         setMovementsData((movs || []) as MovementRecord[]);
         setVisitorsData((vis || []) as VisitorLogRecord[]);
-        setArchivedSessions((arch || []) as GatekeeperSession[]);
-        setPendingHandovers((handovers || []) as GatekeeperSession[]);
-        setPendingEndRequests((endRequests || []) as GatekeeperSession[]);
+        setArchivedSessions((arch || []) as unknown as GatekeeperSession[]);
+        setPendingHandovers((handovers || []) as unknown as GatekeeperSession[]);
+        setPendingEndRequests((endRequests || []) as unknown as GatekeeperSession[]);
         setReviewsData((reviews || []) as CustomerReview[]);
       } catch (error) {
         console.error('Data load error:', getErrorMessage(error));
@@ -176,13 +176,13 @@ export default function HRMovementAnalyticsPage() {
     const channel = supabase
       .channel('gatekeeper_alerts')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'gatekeeper_sessions', filter: 'handover_status=eq.pending' }, (payload) => {
-        const newSession = payload.new as GatekeeperSession;
+        const newSession = payload.new as unknown as GatekeeperSession;
         setPendingHandovers((prev) => [...prev, newSession]);
         playAlert();
         addToast('🚨 طلب تبديل طارئ من البوابة!', 'warning');
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'gatekeeper_sessions', filter: 'handover_status=eq.pending_end' }, (payload) => {
-        const newSession = payload.new as GatekeeperSession;
+        const newSession = payload.new as unknown as GatekeeperSession;
         setPendingEndRequests((prev) => [...prev, newSession]);
         playAlert();
         addToast('🚨 طلب إنهاء وردية مبكر من البوابة!', 'warning');

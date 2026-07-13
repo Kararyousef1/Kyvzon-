@@ -38,7 +38,7 @@ export default function MyExpensesPage() {
     (async () => {
       setLoading(true);
       try {
-        const data = await expenseRequestService.findByEmployee(employeeId);
+        const data = await expenseRequestService.findByEmployee(employeeId) as unknown as ExpenseRequest[];
         setExpenses((data || []) as ExpenseRequest[]);
       } catch (err) {
         console.error(getErrorMessage(err));
@@ -66,7 +66,7 @@ export default function MyExpensesPage() {
       setShowCreate(false);
       setForm({ title: '', description: '', amount: 0, category: 'general', expense_date: format(new Date(), 'yyyy-MM-dd') });
       // إعادة الجلب
-      const data = await expenseRequestService.findByEmployee(employeeId);
+      const data = await expenseRequestService.findByEmployee(employeeId) as unknown as ExpenseRequest[];
       setExpenses((data || []) as ExpenseRequest[]);
     } catch (err) {
       if (addToast) addToast({ type: 'error', message: getErrorMessage(err) });

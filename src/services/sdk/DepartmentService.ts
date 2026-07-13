@@ -1,100 +1,44 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  DepartmentService + SpecialtyService (Organization Domain)
- *  - DepartmentService: إدارة الأقسام
- *  - SpecialtyService: إدارة الاختصاصات الوظيفية
+ *  DepartmentService - خدمة الأقسام
  * ════════════════════════════════════════════════════════════════
  */
 
 import { BaseService } from './BaseService';
+import type { DepartmentRecord } from '../../shared/types/sdk';
 
-// ─────────────────────────────────────────────────
-//  Departments
-// ─────────────────────────────────────────────────
+class DepartmentService extends BaseService<DepartmentRecord> {
+  constructor() { super('departments'); }
 
-class DepartmentService extends BaseService {
-  constructor() {
-    super('departments');
+  async findActive(): Promise<DepartmentRecord[]> {
+    return this.findAll({ filters: { is_active: true }, orderBy: 'name_ar', ascending: true });
   }
 
-  /**
-   * جلب جميع الأقسام النشطة
-   */
-  async findAllActive(): Promise<any[]> {
-    return this.findAll({
-      filters: { is_active: true },
-      orderBy: 'name_ar',
-      ascending: true,
-    });
+  async findTree(): Promise<(DepartmentRecord & { children?: DepartmentRecord[] })[]> {
+    const all = await this.findActive();
+    const topLevel = all.filter(d => !d.parent_department_id);
+    return topLevel.map(dept => ({
+      ...dept,
+      children: all.filter(d => d.parent_department_id === dept.id),
+    }));
   }
 
-  /**
-   * جلب قسم مع مديره
-   */
-  async findWithManager(id: string): Promise<any | null> {
-    return this.findById(id);
-  }
-
-  /**
-   * إنشاء قسم جديد
-   */
-  async createDepartment(data: {
-    name_ar: string;
-    name_en?: string;
-    manager_id?: string;
-    parent_department_id?: string;
-  }): Promise<any> {
-    return this.create(data as unknown as Record<string, unknown>);
-  }
-
-  /**
-   * تحديث قسم
-   */
-  async updateDepartment(id: string, data: Record<string, unknown>): Promise<any> {
-    return this.update(id, data);
-  }
-
-  /**
-   * تعطيل قسم
-   */
-  async deactivateDepartment(id: string): Promise<any> {
-    return this.update(id, { is_active: false } as unknown as Record<string, unknown>);
+  async findDepartmentsWithManager(): Promise<DepartmentRecord[]> {
+    return this.findAll({ filters: { is_active: true, manager_id: undefined }, orderBy: 'name_ar', ascending: true });
   }
 }
 
-// ─────────────────────────────────────────────────
-//  Specialties (الاختصاصات الوظيفية)
-// ─────────────────────────────────────────────────
-
 class SpecialtyService extends BaseService {
-  constructor() {
-    super('specialties');
-  }
+  constructor() { super('specialties'); }
 
-  /**
-   * جلب جميع الاختصاصات
-   */
   async findAllSpecialties(): Promise<any[]> {
-    return this.findAll({
-      orderBy: 'created_at',
-      ascending: true,
-    });
+    return this.findAll({ orderBy: 'name', ascending: true });
   }
 
-  /**
-   * إنشاء اختصاص جديد
-   */
-  async createSpecialty(data: {
-    name: string;
-    department: string;
-    role_level: string;
-  }): Promise<any> {
+  async createSpecialty(data: { name: string; name_en?: string; description?: string; department?: string; role_level?: string }): Promise<any> {
     return this.create(data as unknown as Record<string, unknown>);
   }
 
-  /**
-   * حذف اختصاص
-   */
   async deleteSpecialty(id: string): Promise<boolean> {
     return this.delete(id);
   }

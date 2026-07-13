@@ -288,11 +288,11 @@ export default function LeaveRequestPage() {
       await permissionRequestService.createRequest({
         employee_id: targetId || user.id,
         employee_name: user.full_name || 'موظف',
-        employee_department: user.department || null,
+        employee_department: user.department || undefined,
         date: permFormData.date,
         permission_type: permFormData.permission_type,
         expected_out_time: permFormData.expected_out_time,
-        expected_return_time: permFormData.permission_type === 'مغادرة' ? null : permFormData.expected_return_time,
+        expected_return_time: permFormData.permission_type === 'مغادرة' ? undefined : permFormData.expected_return_time,
         reason: permFormData.reason,
       });
       addToast('✅ تم إرسال طلب الزمنية', 'success');

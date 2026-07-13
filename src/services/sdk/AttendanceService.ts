@@ -1,29 +1,20 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  AttendanceService - خدمة الحضور والانصراف (نسخة SDK جديدة)
- *  مسؤولة عن: Attendance Logs, Summary, Statistics
+ *  AttendanceService - خدمة الحضور والانصراف
  * ════════════════════════════════════════════════════════════════
  */
 
 import { BaseService } from './BaseService';
+import type { AttendanceLogRecord, AttendanceSummaryRecord } from '../../shared/types/sdk';
 
-class AttendanceService extends BaseService {
+class AttendanceService extends BaseService<AttendanceLogRecord> {
   constructor() {
     super('attendance_logs');
   }
 
-  // ─────────────────────────────────────────────────
-  //  Attendance Logs
-  // ─────────────────────────────────────────────────
-
-  /**
-   * جلب سجلات الحضور لموظف معين
-   */
   async findLogsByEmployee(employeeId: string, options?: {
-    fromDate?: string;
-    toDate?: string;
-    limit?: number;
-  }): Promise<any[]> {
+    fromDate?: string; toDate?: string; limit?: number;
+  }): Promise<AttendanceLogRecord[]> {
     return this.findAll({
       filters: { employee_id: employeeId },
       orderBy: 'punch_time',
@@ -32,10 +23,7 @@ class AttendanceService extends BaseService {
     });
   }
 
-  /**
-   * جلب آخر بصمة لموظف
-   */
-  async findLastPunch(employeeId: string): Promise<any | null> {
+  async findLastPunch(employeeId: string): Promise<AttendanceLogRecord | null> {
     const logs = await this.findAll({
       filters: { employee_id: employeeId },
       orderBy: 'punch_time',
@@ -45,38 +33,21 @@ class AttendanceService extends BaseService {
     return logs.length > 0 ? logs[0] : null;
   }
 
-  /**
-   * إنشاء سجل حضور جديد
-   */
-  async recordPunch(data: {
-    employee_id: string;
-    punch_time: string;
-    shift_type?: string;
-    shift_date: string;
-    device_id?: string;
-    verification_type?: string;
-    source?: string;
-  }): Promise<any> {
-    return this.create(data as unknown as Record<string, unknown>);
+  async recordPunch(data: Partial<AttendanceLogRecord>): Promise<AttendanceLogRecord> {
+    return this.create(data);
   }
 }
 
-// ─────────────────────────────────────────────────
-//  Attendance Summary Service
-// ─────────────────────────────────────────────────
+// ─── Attendance Summary ──────────────────────────
 
-class AttendanceSummaryService extends BaseService {
+class AttendanceSummaryService extends BaseService<AttendanceSummaryRecord> {
   constructor() {
     super('attendance_summary');
   }
 
-  /**
-   * جلب ملخص الحضور لموظف في نطاق تاريخ
-   */
   async findSummaryByEmployee(employeeId: string, options?: {
-    fromDate?: string;
-    toDate?: string;
-  }): Promise<any[]> {
+    fromDate?: string; toDate?: string;
+  }): Promise<AttendanceSummaryRecord[]> {
     return this.findAll({
       filters: { employee_id: employeeId },
       orderBy: 'shift_date',
@@ -84,40 +55,32 @@ class AttendanceSummaryService extends BaseService {
     });
   }
 
-  /**
-   * إحصائيات الحضور ليوم معين
-   */
-  async getDailyStats(date: string): Promise<any> {
-    const records = await this.findAll({
-      filters: { shift_date: date },
-    });
-
-    const total = records.length;
-    const present = records.filter((r: any) => r.status === 'حضور_بوقت').length;
-    const late = records.filter((r: any) => r.status === 'متأخر').length;
-    const absent = records.filter((r: any) => r.status === 'غائب').length;
-
-    return { date, total, present, late, absent };
+  async getDailyStats(date: string): Promise<{
+    date: string; total: number; present: number; late: number; absent: number;
+  }> {
+    const records = await this.findAll({ filters: { shift_date: date } });
+    return {
+      date,
+      total: records.length,
+      present: records.filter((r) => r.status === 'حضور_بوقت').length,
+      late: records.filter((r) => r.status === 'متأخر').length,
+      absent: records.filter((r) => r.status === 'غائب').length,
+    };
   }
 
-  /**
-   * تحديث ملخص الموظف ليوم معين
-   */
-  async updateSummary(employeeId: string, shiftDate: string, data: Record<string, unknown>): Promise<any> {
+  async updateSummary(employeeId: string, shiftDate: string, data: Partial<AttendanceSummaryRecord>): Promise<AttendanceSummaryRecord> {
     const records = await this.findAll({
       filters: { employee_id: employeeId, shift_date: shiftDate },
       limit: 1,
     });
-
     if (records.length > 0) {
       return this.update(records[0].id, data);
     }
-
     return this.create({
       employee_id: employeeId,
       shift_date: shiftDate,
       ...data,
-    } as unknown as Record<string, unknown>);
+    } as unknown as Partial<AttendanceSummaryRecord>);
   }
 }
 

@@ -44,7 +44,7 @@ export interface EmployeeRecord {
   departments?: { name: string };
 }
 
-class EmployeeService extends BaseService {
+class EmployeeService extends BaseService<EmployeeRecord> {
   constructor() {
     super('employees');
   }
@@ -53,7 +53,7 @@ class EmployeeService extends BaseService {
    * إنشاء موظف جديد (مع حقن tenant_id تلقائياً)
    */
   async createEmployee(data: EmployeeInput): Promise<EmployeeRecord> {
-    return this.create(data as unknown as Record<string, unknown>) as Promise<EmployeeRecord>;
+    return this.create(data as unknown as Partial<EmployeeRecord>);
   }
 
   /**
@@ -74,21 +74,21 @@ class EmployeeService extends BaseService {
       filters: Object.keys(filters).length > 0 ? filters : undefined,
       orderBy: 'first_name',
       ascending: true,
-    }) as Promise<EmployeeRecord[]>;
+    });
   }
 
   /**
    * جلب موظف واحد
    */
   async findEmployeeById(id: string): Promise<EmployeeRecord | null> {
-    return this.findById(id) as Promise<EmployeeRecord | null>;
+    return this.findById(id);
   }
 
   /**
    * تحديث بيانات موظف
    */
   async updateEmployee(id: string, data: Partial<EmployeeInput>): Promise<EmployeeRecord> {
-    return this.update(id, data as unknown as Record<string, unknown>) as Promise<EmployeeRecord>;
+    return this.update(id, data as unknown as Partial<EmployeeRecord>);
   }
 
   /**

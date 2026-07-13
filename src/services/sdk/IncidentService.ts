@@ -1,21 +1,19 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  IncidentService - خدمة إدارة البلاغات (نسخة SDK جديدة)
- *  مسؤولة عن: CRUD للبلاغات والتعليقات
+ *  IncidentService - خدمة إدارة البلاغات
  * ════════════════════════════════════════════════════════════════
  */
 
 import { BaseService } from './BaseService';
+import type { IncidentRecord } from '../../shared/types/sdk';
 
-class IncidentService extends BaseService {
+class IncidentService extends BaseService<IncidentRecord> {
   constructor() {
     super('incidents');
   }
 
-  /**
-   * جلب بلاغات موظف معين
-   */
-  async findByEmployee(employeeId: string): Promise<any[]> {
+  /** جلب بلاغات موظف معين */
+  async findByEmployee(employeeId: string): Promise<IncidentRecord[]> {
     return this.findAll({
       filters: { employee_id: employeeId },
       orderBy: 'created_at',
@@ -23,10 +21,8 @@ class IncidentService extends BaseService {
     });
   }
 
-  /**
-   * جلب البلاغات المعلقة
-   */
-  async findPending(): Promise<any[]> {
+  /** جلب البلاغات المعلقة */
+  async findPending(): Promise<IncidentRecord[]> {
     return this.findAll({
       filters: { status: 'pending' },
       orderBy: 'created_at',
@@ -34,9 +30,7 @@ class IncidentService extends BaseService {
     });
   }
 
-  /**
-   * إنشاء بلاغ جديد
-   */
+  /** إنشاء بلاغ جديد */
   async createIncident(data: {
     title: string;
     description: string;
@@ -44,24 +38,20 @@ class IncidentService extends BaseService {
     severity?: string;
     employee_id?: string;
     is_anonymous?: boolean;
-  }): Promise<any> {
-    return this.create(data as unknown as Record<string, unknown>);
+  }): Promise<IncidentRecord> {
+    return this.create(data as unknown as Partial<IncidentRecord>);
   }
 
-  /**
-   * تحديث حالة بلاغ
-   */
-  async updateStatus(id: string, status: string): Promise<any> {
+  /** تحديث حالة بلاغ */
+  async updateStatus(id: string, status: string): Promise<IncidentRecord> {
     const updateData: Record<string, unknown> = { status };
     if (status === 'resolved') {
       updateData.resolved_at = new Date().toISOString();
     }
-    return this.update(id, updateData);
+    return this.update(id, updateData as unknown as Partial<IncidentRecord>);
   }
 
-  /**
-   * إحصائيات سريعة
-   */
+  /** إحصائيات سريعة */
   async getStats(): Promise<{ total: number; pending: number; resolved: number }> {
     const total = await this.count();
     const pending = await this.count({ status: 'pending' });

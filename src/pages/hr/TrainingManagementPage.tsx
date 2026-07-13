@@ -332,7 +332,7 @@ export default function TrainingManagementPage() {
     setLoading(true);
     try {
       const data = await courseService.findAllCourses();
-      if (data) setCourses((data as CourseRow[]).map(convertRowToCourse));
+      if (data) setCourses((data as unknown as CourseRow[]).map(convertRowToCourse));
     } catch (err) {
       console.error('Failed to load courses:', getErrorMessage(err));
     } finally {
@@ -574,7 +574,7 @@ export default function TrainingManagementPage() {
           courseId={quizCourse.id}
           courseTitle={quizCourse.title}
           courseContent={quizCourse.richContent}
-          onSave={(quiz: Quiz) => {
+          onSave={(quiz: any) => {
             try {
               const stored = localStorage.getItem('quizzes_data');
               const quizzes: LocalQuizRecord[] = stored ? JSON.parse(stored) : [];

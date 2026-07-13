@@ -53,7 +53,7 @@ export interface UserUpdateInput {
   cv_data?: Record<string, unknown>;
 }
 
-class UserService extends BaseService {
+class UserService extends BaseService<UserProfile> {
   constructor() {
     super('profiles');
   }
@@ -75,21 +75,21 @@ class UserService extends BaseService {
       filters: Object.keys(filters).length > 0 ? filters : undefined,
       orderBy: 'full_name',
       ascending: true,
-    }) as Promise<UserProfile[]>;
+    });
   }
 
   /**
    * جلب مستخدم واحد (بدون فلتر tenant_id لأن جدول profiles لا يحتوي على العمود)
    */
   async findUserById(id: string): Promise<UserProfile | null> {
-    return this.findById(id, true) as Promise<UserProfile | null>;
+    return this.findById(id, true);
   }
 
   /**
    * تحديث بيانات مستخدم
    */
   async updateUser(id: string, data: UserUpdateInput): Promise<UserProfile> {
-    return this.update(id, data as unknown as Record<string, unknown>) as Promise<UserProfile>;
+    return this.update(id, data as unknown as Partial<UserProfile>);
   }
 
   /**
@@ -100,23 +100,23 @@ class UserService extends BaseService {
       filters: { rank: 'manager' },
       orderBy: 'full_name',
       ascending: true,
-    }) as Promise<UserProfile[]>;
+    });
   }
 
   /**
    * جلب قائمة الأدوار الفريدة
    */
   async findDistinctRoles(): Promise<string[]> {
-    const users = await this.findAll() as UserProfile[];
-    return [...new Set(users.map(u => u.role).filter(Boolean))];
+    const users = await this.findAll();
+    return [...new Set(users.map(u => u.role).filter((r): r is string => !!r))];
   }
 
   /**
    * جلب قائمة الأقسام الفريدة
    */
   async findDistinctDepartments(): Promise<string[]> {
-    const users = await this.findAll() as UserProfile[];
-    return [...new Set(users.map(u => u.department).filter(Boolean))];
+    const users = await this.findAll();
+    return [...new Set(users.map(u => u.department).filter((d): d is string => !!d))];
   }
 
   /**

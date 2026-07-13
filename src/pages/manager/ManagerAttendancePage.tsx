@@ -150,7 +150,7 @@ export default function ManagerAttendancePage() {
                 early_leave_minutes: s.early_leave_minutes || 0,
                 overtime_minutes: s.overtime_minutes || 0,
                 status: s.status,
-              } as AttendanceSummary
+              } as unknown as AttendanceSummary
             : null,
         };
       });
@@ -181,7 +181,7 @@ export default function ManagerAttendancePage() {
           limit: 1000,
         });
         if (empLogs && empLogs.length > 0) {
-          logs.push(...(empLogs as AttendanceLog[]));
+          logs.push(...(empLogs as unknown as AttendanceLog[]));
         }
       }
 

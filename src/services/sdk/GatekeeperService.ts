@@ -1,27 +1,27 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  GatekeeperService - خدمة البوابة والحركة (نسخة SDK جديدة)
- *  Domain: Gatekeeper
- *  تشمل: gatekeeper_sessions, gatekeeper_visitor_logs, movements_log, employee_breaks
+ *  GatekeeperService - خدمة البوابة والحركة
+ *  Domain: Gatekeeper — تشمل الجلسات, الزوار, الحركة, الاستراحات
  * ════════════════════════════════════════════════════════════════
  */
 
 import { BaseService, getCurrentTenantId } from './BaseService';
 import { supabase } from '../supabase/supabase';
+import type {
+  GatekeeperSessionRecord,
+  GatekeeperVisitorLogRecord,
+  MovementLogRecord,
+  EmployeeBreakRecord,
+} from '../../shared/types/sdk';
 
-// ─────────────────────────────────────────────────
-//  Gatekeeper Sessions
-// ─────────────────────────────────────────────────
+// ─── Gatekeeper Sessions ─────────────────────────
 
-class GatekeeperSessionService extends BaseService {
+class GatekeeperSessionService extends BaseService<GatekeeperSessionRecord> {
   constructor() {
     super('gatekeeper_sessions');
   }
 
-  /**
-   * جلب الجلسات النشطة
-   */
-  async findActiveSessions(): Promise<any[]> {
+  async findActiveSessions(): Promise<GatekeeperSessionRecord[]> {
     return this.findAll({
       filters: { is_active: true },
       orderBy: 'started_at',
@@ -29,10 +29,7 @@ class GatekeeperSessionService extends BaseService {
     });
   }
 
-  /**
-   * جلب الجلسات المنتهية
-   */
-  async findEndedSessions(): Promise<any[]> {
+  async findEndedSessions(): Promise<GatekeeperSessionRecord[]> {
     return this.findAll({
       filters: { is_active: false },
       orderBy: 'ended_at',
@@ -40,49 +37,35 @@ class GatekeeperSessionService extends BaseService {
     });
   }
 
-  /**
-   * إنشاء جلسة جديدة
-   */
-  async createSession(data: Record<string, unknown>): Promise<any> {
+  async createSession(data: Partial<GatekeeperSessionRecord>): Promise<GatekeeperSessionRecord> {
     return this.create(data);
   }
 
-  /**
-   * إنهاء جلسة
-   */
-  async endSession(id: string): Promise<any> {
+  async endSession(id: string): Promise<GatekeeperSessionRecord> {
     return this.update(id, {
       is_active: false,
       ended_at: new Date().toISOString(),
-    } as unknown as Record<string, unknown>);
+    } as unknown as Partial<GatekeeperSessionRecord>);
   }
 
-  /**
-   * تحديث حالة التسليم
-   */
-  async updateHandoverStatus(id: string, status: string, tempPin?: string): Promise<any> {
+  async updateHandoverStatus(id: string, status: string, tempPin?: string): Promise<GatekeeperSessionRecord> {
     const data: Record<string, unknown> = { handover_status: status };
     if (tempPin) data.temp_pin = tempPin;
-    return this.update(id, data);
+    return this.update(id, data as unknown as Partial<GatekeeperSessionRecord>);
   }
 }
 
-// ─────────────────────────────────────────────────
-//  Gatekeeper Visitor Logs
-// ─────────────────────────────────────────────────
+// ─── Visitor Logs ────────────────────────────────
 
-class GatekeeperVisitorLogService extends BaseService {
+class GatekeeperVisitorLogService extends BaseService<GatekeeperVisitorLogRecord> {
   constructor() {
     super('gatekeeper_visitor_logs');
   }
 
-  /**
-   * جلب سجلات الزوار
-   */
   async findVisitorLogs(options?: {
     sessionId?: string;
     fromDate?: string;
-  }): Promise<any[]> {
+  }): Promise<GatekeeperVisitorLogRecord[]> {
     const filters: Record<string, unknown> = {};
     if (options?.sessionId) filters.session_id = options.sessionId;
     return this.findAll({
@@ -92,68 +75,47 @@ class GatekeeperVisitorLogService extends BaseService {
     });
   }
 
-  /**
-   * إنشاء سجل زائر جديد
-   */
-  async createVisitorLog(data: Record<string, unknown>): Promise<any> {
+  async createVisitorLog(data: Partial<GatekeeperVisitorLogRecord>): Promise<GatekeeperVisitorLogRecord> {
     return this.create(data);
   }
 
-  /**
-   * تحديث حالة سجل الزائر
-   */
-  async updateVisitorLogStatus(id: string, status: string): Promise<any> {
-    return this.update(id, { status, check_out_time: new Date().toISOString() } as unknown as Record<string, unknown>);
-  }
-
-  /**
-   * حذف سجل زائر
-   */
+  /** @deprecated استخدم delete */
   async deleteVisitorLog(id: string): Promise<boolean> {
     return this.delete(id);
   }
 
-  /**
-   * عدد الزوار منذ تاريخ محدد
-   */
+  async updateVisitorLogStatus(id: string, status: string): Promise<GatekeeperVisitorLogRecord> {
+    return this.update(id, {
+      status,
+      check_out_time: new Date().toISOString(),
+    } as unknown as Partial<GatekeeperVisitorLogRecord>);
+  }
+
   async countVisitorsSince(fromDate: string): Promise<number> {
     try {
       let query = supabase
         .from(this.tableName)
         .select('*', { count: 'exact', head: true })
         .gte('check_in_time', fromDate);
-
       const tenantId = getCurrentTenantId();
-      if (tenantId) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
+      if (tenantId) query = query.eq('tenant_id', tenantId);
       const { count, error } = await query;
-      if (error) throw error;
-      return count || 0;
-    } catch (error) {
-      console.error('GatekeeperVisitorLogService.countVisitorsSince error:', error);
-      return 0;
-    }
+      return error ? 0 : (count || 0);
+    } catch { return 0; }
   }
 }
 
-// ─────────────────────────────────────────────────
-//  Movements Log
-// ─────────────────────────────────────────────────
+// ─── Movements Log ───────────────────────────────
 
-class MovementLogService extends BaseService {
+class MovementLogService extends BaseService<MovementLogRecord> {
   constructor() {
     super('movements_log');
   }
 
-  /**
-   * جلب سجلات الحركة
-   */
   async findMovements(options?: {
     fromDate?: string;
     employeeId?: string;
-  }): Promise<any[]> {
+  }): Promise<MovementLogRecord[]> {
     const filters: Record<string, unknown> = {};
     if (options?.employeeId) filters.employee_id = options.employeeId;
     return this.findAll({
@@ -163,61 +125,39 @@ class MovementLogService extends BaseService {
     });
   }
 
-  /**
-   * تسجيل حركة جديدة
-   */
-  async recordMovement(data: Record<string, unknown>): Promise<any> {
+  async recordMovement(data: Partial<MovementLogRecord>): Promise<MovementLogRecord> {
     return this.create(data);
   }
 
-  /**
-   * تسجيل عودة
-   */
-  async recordReturn(id: string | number, notes?: string): Promise<any> {
+  async recordReturn(id: string | number, notes?: string): Promise<MovementLogRecord> {
     return this.update(String(id), {
       returned_at: new Date().toISOString(),
       notes: notes || null,
-    } as unknown as Record<string, unknown>);
+    } as unknown as Partial<MovementLogRecord>);
   }
 
-  /**
-   * عدد الحركات منذ تاريخ محدد
-   */
   async countMovementsSince(fromDate: string): Promise<number> {
     try {
       let query = supabase
         .from(this.tableName)
         .select('*', { count: 'exact', head: true })
         .gte('departure_at', fromDate);
-
       const tenantId = getCurrentTenantId();
-      if (tenantId) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
+      if (tenantId) query = query.eq('tenant_id', tenantId);
       const { count, error } = await query;
-      if (error) throw error;
-      return count || 0;
-    } catch (error) {
-      console.error('MovementLogService.countMovementsSince error:', error);
-      return 0;
-    }
+      return error ? 0 : (count || 0);
+    } catch { return 0; }
   }
 }
 
-// ─────────────────────────────────────────────────
-//  Employee Breaks
-// ─────────────────────────────────────────────────
+// ─── Employee Breaks ─────────────────────────────
 
-class EmployeeBreakService extends BaseService {
+class EmployeeBreakService extends BaseService<EmployeeBreakRecord> {
   constructor() {
     super('employee_breaks');
   }
 
-  /**
-   * جلب الاستراحات النشطة
-   */
-  async findActiveBreaks(): Promise<any[]> {
+  async findActiveBreaks(): Promise<EmployeeBreakRecord[]> {
     return this.findAll({
       filters: { status: 'active' },
       orderBy: 'started_at',
@@ -225,19 +165,12 @@ class EmployeeBreakService extends BaseService {
     });
   }
 
-  /**
-   * تحديث حالة الاستراحة
-   */
-  async updateBreakStatus(id: string, status: string, outTime?: string): Promise<any> {
+  async updateBreakStatus(id: string, status: string, outTime?: string): Promise<EmployeeBreakRecord> {
     const data: Record<string, unknown> = { status };
     if (outTime) data.out_time = outTime;
-    return this.update(id, data);
+    return this.update(id, data as unknown as Partial<EmployeeBreakRecord>);
   }
 }
-
-// ─────────────────────────────────────────────────
-//  التصدير
-// ─────────────────────────────────────────────────
 
 export const gatekeeperSessionService = new GatekeeperSessionService();
 export const gatekeeperVisitorLogService = new GatekeeperVisitorLogService();

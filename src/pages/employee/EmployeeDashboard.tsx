@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { incidentService } from '../../services/sdk/IncidentService';
-import { wellnessService } from '../../services/sdk/WellnessService';
+import { wellnessService, wellnessEntryService } from '../../services/sdk/WellnessService';
 import { attendanceSummaryService } from '../../services/sdk/AttendanceService';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Badge from '../../shared/components/ui/Badge';
@@ -134,37 +134,37 @@ export default function EmployeeDashboard() {
     if (!user?.id) return;
     try {
       const [problems, wellness, attendance] = await Promise.all([
-        incidentService.findByEmployee(user.id),
-        wellnessService.findByEmployee(user.id, 30),
+        incidentService.findByEmployee(user.id) as unknown as Problem[],
+        wellnessEntryService.findByUser(user.id, 30) as unknown as WellnessEntry[],
         attendanceSummaryService.findAll({
           filters: { employee_id: user.id },
           orderBy: 'shift_date',
           ascending: false,
           limit: 30,
-        }),
+        }) as unknown as AttendanceRecord[],
       ]);
 
-      const problemsList = (problems || []) as Problem[];
-      const wellnessList = (wellness || []) as WellnessEntry[];
-      const attendanceList = (attendance || []) as AttendanceRecord[];
+      const problemsList = problems || [];
+      const wellnessList = wellness || [];
+      const attendanceList = attendance || [];
 
-      setRecentProblems(problems.slice(0, 5));
+      setRecentProblems(problemsList.slice(0, 5));
 
       setStats({
-        totalProblems: problems.length,
-        resolvedProblems: problems.filter((p) => p.status === 'resolved' || p.status === 'closed').length,
-        pendingProblems: problems.filter((p) => p.status === 'pending').length,
-        wellnessScore: wellness[0]?.score || 0,
-        streak: calculateStreakFromAttendance(attendance),
-        attendanceRate: attendance.length > 0 ? Math.round((attendance.filter((a) => a.status !== 'غائب').length / attendance.length) * 100) : 0,
+        totalProblems: problemsList.length,
+        resolvedProblems: problemsList.filter((p: Problem) => p.status === 'resolved' || p.status === 'closed').length,
+        pendingProblems: problemsList.filter((p: Problem) => p.status === 'pending').length,
+        wellnessScore: wellnessList.length > 0 ? (wellnessList[0] as any).score || (wellnessList[0] as any).mood_score || 0 : 0,
+        streak: calculateStreakFromAttendance(attendanceList),
+        attendanceRate: attendanceList.length > 0 ? Math.round((attendanceList.filter((a) => (a as any).status !== 'غائب').length / attendanceList.length) * 100) : 0,
       });
 
       const trend: TrendDataPoint[] = Array.from({ length: 7 }, (_, i) => {
         const date = format(subDays(new Date(), 6 - i), 'yyyy-MM-dd');
         return {
           date: format(subDays(new Date(), 6 - i), 'E', { locale: ar }),
-          problems: problems.filter((p) => p.created_at?.startsWith(date)).length,
-          wellness: wellness.find((w) => w.date === date)?.score || 0,
+          problems: problemsList.filter((p: Problem) => (p as any).created_at?.startsWith(date)).length,
+          wellness: (wellnessList as any[]).find((w: any) => w.date === date)?.score || (wellnessList as any[]).find((w: any) => w.date === date)?.mood_score || 0,
         };
       });
       setProblemTrend(trend);

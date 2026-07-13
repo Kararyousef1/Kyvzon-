@@ -21,7 +21,7 @@ export interface AuditLogRecord {
   tenant_id: string;
 }
 
-class AuditLogService extends BaseService {
+class AuditLogService extends BaseService<AuditLogRecord> {
   constructor() {
     super('audit_logs');
   }
@@ -54,7 +54,7 @@ class AuditLogService extends BaseService {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as AuditLogRecord[];
+      return (data || []) as unknown as AuditLogRecord[];
     } catch (error) {
       console.error('AuditLogService.findAllWithProfiles error:', error);
       return [];
@@ -75,14 +75,14 @@ class AuditLogService extends BaseService {
       ascending: false,
       limit: options?.limit,
       offset: options?.offset,
-    }) as Promise<AuditLogRecord[]>;
+    });
   }
 
   /**
    * جلب سجل عملية واحد
    */
   async findLogById(id: string): Promise<AuditLogRecord | null> {
-    return this.findById(id) as Promise<AuditLogRecord | null>;
+    return this.findById(id);
   }
 
   /**
@@ -95,7 +95,7 @@ class AuditLogService extends BaseService {
     actor_id?: string;
     actor_role?: string;
   }): Promise<AuditLogRecord> {
-    return this.create(data as unknown as Record<string, unknown>) as Promise<AuditLogRecord>;
+    return this.create(data as unknown as Partial<AuditLogRecord>);
   }
 
   /**
@@ -108,7 +108,7 @@ class AuditLogService extends BaseService {
     const allLogs = await this.findAll({
       orderBy: 'timestamp',
       ascending: false,
-    }) as AuditLogRecord[];
+    });
 
     return allLogs.filter((l) => new Date(l.timestamp).getTime() >= today.getTime()).length;
   }

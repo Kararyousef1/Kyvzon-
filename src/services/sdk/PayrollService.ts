@@ -6,8 +6,9 @@
  */
 
 import { BaseService } from './BaseService';
+import type { PayrollRecord } from '../../shared/types/sdk';
 
-class PayrollService extends BaseService {
+class PayrollService extends BaseService<PayrollRecord> {
   constructor() {
     super('payroll');
   }

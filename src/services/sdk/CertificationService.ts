@@ -6,8 +6,9 @@
  */
 
 import { BaseService } from './BaseService';
+import type { EmployeeCertificationRecord } from '../../shared/types/sdk';
 
-class CertificationService extends BaseService {
+class CertificationService extends BaseService<EmployeeCertificationRecord> {
   constructor() {
     super('employee_certifications');
   }

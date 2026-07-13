@@ -6,8 +6,9 @@
  */
 
 import { BaseService } from './BaseService';
+import type { GatekeeperVisitorRecord } from '../../shared/types/sdk';
 
-class GatekeeperVisitorService extends BaseService {
+class GatekeeperVisitorService extends BaseService<GatekeeperVisitorRecord> {
   constructor() {
     super('gatekeeper_visitors');
   }

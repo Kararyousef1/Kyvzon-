@@ -26,7 +26,7 @@ interface WellnessEntry {
   id: number;
   userId: string;
   date: string;
-  mood: WellnessMood;
+  mood_score: WellnessMood;
   stress: number;
   energy: number;
   score: number;
@@ -47,8 +47,8 @@ const MOOD_SCORE: Record<WellnessMood, number> = {
   terrible: 20,
 };
 
-function calculateWellnessScore(input: { stress: number; energy: number; mood: WellnessMood }): number {
-  return Math.round((100 - input.stress) * 0.4 + input.energy * 0.4 + MOOD_SCORE[input.mood] * 0.2);
+function calculateWellnessScore(input: { stress: number; energy: number; mood_score: WellnessMood }): number {
+  return Math.round((100 - input.stress) * 0.4 + input.energy * 0.4 + MOOD_SCORE[input.mood_score] * 0.2);
 }
 
 function todayISO(): string {
@@ -62,7 +62,7 @@ function toEntry(d: any): WellnessEntry {
     id: d.id,
     userId: d.user_id,
     date: d.date,
-    mood: (d.mood || 'neutral') as WellnessMood,
+    mood_score: (d.mood_score || d.mood || 'neutral') as WellnessMood,
     stress: d.stress ?? 50,
     energy: d.energy ?? 50,
     score: d.score ?? 50,
@@ -141,7 +141,7 @@ export default function WellnessPage() {
       const todayEntry = mappedHistory.find((e) => e.date === today);
 
       if (todayEntry) {
-        setMood(todayEntry.mood);
+        setMood(todayEntry.mood_score);
         setStress(todayEntry.stress);
         setEnergy(todayEntry.energy);
         setNotes(todayEntry.notes ?? '');
@@ -151,7 +151,7 @@ export default function WellnessPage() {
       }
 
       setHistory(mappedHistory);
-      setAvgScore(stats.avgScore || null);
+      setAvgScore(stats.average || null);
     } catch (err) {
       console.error('[WellnessPage] فشل تحميل البيانات:', err);
       setError(err instanceof Error && err.message ? err.message : 'تعذّر تحميل بيانات العافية');
@@ -169,15 +169,13 @@ export default function WellnessPage() {
     if (!user?.id) return;
     setSubmitting(true);
     try {
-      const score = calculateWellnessScore({ stress, energy, mood });
+      const score = calculateWellnessScore({ stress, energy, mood_score: mood as any });
       const today = todayISO();
 
       await wellnessEntryService.saveEntry(user.id, {
-        mood,
-        stress,
-        energy,
-        score,
-        notes: notes || null,
+        mood_score: MOOD_SCORE[mood],
+        stress_level: stress,
+        energy_level: energy,
         date: today,
       });
 
@@ -380,7 +378,7 @@ export default function WellnessPage() {
           </CardHeader>
           <div className="space-y-2">
             {history.map((entry) => {
-              const meta = MOOD_META[entry.mood];
+              const meta = MOOD_META[entry.score];
               return (
                 <div
                   key={entry.id}

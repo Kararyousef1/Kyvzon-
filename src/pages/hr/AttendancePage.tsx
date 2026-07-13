@@ -33,16 +33,16 @@ export default function AttendancePage() {
           departmentService.findAll(),
         ]);
 
-        const deptMap = new Map((depts || []).map((d: { id: string; name_ar: string }) => [d.id, d.name_ar]));
+        const deptMap = new Map((depts || []).map((d: any) => [d.id, d.name_ar]));
 
         if (!emps || !logs) return;
 
         // المعالجة والتحليل الدقيق للبيانات
         const analyzed = emps.map((emp: { id: string; full_name_ar?: string; department_id?: string }) => {
-          const empLogs = logs.filter((l: { employee_id: string; punch_time: string; punch_type: string }) => l.employee_id === emp.id).sort((a: { punch_time: string }, b: { punch_time: string }) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+          const empLogs = logs.filter((l: any) => l.employee_id === emp.id).sort((a: any, b: any) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
           
-          const checkIn = empLogs.find((l: { punch_type: string }) => l.punch_type === 'check_in')?.punch_time;
-          const checkOut = empLogs.find((l: { punch_type: string }) => l.punch_type === 'check_out')?.punch_time;
+          const checkIn = empLogs.find((l: any) => l.punch_type === 'check_in')?.punch_time;
+          const checkOut = empLogs.find((l: any) => l.punch_type === 'check_out')?.punch_time;
           
           let status = 'غائب';
           let statusColor = 'neutral';

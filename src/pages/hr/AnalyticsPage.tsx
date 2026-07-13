@@ -156,7 +156,7 @@ export default function AnalyticsPage() {
 
         const profileList = (profiles || []) as ProfileRecord[];
         const incidentList = (incidents || []) as IncidentRecord[];
-        const wellnessList = (wellness || []) as WellnessRecord[];
+        const wellnessList = (wellness || []) as unknown as WellnessRecord[];
         const currentMonth = new Date().getMonth();
 
         const resolvedThisMonth = incidentList.filter(

@@ -7,8 +7,9 @@
  */
 
 import { BaseService } from './BaseService';
+import type { StructureDepartmentRecord } from '../../shared/types/sdk';
 
-class StructureDepartmentService extends BaseService {
+class StructureDepartmentService extends BaseService<StructureDepartmentRecord> {
   constructor() { super('structure_departments'); }
   async findAllDepts(): Promise<any[]> {
     return this.findAll({ orderBy: 'sort_order', ascending: true });

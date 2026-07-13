@@ -189,7 +189,7 @@ export default function HRDashboard() {
       well.forEach(w => {
         const emp = emps.find(p => p.id === (w.employee_id || w.user_id));
         const d = emp?.department || 'عام';
-        if (deptMap[d]) { deptMap[d].wellnessTotal += w.score; deptMap[d].wellnessCount++; }
+        if (deptMap[d]) { deptMap[d].wellnessTotal += w.mood_score; deptMap[d].wellnessCount++; }
       });
       const departmentStats = Object.values(deptMap).map(d => ({
         ...d,

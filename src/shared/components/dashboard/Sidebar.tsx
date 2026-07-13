@@ -283,18 +283,23 @@ export default function Sidebar() {
   const role = (user?.role as UserRole) || 'employee';
   const config = ROLE_CONFIG[role];
 
-  // ─── تحديث الصلاحيات ──────────────────────────────────────────
+  // ─── تحديث الصلاحيات ───
+  // ملاحظة فنية:
+  // كنا نستخدم setInterval(refreshUser, 30000) هنا — وهذا كان خطأ أدائياً.
+  // Realtime subscription في useAuthStore.initialize() و login() هو المسؤول
+  // عن تحديث بيانات المستخدم فور تغييرها في قاعدة البيانات.
+  // نحتاج فقط تحديثاً واحداً عند تحميل المكون للتأكد من آخر البيانات.
   useEffect(() => {
     refreshUser();
-    const interval = setInterval(refreshUser, 30000);
-    return () => clearInterval(interval);
-  }, [refreshUser]);
-
-
+    // لا حاجة لـ setInterval — Realtime subscription يقوم بالمهمة
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─── شارات HR الديناميكية ────────────────────────────────────
   useEffect(() => {
     if (role !== 'hr' || !user?.id) return;
+
+    let cancelled = false;
 
     const fetchBadges = async () => {
       try {
@@ -302,16 +307,22 @@ export default function Sidebar() {
           incidentService.count({ status: 'pending' }),
           notificationService.countUnread(user.id),
         ]);
-        setDynamicBadges({
-          problems: problemsCount,
-          messages: unreadCount,
-        });
+        if (!cancelled) {
+          setDynamicBadges({
+            problems: problemsCount,
+            messages: unreadCount,
+          });
+        }
       } catch (err) {
-        console.warn('Badges fetch skipped:', err);
+        if (!cancelled) {
+          console.warn('Badges fetch skipped:', err);
+        }
       }
     };
 
     fetchBadges();
+
+    return () => { cancelled = true; };
   }, [role, user?.id]);
 
   if (!user) return null;
@@ -403,9 +414,9 @@ export default function Sidebar() {
       {sidebarOpen && (
         <div className={`p-4 flex-shrink-0 border-b border-slate-100 bg-gradient-to-br ${config.bg}`}>
           <div className="flex items-center gap-3">
-            {user.profile_image || user.avatar ? (
+            {(user.profile_image ?? user.avatar ?? '') ? (
               <img
-                src={user.profile_image || user.avatar}
+                src={(user.profile_image ?? user.avatar ?? '')}
                 alt={getUserDisplayName(user)}
                 className="w-10 h-10 rounded-xl object-cover flex-shrink-0 ring-2 ring-white shadow"
               />

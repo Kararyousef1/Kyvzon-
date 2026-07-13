@@ -1,21 +1,18 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  PermissionService - خدمة الزمنيات والأذونات (نسخة SDK جديدة)
- *  مسؤولة عن: Permission Requests, Approval, History
+ *  PermissionService - خدمة الزمنيات (إذنيات الدخول/الخروج)
  * ════════════════════════════════════════════════════════════════
  */
 
 import { BaseService } from './BaseService';
+import type { PermissionRecord, PermissionRequestRecord } from '../../shared/types/sdk';
 
-class PermissionService extends BaseService {
+class PermissionService extends BaseService<PermissionRecord> {
   constructor() {
     super('permissions');
   }
 
-  /**
-   * جلب زمنيات موظف معين
-   */
-  async findPermissionsByEmployee(employeeId: string): Promise<any[]> {
+  async findPermissionsByEmployee(employeeId: string): Promise<PermissionRecord[]> {
     return this.findAll({
       filters: { employee_id: employeeId },
       orderBy: 'date',
@@ -23,68 +20,31 @@ class PermissionService extends BaseService {
     });
   }
 
-  /**
-   * إنشاء طلب زمنية جديد
-   */
-  async createPermission(data: {
-    employee_id: string;
-    date: string;
-    permission_type: string;
-    expected_out_time: string;
-    expected_return_time?: string;
-    reason: string;
-  }): Promise<any> {
-    return this.create(data as unknown as Record<string, unknown>);
+  async createPermission(data: Partial<PermissionRecord>): Promise<PermissionRecord> {
+    return this.create(data);
   }
 
-  /**
-   * الموافقة على زمنية
-   */
-  async approvePermission(id: string, approvedBy: string): Promise<any> {
+  async approvePermission(id: string, approvedBy: string): Promise<PermissionRecord> {
     return this.update(id, {
       status: 'موافق',
       approved_by: approvedBy,
-    } as unknown as Record<string, unknown>);
+    } as unknown as Partial<PermissionRecord>);
   }
 
-  /**
-   * رفض زمنية
-   */
-  async rejectPermission(id: string, approvedBy: string, reason?: string): Promise<any> {
+  async rejectPermission(id: string, approvedBy: string): Promise<PermissionRecord> {
     return this.update(id, {
       status: 'مرفوض',
       approved_by: approvedBy,
-      rejection_reason: reason || null,
-    } as unknown as Record<string, unknown>);
-  }
-
-  /**
-   * إحصائيات الزمنيات لموظف
-   */
-  async getPermissionStats(employeeId: string): Promise<any> {
-    const permissions = await this.findPermissionsByEmployee(employeeId);
-    return {
-      total: permissions.length,
-      approved: permissions.filter((p: any) => p.status === 'موافق').length,
-      rejected: permissions.filter((p: any) => p.status === 'مرفوض').length,
-      pending: permissions.filter((p: any) => p.status === 'انتظار').length,
-    };
+    } as unknown as Partial<PermissionRecord>);
   }
 }
 
-// ─────────────────────────────────────────────────
-//  Permission Request Service (طلبات الزمنيات)
-// ─────────────────────────────────────────────────
-
-class PermissionRequestService extends BaseService {
+class PermissionRequestService extends BaseService<PermissionRequestRecord> {
   constructor() {
     super('permissions_request');
   }
 
-  /**
-   * جلب طلبات زمنية موظف
-   */
-  async findRequestsByEmployee(employeeId: string): Promise<any[]> {
+  async findByEmployee(employeeId: string): Promise<PermissionRequestRecord[]> {
     return this.findAll({
       filters: { employee_id: employeeId },
       orderBy: 'created_at',
@@ -92,43 +52,29 @@ class PermissionRequestService extends BaseService {
     });
   }
 
-  /**
-   * إنشاء طلب زمنية
-   */
-  async createRequest(data: {
-    employee_id: string;
-    employee_name?: string;
-    employee_department?: string;
-    date: string;
-    permission_type: string;
-    expected_out_time: string;
-    expected_return_time?: string;
-    reason: string;
-  }): Promise<any> {
-    return this.create(data as unknown as Record<string, unknown>);
+  async createRequest(data: Partial<PermissionRequestRecord>): Promise<PermissionRequestRecord> {
+    return this.create(data);
   }
 
-  /**
-   * الموافقة على طلب زمنية
-   */
-  async approveRequest(id: string, approvedBy: string): Promise<any> {
+  async approveRequest(id: string, approvedBy: string): Promise<PermissionRequestRecord> {
     return this.update(id, {
       status: 'موافق',
       approved_by: approvedBy,
       reviewed_at: new Date().toISOString(),
-    } as unknown as Record<string, unknown>);
+    } as unknown as Partial<PermissionRequestRecord>);
   }
 
-  /**
-   * رفض طلب زمنية
-   */
-  async rejectRequest(id: string, approvedBy: string, reason?: string): Promise<any> {
+  async rejectRequest(id: string, approvedBy: string, reason?: string): Promise<PermissionRequestRecord> {
     return this.update(id, {
       status: 'مرفوض',
       approved_by: approvedBy,
       rejection_reason: reason || null,
       reviewed_at: new Date().toISOString(),
-    } as unknown as Record<string, unknown>);
+    } as unknown as Partial<PermissionRequestRecord>);
+  }
+
+  async getPendingCount(): Promise<number> {
+    return this.count({ status: 'انتظار' });
   }
 }
 

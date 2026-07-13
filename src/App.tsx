@@ -20,6 +20,7 @@ import { useAuthStore, useUIStore } from './core/stores';
 import { TenantProvider } from './core/tenant/TenantContext';
 import ToastContainer from './shared/components/ui/Toast';
 import SplashScreen from './shared/components/ui/SplashScreen';
+import AppErrorBoundary from './shared/components/dashboard/developer/ErrorBoundary';
 import Sidebar from './shared/components/dashboard/Sidebar';
 import Header from './shared/components/dashboard/Header';
 import LoginPage from './pages/auth/LoginPage';
@@ -160,9 +161,11 @@ function PageRenderer() {
   // Kyvzon Portal — تخطيطه الخاص بدون Header/Sidebar العام
   if (activeView === 'developer-dashboard') {
     return (
-      <Suspense fallback={<PageLoader />}>
-        <KyvzonDevPortal />
-      </Suspense>
+      <AppErrorBoundary componentName="KyvzonDevPortal">
+        <Suspense fallback={<PageLoader />}>
+          <KyvzonDevPortal />
+        </Suspense>
+      </AppErrorBoundary>
     );
   }
 
@@ -286,7 +289,9 @@ function PageRenderer() {
   return (
     <div className={`transition-all duration-300 min-h-screen pt-16 ${sidebarOpen ? 'lg:mr-64' : 'lg:mr-16'}`}>
       <main className="p-4 sm:p-6 min-h-[calc(100vh-64px)]">
-        <Suspense fallback={<PageLoader />}>{renderPage()}</Suspense>
+        <AppErrorBoundary>
+          <Suspense fallback={<PageLoader />}>{renderPage()}</Suspense>
+        </AppErrorBoundary>
       </main>
     </div>
   );

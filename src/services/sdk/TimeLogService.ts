@@ -6,9 +6,10 @@
  */
 
 import { BaseService, getCurrentTenantId } from './BaseService';
+import type { TimeLogRecord } from '../../shared/types/sdk';
 import { supabase } from '../supabase/supabase';
 
-class TimeLogService extends BaseService {
+class TimeLogService extends BaseService<TimeLogRecord> {
   constructor() {
     super('time_logs');
   }

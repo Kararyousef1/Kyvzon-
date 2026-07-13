@@ -7,8 +7,9 @@
  */
 
 import { BaseService } from './BaseService';
+import type { SurveyResponseRecord } from '../../shared/types/sdk';
 
-class SurveyResponseService extends BaseService {
+class SurveyResponseService extends BaseService<SurveyResponseRecord> {
   constructor() { super('survey_responses'); }
 
   async createResponse(data: Record<string, unknown>): Promise<any> {

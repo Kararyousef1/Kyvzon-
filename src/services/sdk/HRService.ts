@@ -7,12 +7,13 @@
  */
 
 import { BaseService } from './BaseService';
+import type { DisciplinaryActionRecord } from '../../shared/types/sdk';
 
 // ─────────────────────────────────────────────────
 //  Disciplinary Actions
 // ─────────────────────────────────────────────────
 
-class DisciplinaryActionService extends BaseService {
+class DisciplinaryActionService extends BaseService<DisciplinaryActionRecord> {
   constructor() {
     super('disciplinary_actions');
   }

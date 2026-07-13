@@ -21,12 +21,12 @@
       "@/*": ["src/*"]
     },
 
-    /* Strict checks - محسّن تدريجياً (يُفضّل تشغيل المزيد مع الوقت) */
+    /* Strict checks - محسّن مع توازن بين الصرامة والواقعية */
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-    "noImplicitAny": false,
+    "noImplicitAny": false,        /* يمكن تشغيله بعد مراجعة شاملة للصفحات */
     "noImplicitReturns": false,
     "noImplicitThis": true,
     "strictNullChecks": true,

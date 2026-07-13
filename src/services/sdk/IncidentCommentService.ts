@@ -1,11 +1,13 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  IncidentCommentService - خدمة تعليقات البلاغات (نسخة SDK جديدة)
- *  مسؤولة عن: CRUD لتعليقات incident_comments
+ *  IncidentCommentService - خدمة تعليقات البلاغات
+ *  Domain: تستخدم supabase مباشرة للاستعلامات المعقدة (join)
+ *  مع BaseService للـ CRUD الأساسي
  * ════════════════════════════════════════════════════════════════
  */
 
 import { BaseService } from './BaseService';
+import type { IncidentCommentRecord } from '../../shared/types/sdk';
 import { supabase } from '../supabase/supabase';
 
 export interface CommentDetail {
@@ -29,14 +31,12 @@ interface CommentRow {
   profiles?: { full_name?: string; role?: string } | null;
 }
 
-class IncidentCommentService extends BaseService {
+class IncidentCommentService extends BaseService<IncidentCommentRecord> {
   constructor() {
     super('incident_comments');
   }
 
-  /**
-   * جلب التعليقات لبلاغ معين (مع معلومات المستخدم)
-   */
+  /** جلب التعليقات لبلاغ معين (مع معلومات المستخدم) */
   async findCommentsByIncident(incidentId: string): Promise<CommentDetail[]> {
     try {
       const { data, error } = await supabase
@@ -47,7 +47,7 @@ class IncidentCommentService extends BaseService {
 
       if (error) return [];
 
-      return (data as CommentRow[] || []).map((comment) => ({
+      return ((data as CommentRow[]) || []).map((comment) => ({
         id: comment.id,
         incident_id: comment.incident_id,
         user_id: comment.user_id,
@@ -57,15 +57,12 @@ class IncidentCommentService extends BaseService {
         user_name: comment.profiles?.full_name || 'مستخدم',
         user_role: comment.profiles?.role,
       }));
-    } catch (err) {
-      console.error('IncidentCommentService.findCommentsByIncident error:', err);
+    } catch {
       return [];
     }
   }
 
-  /**
-   * إضافة تعليق جديد
-   */
+  /** إضافة تعليق جديد */
   async addComment(data: {
     incident_id: string;
     user_id: string;
@@ -98,29 +95,20 @@ class IncidentCommentService extends BaseService {
         user_name: row.profiles?.full_name || 'مستخدم',
         user_role: row.profiles?.role,
       };
-    } catch (err) {
-      console.error('IncidentCommentService.addComment error:', err);
+    } catch {
       return null;
     }
   }
 
-  /**
-   * حذف تعليق
-   */
+  /** حذف تعليق */
   async deleteComment(commentId: string): Promise<boolean> {
     try {
       const { error } = await supabase.from(this.tableName).delete().eq('id', commentId);
-      if (error) return false;
-      return true;
-    } catch (err) {
-      console.error('IncidentCommentService.deleteComment error:', err);
-      return false;
-    }
+      return !error;
+    } catch { return false; }
   }
 
-  /**
-   * تحديث تعليق
-   */
+  /** تحديث تعليق */
   async updateComment(commentId: string, text: string): Promise<boolean> {
     try {
       const { error } = await supabase
@@ -128,10 +116,7 @@ class IncidentCommentService extends BaseService {
         .update({ text, updated_at: new Date().toISOString() })
         .eq('id', commentId);
       return !error;
-    } catch (err) {
-      console.error('IncidentCommentService.updateComment error:', err);
-      return false;
-    }
+    } catch { return false; }
   }
 }
 

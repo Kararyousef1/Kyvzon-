@@ -133,11 +133,11 @@ export default function PermissionsPage() {
       await permissionRequestService.createRequest({
         employee_id: targetId || user.id,
         employee_name: user.full_name || 'موظف',
-        employee_department: user.department || null,
+        employee_department: user.department || undefined,
         date: formData.date,
         permission_type: formData.permission_type,
         expected_out_time: formData.expected_out_time,
-        expected_return_time: formData.permission_type === 'مغادرة' ? null : formData.expected_return_time,
+        expected_return_time: formData.permission_type === 'مغادرة' ? undefined : formData.expected_return_time,
         reason: formData.reason,
       });
 

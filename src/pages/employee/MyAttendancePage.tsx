@@ -163,7 +163,7 @@ export default function MyAttendancePage() {
       const summaryList = (summaryData || []) as AttendanceSummaryRecord[];
 
       setLogs(logsData);
-      setSummary(summaryData);
+      setSummary(summaryData as any);
 
       // ── حالة اليوم ────────────────────────────────────────────
       const todaySummary = summaryData.find((s) => s.shift_date === today);
@@ -172,7 +172,7 @@ export default function MyAttendancePage() {
           checked: true,
           checkIn: todaySummary.check_in,
           checkOut: todaySummary.check_out,
-          shiftType: todaySummary.shift_type,
+          shiftType: todaySummary.shift_type as any,
           status: todaySummary.status,
           totalHours: todaySummary.total_hours,
           lateMinutes: todaySummary.late_minutes,

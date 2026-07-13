@@ -131,7 +131,7 @@ export default function GatekeeperPage() {
       .channel('session-updates')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'gatekeeper_sessions', filter: `id=eq.${currentSession.id}` },
         (payload) => {
-          const newSession = payload.new as GatekeeperSession;
+          const newSession = payload.new as unknown as GatekeeperSession;
           if (!newSession.is_active) {
             setCurrentSession(null);
             showToast('تم إغلاق الوردية', 'info');
@@ -181,7 +181,7 @@ export default function GatekeeperPage() {
       });
 
       if (sessions && sessions.length > 0) {
-        const session = sessions[0] as GatekeeperSession;
+        const session = sessions[0] as unknown as GatekeeperSession;
         setCurrentSession(session);
         await loadVisitors(session.id);
         await loadMovements(session.started_at);
@@ -211,7 +211,7 @@ export default function GatekeeperPage() {
   const loadVisitors = async (sessionId: string) => {
     try {
       const logs = await gatekeeperVisitorLogService.findVisitorLogs({ sessionId });
-      if (logs) setVisitors(logs as GatekeeperVisitorLog[]);
+      if (logs) setVisitors(logs as unknown as GatekeeperVisitorLog[]);
     } catch (err) {
       console.error('Error loading visitors:', getErrorMessage(err));
       showToast('فشل في تحميل الزوار', 'error');
@@ -222,7 +222,7 @@ export default function GatekeeperPage() {
     if (!sessionStart) return;
     try {
       const logs = await movementLogService.findMovements({ fromDate: sessionStart });
-      if (logs) setMovements(logs as MovementLog[]);
+      if (logs) setMovements(logs as unknown as MovementLog[]);
       await loadApprovedBreaks();
     } catch (err) {
       console.warn('Failed to load movements:', getErrorMessage(err));
@@ -232,7 +232,7 @@ export default function GatekeeperPage() {
   const loadApprovedBreaks = async () => {
     try {
       const breaks = await employeeBreakService.findActiveBreaks();
-      if (breaks) setApprovedBreaks(breaks as EmployeeBreak[]);
+      if (breaks) setApprovedBreaks(breaks as unknown as EmployeeBreak[]);
     } catch (err) {
       console.warn('Failed to load approved breaks:', getErrorMessage(err));
     }
@@ -285,10 +285,10 @@ export default function GatekeeperPage() {
         is_active: true,
         visitor_count: 0,
         created_by: user?.id,
-      });
-
-      setCurrentSession(newSession as GatekeeperSession);
-      await loadMovements((newSession as GatekeeperSession).started_at);
+      } as any);
+ 
+      setCurrentSession(newSession as unknown as GatekeeperSession);
+      await loadMovements((newSession as unknown as GatekeeperSession).started_at);
       showToast(`تم بدء ${sessionName} بنجاح`, 'success');
     } catch (err) {
       console.error('Start shift error:', getErrorMessage(err));
@@ -358,7 +358,7 @@ export default function GatekeeperPage() {
       const updatedSession = await gatekeeperSessionService.createSession({
         gatekeeper_name: takeoverName.trim(),
         handover_status: 'completed',
-        temp_pin: null,
+        temp_pin: undefined,
         started_at: currentSession.started_at,
         shift_type: currentSession.shift_type,
         session_name: currentSession.session_name,
@@ -367,9 +367,9 @@ export default function GatekeeperPage() {
         is_active: true,
         visitor_count: currentSession.visitor_count,
         created_by: user?.id,
-      });
-      setCurrentSession(updatedSession as GatekeeperSession);
-      await loadMovements((updatedSession as GatekeeperSession).started_at);
+      } as any);
+      setCurrentSession(updatedSession as unknown as GatekeeperSession);
+      await loadMovements((updatedSession as unknown as GatekeeperSession).started_at);
       showToast('تم استلام الوردية بنجاح!', 'success');
     } catch (err) {
       showToast('حدث خطأ أثناء الاستلام: ' + getErrorMessage(err), 'error');
@@ -410,10 +410,10 @@ export default function GatekeeperPage() {
 
         await gatekeeperVisitorLogService.createVisitorLog({
           session_id: currentSession.id,
-          visitor_id: (visitor as { id: string }).id,
+          visitor_id: (visitor as any).id,
           badge_number: `B${Date.now().toString().slice(-6)}`,
           status: 'checked_in',
-        });
+        } as any);
         showToast('تم تسجيل الزائر بنجاح', 'success');
       }
 
@@ -493,7 +493,7 @@ export default function GatekeeperPage() {
         notes,
         logged_by_id: user?.id || '',
         departure_at: new Date().toISOString(),
-      });
+      } as any);
 
       if (approvedBreak) {
         await employeeBreakService.updateBreakStatus(approvedBreak.id, 'out', new Date().toISOString());
@@ -832,7 +832,7 @@ export default function GatekeeperPage() {
                                 {log.returned_at ? (
                                   <span className="text-emerald-600 font-bold">{new Date(log.returned_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</span>
                                 ) : (
-                                  <Button size="sm" variant="outline" onClick={() => { setArrivalData({ id: log.id, employee_name: log.employee_name, destination: log.destination, notes: log.notes }); setActualLocation('عاد لمكان الخروج'); setShowArrivalModal(true); }} className="text-xs">تسجيل عودة</Button>
+                                  <Button size="sm" variant="outline" onClick={() => { setArrivalData({ id: log.id, employee_name: (log as any).employee_name, destination: log.destination, notes: log.notes } as any); setActualLocation('عاد لمكان الخروج'); setShowArrivalModal(true); }} className="text-xs">تسجيل عودة</Button>
                                 )}
                               </td>
                               <td className="table-cell font-bold">{calculateDuration(log.departure_at, log.returned_at ?? null)}</td>

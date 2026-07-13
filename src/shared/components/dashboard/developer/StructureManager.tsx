@@ -134,11 +134,11 @@ export default function StructureManager() {
         structureShiftService.findAll({ orderBy: 'code', ascending: true }),
         structureRoleService.findAll({ orderBy: 'code', ascending: true }),
       ]);
-      if (d) setDepartments(d as Dept[]);
-      if (p) setPositions(p as Pos[]);
-      if (r) setRanks(r as Rank[]);
-      if (s) setShifts(s as Shift[]);
-      if (rolesData) setRoles(rolesData as Role[]);
+      if (d) setDepartments(d as unknown as Dept[]);
+      if (p) setPositions(p as unknown as Pos[]);
+      if (r) setRanks(r as unknown as Rank[]);
+      if (s) setShifts(s as unknown as Shift[]);
+      if (rolesData) setRoles(rolesData as unknown as Role[]);
     } catch (err) {
       addToast('فشل تحميل البيانات', 'error');
     } finally {
@@ -358,11 +358,11 @@ export default function StructureManager() {
                 <div>
                   <p className="font-bold text-slate-800">{(item.name_ar as string) || ''}</p>
                   <p className="text-xs text-slate-500">
-                    {item.name_en && <span className="ml-3">{item.name_en as string}</span>}
-                    {item.code && <span className="font-mono text-indigo-400">{item.code as string}</span>}
+                    {(item.name_en as string) && <span className="ml-3">{item.name_en as any}</span>}
+                    {(item.code as string) && <span className="font-mono text-indigo-400">{item.code as any}</span>}
                     {item.level !== undefined && <span className="mr-3">مستوى {String(item.level)}</span>}
-                    {item.department_id && <span className="mr-3">← {getDeptName(item.department_id as number)}</span>}
-                    {item.start_time && <span className="mr-3">{item.start_time as string} - {item.end_time as string}</span>}
+                    {(item.department_id as number) && <span className="mr-3">← {getDeptName(item.department_id as number)}</span>}
+                    {(item.start_time as string) && <span className="mr-3">{item.start_time as any} - {item.end_time as any}</span>}
                   </p>
                 </div>
               </div>

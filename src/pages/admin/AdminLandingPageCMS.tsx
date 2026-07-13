@@ -773,8 +773,8 @@ export default function AdminLandingPageCMS() {
                     <div className="space-y-5">
                       <Field label="اللون الرئيسي" hint="سيؤثر على الأزرار والروابط والعناصر البصرية">
                         <div className="flex items-center gap-3">
-                          <input type="color" name="themeColor" value={config.themeColor} onChange={handleChange} className="w-14 h-11 rounded-xl cursor-pointer border-2 border-slate-200 p-0.5 hover:border-indigo-300 transition-colors" />
-                          <Input name="themeColor" value={config.themeColor} onChange={handleChange} dir="ltr" placeholder="#4f46e5" />
+                          <input type="color" name="themeColor" value={config.themeColor ?? ""} onChange={handleChange} className="w-14 h-11 rounded-xl cursor-pointer border-2 border-slate-200 p-0.5 hover:border-indigo-300 transition-colors" />
+                          <Input name="themeColor" value={config.themeColor ?? ""} onChange={handleChange} dir="ltr" placeholder="#4f46e5" />
                         </div>
                       </Field>
                       <div>
@@ -805,17 +805,17 @@ export default function AdminLandingPageCMS() {
 
                 <SectionCard title="اسم الشركة والعلامة التجارية" icon={Hash} iconColor="text-slate-600" iconBg="bg-slate-100">
                   <div className="grid md:grid-cols-2 gap-6">
-                    <Field label="اسم الشركة (عربي)" required><Input name="logoTextAr" value={config.logoTextAr} onChange={handleChange} placeholder="Kyvzon" /></Field>
-                    <Field label="Company Name (English)" required><Input name="logoTextEn" value={config.logoTextEn} onChange={handleChange} placeholder="Kyvzon" dir="ltr" /></Field>
+                    <Field label="اسم الشركة (عربي)" required><Input name="logoTextAr" value={config.logoTextAr ?? ""} onChange={handleChange} placeholder="Kyvzon" /></Field>
+                    <Field label="Company Name (English)" required><Input name="logoTextEn" value={config.logoTextEn ?? ""} onChange={handleChange} placeholder="Kyvzon" dir="ltr" /></Field>
                   </div>
                 </SectionCard>
 
                 <SectionCard title="شعار الشركة" icon={ImageIcon} iconColor="text-rose-600" iconBg="bg-rose-50">
                   <div className="grid lg:grid-cols-2 gap-6 lg:gap-8">
                     <div className="space-y-5">
-                      <ImageUpload label="صورة الشعار" value={config.logoUrl} onChange={url => updateConfig({ logoUrl: url })} aspectRatio="square" />
+                      <ImageUpload label="صورة الشعار" value={config.logoUrl ?? ""} onChange={url => updateConfig({ logoUrl: url })} aspectRatio="square" />
                       <Divider label="أو" />
-                      <Field label="الرمز الاحتياطي" hint="يظهر إذا لم توجد صورة شعار"><Input name="logoSymbol" value={config.logoSymbol} onChange={handleChange} placeholder="◆ ★ ✦" className="text-center text-2xl" /></Field>
+                      <Field label="الرمز الاحتياطي" hint="يظهر إذا لم توجد صورة شعار"><Input name="logoSymbol" value={config.logoSymbol ?? ""} onChange={handleChange} placeholder="◆ ★ ✦" className="text-center text-2xl" /></Field>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-4 bg-slate-50 rounded-2xl p-8 border border-slate-100">
                       {config.logoUrl ? (
@@ -840,13 +840,13 @@ export default function AdminLandingPageCMS() {
                   <div className="grid lg:grid-cols-2 gap-6 lg:gap-8">
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 pb-2 border-b border-slate-100"><span className="text-lg">🇸🇦</span><p className="text-sm font-black text-slate-600">المحتوى العربي</p></div>
-                      <Field label="العنوان الرئيسي" required><Textarea name="heroTitleAr" value={config.heroTitleAr} onChange={handleChange} placeholder="نبني مستقبلاً أكثر صحة..." rows={2} /></Field>
-                      <Field label="الوصف"><Textarea name="heroDescAr" value={config.heroDescAr} onChange={handleChange} placeholder="وصف مختصر وجذاب..." rows={4} /></Field>
+                      <Field label="العنوان الرئيسي" required><Textarea name="heroTitleAr" value={config.heroTitleAr ?? ""} onChange={handleChange} placeholder="نبني مستقبلاً أكثر صحة..." rows={2} /></Field>
+                      <Field label="الوصف"><Textarea name="heroDescAr" value={config.heroDescAr ?? ""} onChange={handleChange} placeholder="وصف مختصر وجذاب..." rows={4} /></Field>
                     </div>
                     <div className="space-y-4" dir="ltr">
                       <div className="flex items-center gap-2 pb-2 border-b border-slate-100"><span className="text-lg">🇬🇧</span><p className="text-sm font-black text-slate-600">English Content</p></div>
-                      <Field label="Hero Title" required><Textarea name="heroTitleEn" value={config.heroTitleEn} onChange={handleChange} placeholder="Building a healthier future..." rows={2} dir="ltr" /></Field>
-                      <Field label="Hero Description"><Textarea name="heroDescEn" value={config.heroDescEn} onChange={handleChange} placeholder="Short compelling description..." rows={4} dir="ltr" /></Field>
+                      <Field label="Hero Title" required><Textarea name="heroTitleEn" value={config.heroTitleEn ?? ""} onChange={handleChange} placeholder="Building a healthier future..." rows={2} dir="ltr" /></Field>
+                      <Field label="Hero Description"><Textarea name="heroDescEn" value={config.heroDescEn ?? ""} onChange={handleChange} placeholder="Short compelling description..." rows={4} dir="ltr" /></Field>
                     </div>
                   </div>
                 </SectionCard>

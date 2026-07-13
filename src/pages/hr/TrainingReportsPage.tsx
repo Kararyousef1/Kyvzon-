@@ -288,8 +288,8 @@ export default function TrainingReportsPage() {
           department: deptMap.get(e.department_id || '') || '',
           role: e.role || 'employee',
         }));
-        setCourses((coursesData as CourseDB[]) || []);
-        setCourseProgress((progressData as CourseProgressDB[]) || []);
+        setCourses((coursesData as unknown as CourseDB[]) || []);
+        setCourseProgress((progressData as unknown as CourseProgressDB[]) || []);
         setProfiles(normalizedProfiles);
       } catch (err) {
         console.error('Failed to load training data:', getErrorMessage(err));

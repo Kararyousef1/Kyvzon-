@@ -28,7 +28,7 @@ export interface HrMessageInput {
   status?: 'new' | 'read' | 'replied';
 }
 
-class MessageService extends BaseService {
+class MessageService extends BaseService<HrMessageRecord> {
   constructor() {
     super('hr_messages');
   }
@@ -51,7 +51,7 @@ class MessageService extends BaseService {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as HrMessageRecord[];
+      return (data || []) as unknown as HrMessageRecord[];
     } catch (error) {
       console.error('MessageService.findAllWithProfiles error:', error);
       return [];
@@ -62,21 +62,21 @@ class MessageService extends BaseService {
    * إنشاء رسالة جديدة
    */
   async createMessage(data: HrMessageInput): Promise<HrMessageRecord> {
-    return this.create(data as unknown as Record<string, unknown>) as Promise<HrMessageRecord>;
+    return this.create(data as unknown as Partial<HrMessageRecord>);
   }
 
   /**
    * تحديث حالة الرسالة
    */
   async updateMessageStatus(id: string, status: 'new' | 'read' | 'replied'): Promise<HrMessageRecord> {
-    return this.update(id, { status } as unknown as Record<string, unknown>) as Promise<HrMessageRecord>;
+    return this.update(id, { status } as unknown as Partial<HrMessageRecord>);
   }
 
   /**
    * جلب رسالة واحدة
    */
   async findMessageById(id: string): Promise<HrMessageRecord | null> {
-    return this.findById(id) as Promise<HrMessageRecord | null>;
+    return this.findById(id);
   }
 }
 

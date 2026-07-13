@@ -7,8 +7,9 @@
  */
 
 import { BaseService } from './BaseService';
+import type { OnboardingTaskRecord } from '../../shared/types/sdk';
 
-class OnboardingTaskService extends BaseService {
+class OnboardingTaskService extends BaseService<OnboardingTaskRecord> {
   constructor() { super('onboarding_tasks'); }
   async findActiveTasks(): Promise<any[]> {
     return this.findAll({ filters: { is_active: true }, orderBy: 'sort_order', ascending: true });

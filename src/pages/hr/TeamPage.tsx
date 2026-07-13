@@ -72,7 +72,7 @@ export default function TeamPage() {
         const mappedData = (profilesData || []).map(profile => {
           const empIncidents = incidentsData.filter(i => i.reported_by === profile.id && i.status !== 'closed' && i.status !== 'resolved');
           const empWellness = wellnessData.filter(w => w.employee_id === profile.id);
-          const avgWellness = empWellness.length > 0 ? Math.round(empWellness.reduce((a, b) => a + b.score, 0) / empWellness.length) : 0;
+          const avgWellness = empWellness.length > 0 ? Math.round(empWellness.reduce((a, b) => a + (b.mood_score ?? 0), 0) / empWellness.length) : 0;
           const empCerts = certsData.filter(c => c.employee_id === profile.id).length;
           return {
             ...profile,

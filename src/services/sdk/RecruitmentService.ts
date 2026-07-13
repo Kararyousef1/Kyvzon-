@@ -7,8 +7,9 @@
  */
 
 import { BaseService } from './BaseService';
+import type { JobPostingRecord } from '../../shared/types/sdk';
 
-class JobPostingService extends BaseService {
+class JobPostingService extends BaseService<JobPostingRecord> {
   constructor() { super('job_postings'); }
   async findAllPostings(): Promise<any[]> {
     return this.findAll({ orderBy: 'created_at', ascending: false });

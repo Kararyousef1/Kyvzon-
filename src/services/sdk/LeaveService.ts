@@ -1,21 +1,30 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  LeaveService - خدمة الإجازات (نسخة SDK جديدة)
- *  مسؤولة عن: Leave Requests, Balance, Settings, Holidays
+ *  LeaveService - خدمة الإجازات (نسخة SDK معممة)
+ *  Domain: Leave Management
+ *  تشمل: طلبات الإجازات, الرصيد, الإعدادات, العطل
  * ════════════════════════════════════════════════════════════════
  */
 
 import { BaseService } from './BaseService';
+import type {
+  LeaveRecord,
+  LeaveBalanceRecord,
+  LeaveSettingsRecord,
+  HolidayRecord,
+} from '../../shared/types/sdk';
 
-class LeaveService extends BaseService {
+// ─────────────────────────────────────────────────
+//  Leave Requests
+// ─────────────────────────────────────────────────
+
+class LeaveService extends BaseService<LeaveRecord> {
   constructor() {
     super('leaves');
   }
 
-  /**
-   * جلب إجازات موظف معين
-   */
-  async findLeavesByEmployee(employeeId: string): Promise<any[]> {
+  /** جلب إجازات موظف معين */
+  async findLeavesByEmployee(employeeId: string): Promise<LeaveRecord[]> {
     return this.findAll({
       filters: { employee_id: employeeId },
       orderBy: 'created_at',
@@ -23,9 +32,7 @@ class LeaveService extends BaseService {
     });
   }
 
-  /**
-   * إنشاء طلب إجازة جديد
-   */
+  /** إنشاء طلب إجازة جديد */
   async createLeave(data: {
     employee_id: string;
     leave_type: string;
@@ -34,45 +41,39 @@ class LeaveService extends BaseService {
     working_days_count?: number;
     reason?: string;
     attachment_url?: string;
-  }): Promise<any> {
-    return this.create(data as unknown as Record<string, unknown>);
+  }): Promise<LeaveRecord> {
+    return this.create(data as unknown as Partial<LeaveRecord>);
   }
 
-  /**
-   * الموافقة على إجازة
-   */
-  async approveLeave(id: string, approvedBy: string): Promise<any> {
+  /** الموافقة على إجازة */
+  async approveLeave(id: string, approvedBy: string): Promise<LeaveRecord> {
     return this.update(id, {
       status: 'موافق',
       approved_by: approvedBy,
-    } as unknown as Record<string, unknown>);
+    } as unknown as Partial<LeaveRecord>);
   }
 
-  /**
-   * رفض إجازة
-   */
-  async rejectLeave(id: string, approvedBy: string, reason?: string): Promise<any> {
+  /** رفض إجازة */
+  async rejectLeave(id: string, approvedBy: string, reason?: string): Promise<LeaveRecord> {
     return this.update(id, {
       status: 'مرفوض',
       approved_by: approvedBy,
       rejection_reason: reason || null,
-    } as unknown as Record<string, unknown>);
+    } as unknown as Partial<LeaveRecord>);
   }
 }
 
 // ─────────────────────────────────────────────────
-//  Leave Balance Service
+//  Leave Balance
 // ─────────────────────────────────────────────────
 
-class LeaveBalanceService extends BaseService {
+class LeaveBalanceService extends BaseService<LeaveBalanceRecord> {
   constructor() {
     super('leave_balance');
   }
 
-  /**
-   * جلب رصيد إجازات موظف
-   */
-  async findBalanceByEmployee(employeeId: string, year?: number): Promise<any | null> {
+  /** جلب رصيد إجازات موظف */
+  async findBalanceByEmployee(employeeId: string, year?: number): Promise<LeaveBalanceRecord | null> {
     const yearValue = year || new Date().getFullYear();
     const records = await this.findAll({
       filters: { employee_id: employeeId, year: yearValue },
@@ -81,45 +82,45 @@ class LeaveBalanceService extends BaseService {
     return records.length > 0 ? records[0] : null;
   }
 
-  /**
-   * الحصول على ملخص رصيد الإجازات
-   */
-  async getBalanceSummary(employeeId: string): Promise<any> {
+  /** ملخص رصيد الإجازات */
+  async getBalanceSummary(employeeId: string): Promise<{
+    employee_id: string;
+    year: number;
+    annual: { total: number; used: number; pending: number; remaining: number };
+    sick: { total: number; used: number; pending: number; remaining: number };
+  }> {
     const currentYear = new Date().getFullYear();
     const balance = await this.findBalanceByEmployee(employeeId, currentYear);
 
-    return {
-      employee_id: employeeId,
-      year: currentYear,
-      annual: balance ? {
-        total: balance.annual_total || 0,
-        used: balance.annual_used || 0,
-        pending: balance.annual_pending || 0,
-        remaining: (balance.annual_total || 0) - (balance.annual_used || 0) - (balance.annual_pending || 0),
-      } : { total: 0, used: 0, pending: 0, remaining: 0 },
-      sick: balance ? {
-        total: balance.sick_total || 30,
-        used: balance.sick_used || 0,
-        pending: balance.sick_pending || 0,
-        remaining: (balance.sick_total || 30) - (balance.sick_used || 0) - (balance.sick_pending || 0),
-      } : { total: 30, used: 0, pending: 0, remaining: 30 },
-    };
+    const annual = balance ? {
+      total: balance.annual_total || 0,
+      used: balance.annual_used || 0,
+      pending: balance.annual_pending || 0,
+      remaining: (balance.annual_total || 0) - (balance.annual_used || 0) - (balance.annual_pending || 0),
+    } : { total: 0, used: 0, pending: 0, remaining: 0 };
+
+    const sick = balance ? {
+      total: balance.sick_total || 30,
+      used: balance.sick_used || 0,
+      pending: balance.sick_pending || 0,
+      remaining: (balance.sick_total || 30) - (balance.sick_used || 0) - (balance.sick_pending || 0),
+    } : { total: 30, used: 0, pending: 0, remaining: 30 };
+
+    return { employee_id: employeeId, year: currentYear, annual, sick };
   }
 }
 
 // ─────────────────────────────────────────────────
-//  Leave Settings Service
+//  Leave Settings
 // ─────────────────────────────────────────────────
 
-class LeaveSettingsService extends BaseService {
+class LeaveSettingsService extends BaseService<LeaveSettingsRecord> {
   constructor() {
     super('leave_settings');
   }
 
-  /**
-   * جلب إعدادات نوع إجازة معين
-   */
-  async findSettingsByType(leaveType: string): Promise<any | null> {
+  /** جلب إعدادات نوع إجازة */
+  async findSettingsByType(leaveType: string): Promise<LeaveSettingsRecord | null> {
     const records = await this.findAll({
       filters: { leave_type: leaveType },
       limit: 1,
@@ -127,34 +128,28 @@ class LeaveSettingsService extends BaseService {
     return records.length > 0 ? records[0] : null;
   }
 
-  /**
-   * جلب جميع إعدادات الإجازات
-   */
-  async findAllSettings(): Promise<any[]> {
+  /** جلب جميع إعدادات الإجازات */
+  async findAllSettings(): Promise<LeaveSettingsRecord[]> {
     return this.findAll({ orderBy: 'leave_type', ascending: true });
   }
 }
 
 // ─────────────────────────────────────────────────
-//  Holiday Service
+//  Holidays
 // ─────────────────────────────────────────────────
 
-class HolidayService extends BaseService {
+class HolidayService extends BaseService<HolidayRecord> {
   constructor() {
     super('holidays');
   }
 
-  /**
-   * جلب العطل في نطاق تاريخ
-   */
-  async findHolidaysInRange(fromDate: string, toDate: string): Promise<any[]> {
+  /** جلب العطل في نطاق تاريخ */
+  async findHolidaysInRange(fromDate: string, toDate: string): Promise<HolidayRecord[]> {
     const all = await this.findAll({ orderBy: 'date', ascending: true });
-    return all.filter((h: any) => h.date >= fromDate && h.date <= toDate);
+    return all.filter((h) => h.date >= fromDate && h.date <= toDate);
   }
 
-  /**
-   * هل اليوم عطلة؟
-   */
+  /** هل اليوم عطلة؟ */
   async isHoliday(date: string): Promise<boolean> {
     const count = await this.count({ date });
     return count > 0;

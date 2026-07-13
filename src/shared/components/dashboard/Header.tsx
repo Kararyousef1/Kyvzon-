@@ -338,7 +338,7 @@ export default function Header() {
             >
               {(user?.profile_image || user?.avatar) ? (
                 <img
-                  src={user.profile_image || user.avatar || ''}
+                  src={(user.profile_image ?? user.avatar ?? '') || ''}
                   alt={displayName}
                   className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-cover ring-2 ring-white shadow-sm"
                 />
@@ -364,7 +364,7 @@ export default function Header() {
                   <div className="flex items-center gap-3">
                     {user?.profile_image || user?.avatar ? (
                       <img
-                        src={user.profile_image || user.avatar}
+                        src={(user.profile_image ?? user.avatar ?? '')}
                         alt={displayName}
                         className="w-12 h-12 rounded-xl object-cover ring-2 ring-white shadow"
                       />

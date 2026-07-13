@@ -141,7 +141,7 @@ export default function KioskPage() {
         orderBy: 'punch_time',
         ascending: false,
       });
-      setTodayLogs((logs || []) as AttendanceLogRecord[]);
+      setTodayLogs((logs || []) as unknown as AttendanceLogRecord[]);
 
       // جلب ملخص الحضور لليوم
       const summaries = await attendanceSummaryService.findAll({
@@ -149,16 +149,16 @@ export default function KioskPage() {
       });
 
       const statusMap = new Map<string, EmployeeStatus>();
-      (summaries || []).forEach((s: EmployeeStatus) => {
+      (summaries || []).forEach((s: any) => {
         statusMap.set(s.employee_id, s);
       });
       setEmployeeStatuses(statusMap);
 
       // إحصائيات
-      const present = (summaries || []).filter((s: EmployeeStatus) =>
+      const present = (summaries || []).filter((s: any , EmployeeStatus) =>
         s.status === 'حضور_بوقت' || s.status === 'متأخر' || s.status === 'زمنية_معتمدة' || s.status === 'زمنية_انتظار'
       ).length;
-      const onLeave = (summaries || []).filter((s: EmployeeStatus) =>
+      const onLeave = (summaries || []).filter((s: any , EmployeeStatus) =>
         s.status === 'مجاز' || s.status === 'إجازة_انتظار'
       ).length;
 

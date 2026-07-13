@@ -1,140 +1,77 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  WellnessService - خدمة العافية (نسخة SDK جديدة)
- *  مسؤولة عن: Wellness Log, Wellness Entries
+ *  WellnessService - خدمة الصحة النفسية
  * ════════════════════════════════════════════════════════════════
  */
 
 import { BaseService } from './BaseService';
+import type { WellnessEntryRecord } from '../../shared/types/sdk';
 
-class WellnessService extends BaseService {
-  constructor() {
-    super('wellness_entries');
+class WellnessService extends BaseService<WellnessEntryRecord> {
+  constructor() { super('wellness_entries'); }
+
+  async findByEmployee(employeeId: string): Promise<WellnessEntryRecord[]> {
+    return this.findAll({ filters: { employee_id: employeeId }, orderBy: 'date', ascending: false });
   }
 
-  /**
-   * جلب سجلات العافية لموظف
-   */
-  async findByEmployee(employeeId: string, limit: number = 30): Promise<any[]> {
-    return this.findAll({
-      filters: { employee_id: employeeId },
-      orderBy: 'date',
-      ascending: false,
-      limit,
-    });
+  async findRecent(employeeId: string, days: number = 7): Promise<WellnessEntryRecord[]> {
+    const all = await this.findByEmployee(employeeId);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    return all.filter(e => new Date(e.date) >= cutoff);
   }
 
-  /**
-   * إضافة سجل عافية جديد
-   */
-  async logEntry(data: {
-    employee_id: string;
-    score: number;
-    mood: string;
-    stress: number;
-    energy: number;
-    notes?: string;
-  }): Promise<any> {
-    return this.create(data as unknown as Record<string, unknown>);
+  async createEntry(data: {
+    employee_id: string; mood_score?: number; stress_level?: number;
+    energy_level?: number; notes?: string; date: string;
+  }): Promise<WellnessEntryRecord> {
+    return this.create(data as unknown as Partial<WellnessEntryRecord>);
   }
 
-  /**
-   * متوسط درجات العافية
-   */
-  async getAverageScore(employeeId: string): Promise<number> {
-    const entries = await this.findByEmployee(employeeId, 30);
+  async getAverageScore(employeeId: string, days: number = 30): Promise<number> {
+    const entries = await this.findRecent(employeeId, days);
     if (entries.length === 0) return 0;
-    const total = entries.reduce((sum: number, e: any) => sum + (e.score || 0), 0);
-    return Math.round(total / entries.length);
+    return Math.round(entries.reduce((sum, e) => sum + (e.mood_score || 0), 0) / entries.length);
   }
 }
 
-// ─────────────────────────────────────────────────
-//  Wellness Entries Service (جدول wellness_entries)
-//  موسّع ضمن نفس Domain Wellness
-// ─────────────────────────────────────────────────
+class WellnessEntryService extends BaseService<WellnessEntryRecord> {
+  constructor() { super('wellness_entries'); }
 
-class WellnessEntryService extends BaseService {
-  constructor() {
-    super('wellness_entries');
+  async findAllEntries(): Promise<WellnessEntryRecord[]> {
+    return this.findAll({ orderBy: 'date', ascending: false });
   }
 
-  /**
-   * جلب جميع سجلات العافية
-   */
-  async findAllEntries(): Promise<any[]> {
-    return this.findAll({
-      orderBy: 'date',
-      ascending: false,
-    });
-  }
-
-  /**
-   * جلب سجلات العافية لموظف
-   */
-  async findByEmployee(employeeId: string): Promise<any[]> {
-    return this.findAll({
-      filters: { employee_id: employeeId },
-      orderBy: 'date',
-      ascending: false,
-    });
-  }
-
-  /**
-   * جلب سجل اليوم لمستخدم (حسب user_id + date)
-   */
-  async getTodayEntry(userId: string, date: string): Promise<any | null> {
-    const records = await this.findAll({
-      filters: { user_id: userId, date },
-      limit: 1,
-    });
-    return records.length > 0 ? records[0] : null;
-  }
-
-  /**
-   * حفظ سجل اليوم (إنشاء أو تحديث)
-   */
-  async saveEntry(userId: string, data: Record<string, unknown>): Promise<any> {
-    const date = data.date as string;
-    const existing = await this.getTodayEntry(userId, date);
-    if (existing) {
-      return this.update(existing.id, { ...data, updated_at: new Date().toISOString() });
+  /** @deprecated استخدم findByEmployee */
+  async findByUser(userId: string, days?: number): Promise<WellnessEntryRecord[]> {
+    const records = await this.findAll({ filters: { employee_id: userId }, orderBy: 'date', ascending: false });
+    if (days) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      return records.filter(e => new Date(e.date) >= cutoff);
     }
-    return this.create({ ...data, user_id: userId, created_at: new Date().toISOString() });
+    return records;
   }
 
-  /**
-   * جلب سجلات مستخدم
-   */
-  async findByUser(userId: string, limit: number = 30): Promise<any[]> {
-    return this.findAll({
-      filters: { user_id: userId },
-      orderBy: 'date',
-      ascending: false,
-      limit,
-    });
+  /** إحصائيات سريعة للصحة النفسية */
+  async getStats(userId: string, days: number = 7): Promise<{ average: number; entries: number; trend: number[] }> {
+    const entries = await this.findByUser(userId, days);
+    const avg = entries.length > 0
+      ? Math.round(entries.reduce((sum, e) => sum + (e.mood_score || 0), 0) / entries.length)
+      : 0;
+    const trend = entries.slice(0, 7).map(e => e.mood_score || 0).reverse();
+    return { average: avg, entries: entries.length, trend };
   }
 
-  /**
-   * حذف سجل مع التأكد من ملكيته
-   */
-  async deleteEntry(id: string, userId?: string): Promise<boolean> {
-    if (userId) {
-      const entry = await this.findById(id);
-      if (!entry || entry.user_id !== userId) return false;
-    }
-    return this.delete(id);
-  }
-
-  /**
-   * إحصائيات سريعة (متوسط آخر N سجل)
-   */
-  async getStats(userId: string, days: number = 7): Promise<{ avgScore: number; count: number }> {
-    const records = await this.findByUser(userId, days);
-    const scores = records.map((r: any) => r.score || 0);
-    const count = scores.length;
-    const avgScore = count > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / count) : 0;
-    return { avgScore, count };
+  /** حفظ أو تحديث إدخال صحي */
+  async saveEntry(userId: string, data: {
+    mood_score?: number; stress_level?: number;
+    energy_level?: number; notes?: string; date: string;
+  }): Promise<WellnessEntryRecord> {
+    return this.create({
+      employee_id: userId,
+      ...data,
+    } as unknown as Partial<WellnessEntryRecord>);
   }
 }
 

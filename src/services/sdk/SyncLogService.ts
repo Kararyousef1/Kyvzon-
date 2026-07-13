@@ -6,8 +6,9 @@
  */
 
 import { BaseService } from './BaseService';
+import type { SyncLogRecord } from '../../shared/types/sdk';
 
-class SyncLogService extends BaseService {
+class SyncLogService extends BaseService<SyncLogRecord> {
   constructor() {
     super('sync_log');
   }
