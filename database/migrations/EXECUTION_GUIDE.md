@@ -41,10 +41,11 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 | **7** | `009_tawathul_rls_and_features.sql` | RLS والمرفقات والتفاعلات والإشعارات | يعتمد على 007 |
 | **8** | `004_fixes_and_patches.sql` | التصحيحات | يُفضل بعد 001-007 |
 | **9** | `008_final_cleanup.sql` | التنظيف النهائي | قبل hardening |
-| **10** | `103_secure_tenant_isolation.sql` | عزل tenant مبني على auth.uid() | بعد اكتمال schema ووجود `profiles.tenant_id` |
-| **11** | `104_device_sync_nonces.sql` | منع إعادة إرسال طلبات ZKTeco الموقعة | قبل تفعيل `zkteco-sync` |
-| **12** | `105_hr_modules_tenant_rls.sql` | إضافة tenant_id وRLS لوحدات HR | بعد إنشاء جداول 999 وقبل إدخال بيانات production |
-| **13** | `106_harden_system_settings.sql` | حماية الإعدادات وفصل landing عن AI settings | بعد 103 وقبل فتح public landing |
+| **10** | `999_fix_all_missing_tables.sql` | إنشاء جداول HR الإضافية | Staging/قاعدة فارغة فقط بسبب DROP تاريخي |
+| **11** | `103_secure_tenant_isolation.sql` | عزل tenant مبني على auth.uid() | بعد اكتمال schema ووجود `profiles.tenant_id` |
+| **12** | `104_device_sync_nonces.sql` | منع إعادة إرسال طلبات ZKTeco الموقعة | قبل تفعيل `zkteco-sync` |
+| **13** | `105_hr_modules_tenant_rls.sql` | إضافة tenant_id وRLS لوحدات HR | بعد إنشاء جداول 999 وقبل إدخال بيانات production |
+| **14** | `106_harden_system_settings.sql` | حماية الإعدادات وفصل landing عن AI settings | بعد 103 وقبل فتح public landing |
 
 ---
 
