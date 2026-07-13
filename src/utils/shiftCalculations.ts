@@ -4,7 +4,7 @@
 // ============================================================================
 
 import type { ShiftType, ShiftsConfig, AttendanceContext, AttendanceStatus, ShiftWindows, AttendanceLog, AttendanceSummary } from './shiftTypes';
-import { DEFAULT_SHIFT_TIMINGS, DEFAULT_SHIFT_WINDOWS, DEFAULT_POLICY } from './shiftConfig';
+import { DEFAULT_BUSINESS_TIME_ZONE, DEFAULT_SHIFT_TIMINGS, DEFAULT_SHIFT_WINDOWS, DEFAULT_POLICY } from './shiftConfig';
 
 // ─── أدوات مساعدة للوقت ─────────────────────────────────────────
 
@@ -22,10 +22,34 @@ export function minutesToTime(minutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-/** تحويل ISO timestamp إلى دقائق */
+/**
+ * استخراج وقت العمل من timestamp في منطقة الشركة، لا في منطقة الجهاز/CI.
+ * هذا يمنع اختلاف نتائج الحضور بين المتصفح وبيئة الاختبار والخادم.
+ */
+function getBusinessTimeMinutes(value: string | Date): number {
+  if (typeof value === 'string' && /^\d{1,2}:\d{2}$/.test(value)) {
+    return timeToMinutes(value);
+  }
+
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid timestamp: ${String(value)}`);
+  }
+
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: DEFAULT_BUSINESS_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? 0);
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? 0);
+  return hour * 60 + minute;
+}
+
+/** تحويل ISO timestamp إلى دقائق في منطقة أعمال بغداد */
 export function timestampToMinutes(isoString: string): number {
-  const date = new Date(isoString);
-  return date.getHours() * 60 + date.getMinutes();
+  return getBusinessTimeMinutes(isoString);
 }
 
 /** تحويل ISO timestamp إلى نص HH:mm */
@@ -60,9 +84,7 @@ export function determineShift(
   punchTime: string | Date,
   windows: ShiftWindows = DEFAULT_SHIFT_WINDOWS
 ): ShiftType {
-  const minutes = typeof punchTime === 'string'
-    ? timestampToMinutes(punchTime)
-    : punchTime.getHours() * 60 + punchTime.getMinutes();
+  const minutes = getBusinessTimeMinutes(punchTime);
 
   const صباحيFrom = timeToMinutes(windows.صباحي.from);
   const صباحيTo = timeToMinutes(windows.صباحي.to);
@@ -96,9 +118,7 @@ export function calculateLateMinutes(
   shiftTimings: ShiftsConfig = DEFAULT_SHIFT_TIMINGS,
   gracePeriodMinutes: number = DEFAULT_POLICY.late.gracePeriodMinutes
 ): number {
-  const checkInMinutes = typeof checkInTime === 'string'
-    ? timestampToMinutes(checkInTime)
-    : checkInTime.getHours() * 60 + checkInTime.getMinutes();
+  const checkInMinutes = getBusinessTimeMinutes(checkInTime);
 
   const shiftStartMinutes = timeToMinutes(shiftTimings[shiftType].start);
 
@@ -121,21 +141,18 @@ export function calculateEarlyLeaveMinutes(
   shiftType: ShiftType,
   shiftTimings: ShiftsConfig = DEFAULT_SHIFT_TIMINGS
 ): number {
-  const checkOutMinutes = typeof checkOutTime === 'string'
-    ? timestampToMinutes(checkOutTime)
-    : checkOutTime.getHours() * 60 + checkOutTime.getMinutes();
+  let checkOutMinutes = getBusinessTimeMinutes(checkOutTime);
+  const shiftStartMinutes = timeToMinutes(shiftTimings[shiftType].start);
+  let shiftEndMinutes = timeToMinutes(shiftTimings[shiftType].end);
+  const crossesMidnight = shiftEndMinutes <= shiftStartMinutes;
 
-  const shiftEndMinutes = timeToMinutes(shiftTimings[shiftType].end);
-
-  if (checkOutMinutes >= shiftEndMinutes) return 0;
-
-  if (shiftType === 'ليلي') {
-    if (checkOutMinutes < shiftEndMinutes && checkOutMinutes >= 0) {
-      return shiftEndMinutes - checkOutMinutes;
-    }
+  if (crossesMidnight) {
+    shiftEndMinutes += 1440;
+    if (checkOutMinutes < shiftStartMinutes) checkOutMinutes += 1440;
   }
 
-  return shiftEndMinutes - checkOutMinutes;
+  if (checkOutMinutes >= shiftEndMinutes) return 0;
+  return Math.max(0, shiftEndMinutes - checkOutMinutes);
 }
 
 /** حساب دقائق الأوفرتايم (الوقت الإضافي) */
@@ -162,15 +179,16 @@ export function calculateDetailedOvertime(
   shiftType: ShiftType,
   shiftTimings: ShiftsConfig = DEFAULT_SHIFT_TIMINGS
 ): { beforeShift: number; afterShift: number; totalOvertime: number } {
-  const checkInMin = typeof checkIn === 'string'
-    ? timestampToMinutes(checkIn)
-    : checkIn.getHours() * 60 + checkIn.getMinutes();
-  const checkOutMin = typeof checkOut === 'string'
-    ? timestampToMinutes(checkOut)
-    : checkOut.getHours() * 60 + checkOut.getMinutes();
+  const checkInMin = getBusinessTimeMinutes(checkIn);
+  let checkOutMin = getBusinessTimeMinutes(checkOut);
 
   const shiftStart = timeToMinutes(shiftTimings[shiftType].start);
-  const shiftEnd = timeToMinutes(shiftTimings[shiftType].end);
+  let shiftEnd = timeToMinutes(shiftTimings[shiftType].end);
+  const crossesMidnight = shiftEnd <= shiftStart;
+  if (crossesMidnight) {
+    shiftEnd += 1440;
+    if (checkOutMin < shiftStart) checkOutMin += 1440;
+  }
 
   let beforeShift = 0;
   let afterShift = 0;
@@ -181,12 +199,6 @@ export function calculateDetailedOvertime(
 
   if (checkOutMin > shiftEnd) {
     afterShift = checkOutMin - shiftEnd;
-  }
-
-  if (shiftType === 'ليلي') {
-    if (checkInMin < shiftStart && shiftStart >= 1200) {
-      beforeShift = shiftStart - checkInMin;
-    }
   }
 
   return { beforeShift, afterShift, totalOvertime: beforeShift + afterShift };
@@ -231,11 +243,11 @@ export function classifyLateness(
   halfDayThreshold: number = DEFAULT_POLICY.late.halfDayThreshold,
   fullDayThreshold: number = DEFAULT_POLICY.late.fullDayThreshold
 ): { type: 'none' | 'simple' | 'moderate' | 'half_day' | 'full_day'; label: string } {
-  const effectiveLate = lateMinutes - gracePeriodMinutes;
-  if (effectiveLate <= 0) return { type: 'none', label: 'في الوقت' };
-  if (effectiveLate < 30) return { type: 'simple', label: 'تأخير بسيط' };
-  if (effectiveLate < halfDayThreshold) return { type: 'moderate', label: 'تأخير متوسط' };
-  if (effectiveLate < fullDayThreshold) return { type: 'half_day', label: 'نصف يوم غياب' };
+  // السماح يحدد فقط حالة "في الوقت"؛ حدود التصنيف تقاس من التأخير الخام.
+  if (lateMinutes <= gracePeriodMinutes) return { type: 'none', label: 'في الوقت' };
+  if (lateMinutes < 30) return { type: 'simple', label: 'تأخير بسيط' };
+  if (lateMinutes < halfDayThreshold) return { type: 'moderate', label: 'تأخير متوسط' };
+  if (lateMinutes < fullDayThreshold) return { type: 'half_day', label: 'نصف يوم غياب' };
   return { type: 'full_day', label: 'غياب كامل' };
 }
 
@@ -253,10 +265,11 @@ export function determineAttendanceStatus(context: AttendanceContext): Attendanc
     isFriday, isHoliday, shiftType, checkOut
   } = context;
 
+  // العطلة الرسمية/الجمعة لها أولوية حتى لو وصلت بصمة.
+  if (isFriday || isHoliday) return 'عطلة';
+
   // الموظف لم يبصم
   if (!hasPunch) {
-    if (isFriday) return 'عطلة';
-    if (isHoliday) return 'عطلة';
     if (hasApprovedLeave) return 'مجاز';
     if (hasPendingLeave) return 'إجازة_انتظار';
     return 'غائب';
@@ -297,7 +310,8 @@ export function extractPunchTimes(
 
   return {
     checkIn: sorted[0],
-    checkOut: sorted[sorted.length - 1],
+    // بصمة واحدة تعني دخولاً فقط؛ لا نختلق وقت خروج.
+    checkOut: sorted.length > 1 ? sorted[sorted.length - 1] : undefined,
   };
 }
 
@@ -464,18 +478,18 @@ export function createBulkAttendanceSummaries(
   const grouped = groupAttendanceByEmployeeAndDate(logs);
   const summaries: AttendanceSummary[] = [];
 
-  const startDate = new Date(dateRange.from);
-  const endDate = new Date(dateRange.to);
+  const startDate = new Date(`${dateRange.from}T00:00:00Z`);
+  const endDate = new Date(`${dateRange.to}T00:00:00Z`);
 
   for (const emp of employees) {
     const empLogs = grouped.get(emp.id);
 
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    for (let d = new Date(startDate); d <= endDate; d.setUTCDate(d.getUTCDate() + 1)) {
       const dateStr = d.toISOString().split('T')[0];
       const dayLogs = empLogs?.get(dateStr) || [];
 
       const summary = createAttendanceSummary(emp.id, dayLogs, dateStr, {
-        isFriday: options.isFriday?.(dateStr) ?? d.getDay() === 5,
+        isFriday: options.isFriday?.(dateStr) ?? d.getUTCDay() === 5,
         isHoliday: options.isHoliday?.(dateStr) ?? false,
         hasApprovedLeave: options.hasApprovedLeave?.(emp.id, dateStr) ?? false,
         hasPendingLeave: options.hasPendingLeave?.(emp.id, dateStr) ?? false,

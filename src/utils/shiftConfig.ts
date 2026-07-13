@@ -5,6 +5,9 @@
 
 import type { ShiftsConfig, ShiftWindows, CompanyPolicy } from './shiftTypes';
 
+/** المنطقة الزمنية الرسمية لحسابات الحضور في Kyvzon */
+export const DEFAULT_BUSINESS_TIME_ZONE = 'Asia/Baghdad';
+
 /** إعدادات الورديات الافتراضية */
 export const DEFAULT_SHIFT_TIMINGS: ShiftsConfig = {
   صباحي: { start: '08:00', end: '16:00', hours: 8 },

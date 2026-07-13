@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Kyvzon">
+  <rect width="128" height="128" rx="28" fill="#4f46e5"/>
+  <path d="M64 22 101 64 64 106 27 64 64 22Z" fill="#fff" opacity=".96"/>
+  <path d="m64 40 21 24-21 24-21-24 21-24Z" fill="#4f46e5"/>
+</svg>

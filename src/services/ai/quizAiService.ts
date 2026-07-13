@@ -5,8 +5,8 @@
 
 import type { AIQuizRequest, AIQuizResponse, QuizQuestion, SuspiciousFlag, QuizAttempt } from '../../shared/types/quiz';
 import type { RichContent } from '../../shared/types/media';
+import { callAi } from './edgeAiService';
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 /**
  * استخراج النص الكامل من المحتوى الغني للدورة
@@ -66,84 +66,31 @@ const QUESTION_TEMPLATES = {
  * توليد اختبار كامل باستخدام الذكاء الاصطناعي
  */
 export async function generateQuizWithAI(request: AIQuizRequest): Promise<AIQuizResponse> {
-  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-  if (!apiKey) {
-    throw new Error('⚠️ مفتاح API غير موجود');
-  }
-
   const template = QUESTION_TEMPLATES[request.difficulty];
   const language = request.language === 'en' ? 'English' : 'Arabic';
-
-  const systemPrompt = `أنت خبير في إنشاء الاختبارات التعليمية والتدريبية المتخصصة في إدارة الموارد البشرية.
-مهمتك هي توليد اختبار دقيق وشامل بناءً على محتوى الدورة المقدم.
-
+  const prompt = `أنشئ اختباراً تدريبياً بصيغة JSON فقط.
 مستوى الصعوبة: ${request.difficulty}
 التركيز: ${template.focus}
-نمط الأسئلة: ${template.style}
+النمط: ${template.style}
 المستوى المعرفي: ${template.cognitiveLevel}
-
-تعليمات صارمة:
-1. يجب أن تستند الأسئلة ONLY على المحتوى المقدم
-2. كل سؤال يجب أن يكون له 4 خيارات واضحة
-3. خيار واحد فقط صحيح (index 0-3)
-4. قدم شرحاً مفصلاً للإجابة الصحيحة
-5. تنوع في أنواع الأسئلة (تعريفية، تطبيقية، تحليلية)
-6. استخدم لغة ${language} واضحة ومهنية
-7. عدد الأسئلة: ${request.numberOfQuestions}
-
-قم بإرجاع JSON فقط بالهيكل التالي:
-{
-  "questions": [
-    {
-      "question": "نص السؤال",
-      "options": ["خيار 1", "خيار 2", "خيار 3", "خيار 4"],
-      "correctAnswer": 0,
-      "explanation": "شرح مفصل للإجابة الصحيحة مع الإشارة للمحتوى",
-      "difficulty": "${request.difficulty}",
-      "points": 10,
-      "timeLimit": 30
-    }
-  ],
-  "summary": "ملخص الاختبار وماذا يقيس",
-  "estimatedTimeMinutes": ${request.numberOfQuestions * 0.5}
-}`;
+اللغة: ${language}
+عدد الأسئلة: ${request.numberOfQuestions}
+البنية المطلوبة: questions[] مع question, options[4], correctAnswer(0-3), explanation, difficulty, points, timeLimit؛ وsummary وestimatedTimeMinutes.
+محتوى الدورة (${request.courseTitle}):
+${request.courseContent.slice(0, 15000)}`;
 
   try {
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: `محتوى الدورة (${request.courseTitle}):\n\n${request.courseContent.slice(0, 15000)}`
-          }
-        ],
-        temperature: 0.2,
-        max_tokens: 4096,
-        top_p: 0.9,
-        response_format: { type: "json_object" }
-      })
+    const response = await callAi({
+      task: 'quiz_generation',
+      preferredModel: 'llama-3.3-70b-versatile',
+      prompt,
+      messages: [{ role: 'user', content: prompt }],
     });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'فشل في توليد الاختبار');
-    }
-
-    const result = JSON.parse(data.choices[0].message.content);
+    const result = JSON.parse(response.content);
     return {
       questions: result.questions,
       summary: result.summary || `اختبار ${request.difficulty} في ${request.courseTitle}`,
-      estimatedTimeMinutes: result.estimatedTimeMinutes || request.numberOfQuestions
+      estimatedTimeMinutes: result.estimatedTimeMinutes || request.numberOfQuestions,
     };
   } catch (error) {
     console.error('AI Quiz Generation Error:', error);
@@ -160,16 +107,6 @@ export async function analyzeCourseContent(content: RichContent): Promise<{
   estimatedReadingTime: number;
   suggestedQuestions: number;
 }> {
-  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-  if (!apiKey) {
-    return {
-      summary: content.summary || '',
-      keyTopics: [],
-      estimatedReadingTime: content.readingTimeMinutes || 10,
-      suggestedQuestions: 5,
-    };
-  }
-
   const text = extractTextFromRichContent(content);
   if (!text) {
     return {
@@ -180,33 +117,16 @@ export async function analyzeCourseContent(content: RichContent): Promise<{
     };
   }
 
+  const prompt = `حلل محتوى الدورة التالي وأعد JSON فقط بالمفاتيح summary وkeyTopics وestimatedReadingTime وsuggestedQuestions:
+${text.slice(0, 10000)}`;
   try {
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          {
-            role: 'system',
-            content: 'أنت محلل محتوى تدريبي. حلل المحتوى التالي وقدم: ملخص، الموضوعات الرئيسية، وقت القراءة المقدر، وعدد الأسئلة المقترحة. أعد JSON فقط.'
-          },
-          {
-            role: 'user',
-            content: text.slice(0, 10000)
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 1024,
-        response_format: { type: "json_object" }
-      })
+    const response = await callAi({
+      task: 'course_analysis',
+      preferredModel: 'llama-3.3-70b-versatile',
+      prompt,
+      messages: [{ role: 'user', content: prompt }],
     });
-
-    const data = await response.json();
-    const analysis = JSON.parse(data.choices[0].message.content);
+    const analysis = JSON.parse(response.content);
     return {
       summary: analysis.summary || content.summary || '',
       keyTopics: analysis.keyTopics || [],

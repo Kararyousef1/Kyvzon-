@@ -13,7 +13,7 @@
 تم **إزالة مفتاح OpenRouter الحقيقي** وتعليق جميع مفاتيح الذكاء الاصطناعي مؤقتاً بناءً على قرار العميل.
 
 **المخاطر المعالجة:**
-- ✅ تمت إزالة المفتاح الحقيقي `sk-72fc825fc7974847b3de6f688bd6cac0` من ملف `.env`
+- ✅ تمت إزالة المفتاح الحقيقي `[REDACTED_OPENROUTER_KEY]` من ملف `.env`
 - ✅ تم تنظيف ملف `.env.example`
 - ✅ تم تعليق جميع مفاتيح الـ AI
 
@@ -29,8 +29,8 @@
 
 **Before:**
 ```env
-VITE_OPENROUTER_API_KEY=sk-72fc825fc7974847b3de6f688bd6cac0
-VITE_GROQ_API_KEY=gsk_your-api-key-here
+VITE_OPENROUTER_API_KEY=[REDACTED_OPENROUTER_KEY]
+VITE_GROQ_API_KEY=[REDACTED_GROQ_KEY]
 VITE_CLAUDE_API_KEY=
 VITE_OPENAI_API_KEY=
 ```

@@ -2,7 +2,7 @@
 //  DeveloperDashboard — لوحة تحكم المطور (نسخة آمنة ومُعاد هيكلتها)
 //
 //  التحسينات الأمنية:
-//  ✅ PIN يُقرأ من VITE_DEV_PIN عبر devPinService (لا رمز في الكود)
+//  ⚠️ PIN محلي للتطوير فقط؛ لا يمثل حماية إنتاجية. الإنتاج يحتاج تحققاً خادمياً.
 //  ✅ قفل 10 دقائق بعد 5 محاولات فاشلة
 //  ✅ جلسة موقوتة 60 دقيقة
 //  ✅ تصدير البيانات يُسجَّل في audit_logs عبر logDataExport
@@ -1499,12 +1499,14 @@ export default function DeveloperDashboard() {
             </div>
             <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl border border-amber-200">
               <div>
-                <p className="font-bold text-amber-800">متغيرات البيئة</p>
+                <p className="font-bold text-amber-800">حماية بوابة المطور</p>
                 <p className="text-xs text-amber-600 mt-1">
-                  VITE_DEV_PIN: {import.meta.env.VITE_DEV_PIN ? '✓ مُعرَّف' : '✗ غير مُعرَّف — خطر!'}
+                  {import.meta.env.DEV
+                    ? 'PIN محلي للتطوير فقط — لا يمثل حماية إنتاجية'
+                    : 'التحقق الخادمي مطلوب قبل تفعيل البوابة في الإنتاج'}
                 </p>
               </div>
-              <AlertTriangle size={20} className={import.meta.env.VITE_DEV_PIN ? 'text-emerald-600' : 'text-rose-600'} />
+              <AlertTriangle size={20} className="text-rose-600" />
             </div>
           </div>
         </Card>

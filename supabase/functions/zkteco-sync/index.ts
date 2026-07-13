@@ -63,11 +63,18 @@ serve(async (req: Request) => {
   }
 
   try {
-    // التحقق من التوقيع السري
-    const appSecret = Deno.env.get('ADMS_SECRET') || '';
+    // Fail closed: لا يجوز تشغيل مزامنة Service Role بدون سر مضبوط.
+    const appSecret = Deno.env.get('ADMS_SECRET');
+    if (!appSecret) {
+      console.error('ADMS_SECRET is not configured; refusing biometric sync');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Sync service is not configured' }),
+        { status: 503, headers: corsHeaders }
+      );
+    }
+
     const requestSecret = req.headers.get('x-app-secret') || '';
-    
-    if (appSecret && requestSecret !== appSecret) {
+    if (!requestSecret || requestSecret !== appSecret) {
       await logSyncError('ADMS', 'توقيع غير صالح');
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid secret' }),

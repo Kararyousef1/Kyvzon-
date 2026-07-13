@@ -739,7 +739,7 @@ describe('🧪 11. سيناريوهات شاملة (E2E)', () => {
     // تأخير 3 أيام متتالية
     const lateSummaries = [22, 35, 50].map((mins, i) =>
       calculateLateMinutes(
-        new Date(`2026-06-${16 + i}T08:${15 + mins}:00+03:00`),
+        new Date(`2026-06-${16 + i}T${minutesToTime(8 * 60 + mins)}:00+03:00`),
         'صباحي',
         DEFAULT_SHIFT_TIMINGS,
         DEFAULT_POLICY.late.gracePeriodMinutes
@@ -870,8 +870,8 @@ describe('🧪 11. سيناريوهات شاملة (E2E)', () => {
     const { checkIn, checkOut } = extractPunchTimes(logs);
     expect(checkIn).toBeDefined();
     expect(checkOut).toBeDefined();
-    expect(new Date(checkIn!.punch_time).getHours()).toBe(7);
-    expect(new Date(checkOut!.punch_time).getHours()).toBe(16);
+    expect(timestampToMinutes(checkIn!.punch_time)).toBe(7 * 60 + 50);
+    expect(timestampToMinutes(checkOut!.punch_time)).toBe(16 * 60 + 5);
 
     // groupAttendanceByEmployeeAndDate
     const grouped = groupAttendanceByEmployeeAndDate(logs);

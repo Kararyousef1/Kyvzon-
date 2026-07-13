@@ -1,11 +1,11 @@
-import { ReactNode } from 'react';
 import Badge from '../../../../shared/components/ui/Badge';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface KPICardProps {
   label: string;
   value: string | number;
-  icon: React.ComponentType<{ size?: number; color?: string }>;
+  icon: LucideIcon;
   color: string;
   bg: string;
   trend?: string;

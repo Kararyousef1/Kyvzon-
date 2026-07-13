@@ -119,9 +119,11 @@ export default function SettingsPage() {
       {/* Environment */}
       <Section icon={Info} title="معلومات البيئة" gradient="from-amber-500 to-orange-600">
         <Row
-          label="VITE_DEV_PIN"
-          value={import.meta.env.VITE_DEV_PIN ? <span className="text-emerald-600 font-bold">✓ مُعرَّف</span> : <span className="text-red-600 font-bold">✗ غير مُعرَّف</span>}
-          icon={import.meta.env.VITE_DEV_PIN ? CheckCircle : AlertTriangle}
+          label="حماية بوابة المطور"
+          value={import.meta.env.DEV
+            ? <span className="text-amber-600 font-bold">تطوير محلي فقط</span>
+            : <span className="text-red-600 font-bold">تحتاج تحققاً خادمياً</span>}
+          icon={import.meta.env.DEV ? Info : AlertTriangle}
         />
         <Row label="VITE_SUPABASE_URL" value={import.meta.env.VITE_SUPABASE_URL ? '✓ مُعرَّف' : '✗ غير مُعرَّف'} icon={import.meta.env.VITE_SUPABASE_URL ? CheckCircle : AlertTriangle} />
         <Row label="بيئة التشغيل" value={import.meta.env.DEV ? 'Development' : 'Production'} icon={Globe} />

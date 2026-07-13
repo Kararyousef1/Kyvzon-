@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { ChevronRight, Eye, EyeOff, Sparkles, Send, Info } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { supabase } from '../../services/supabase/supabase';
+import { callAi } from '../../services/ai/edgeAiService';
 import { notifyRole } from '../../services/notifications/notificationService';
 import Card from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
@@ -128,44 +129,33 @@ export default function NewProblemPage() {
     setAiAnalyzing(true);
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) throw new Error('API Key missing');
-
-      const prompt = `أنت خبير موارد بشرية في Kyvzon Platform. قم بتحليل المشكلة التالية التي يواجهها موظف.
+      const prompt = `حلل مشكلة الموارد البشرية التالية وأعد JSON فقط بالمفاتيح severity وsummary وactions.
 العنوان: ${form.title}
 الوصف: ${form.description}
-الفئة: ${form.category}
-قم بالرد بصيغة JSON صحيحة فقط بدون أي نصوص إضافية، تحتوي على المفاتيح التالية:
-- "severity": (اختر واحدة فقط بناءً على خطورة المشكلة: "low", "medium", "high", "critical")
-- "summary": (ملخص قصير ومهني للمشكلة في سطر واحد)
-- "actions": (مصفوفة نصوص تحتوي على 3 خطوات عملية لحل المشكلة)`;
+الفئة: ${form.category}`;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-          }),
-        }
-      );
+      const response = await callAi({
+        task: 'problem_analysis',
+        preferredModel: 'llama-3.3-70b-versatile',
+        prompt,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const cleanJson = response.content.replace(/```json/g, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleanJson) as {
+        severity?: ProblemSeverity;
+        summary?: string;
+        actions?: string[];
+      };
 
-      if (!response.ok) throw new Error('فشل الاتصال بـ Gemini API');
-
-      const data = await response.json();
-      const textResponse = data.candidates[0].content.parts[0].text;
-
-      // تنظيف الاستجابة للحصول على JSON صافي
-      const cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
-
+      const severity = parsed.severity && parsed.severity in SEVERITY_LABELS
+        ? parsed.severity
+        : 'medium';
       setDynamicSuggestion({
-        severity: parsed.severity || 'medium',
+        severity,
         summary: parsed.summary || 'تم تحليل المشكلة بنجاح',
         actions: parsed.actions || ['التواصل مع الموارد البشرية'],
       });
-      setForm((prev) => ({ ...prev, severity: parsed.severity || 'medium' }));
+      setForm((prev) => ({ ...prev, severity }));
       setAiDone(true);
       addToast('تم تحليل المشكلة بنجاح 🤖', 'success');
     } catch (err) {

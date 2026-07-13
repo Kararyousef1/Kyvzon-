@@ -11,7 +11,7 @@
  * Estimated Effort: 12-16 hours
  */
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
+import Card, { CardHeader, CardTitle } from '@/shared/components/ui/Card';
 import { AlertCircle } from 'lucide-react';
 
 export default function MovementAnalysisPage() {
@@ -33,7 +33,7 @@ export default function MovementAnalysisPage() {
             <CardTitle className="text-amber-900">قيد التطوير</CardTitle>
           </div>
         </CardHeader>
-        <CardContent>
+        <div className="p-6">
           <p className="text-amber-800">
             هذه الصفحة قيد التطوير حالياً. سيتم إطلاقها في إصدار قادم مع ميزات تحليل الحركة المتقدمة،
             بما في ذلك الرسوم البيانية التفاعلية وتقارير التنقلات.
@@ -41,7 +41,7 @@ export default function MovementAnalysisPage() {
           <div className="mt-4 text-sm text-amber-700">
             <strong>الحالة:</strong> Placeholder — في انتظار التنفيذ
           </div>
-        </CardContent>
+        </div>
       </Card>
     </div>
   );

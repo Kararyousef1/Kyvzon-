@@ -52,3 +52,6 @@ project-structure.txt
 # Local SQL migration logs
 *.sql.log
 sql-debug.log
+
+# Test coverage output
+coverage/

@@ -21,6 +21,8 @@ import {
   getTeamQuickStats,
   getDailyAttendanceStats,
   downloadCSV,
+  attendanceToCSVRows,
+  generateCSV,
   EmployeeAttendanceReport,
   STATUS_LABELS,
 } from '../utils/shiftUtils';
@@ -41,7 +43,7 @@ import {
 // ════════════════════════════════════════════════════════════════
 
 // Mock supabase
-vi.mock('../../services/supabase/supabase', () => ({
+vi.mock('../services/supabase/supabase', () => ({
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
@@ -55,7 +57,14 @@ vi.mock('../../services/supabase/supabase', () => ({
       insert: vi.fn().mockResolvedValue({ data: null, error: null }),
       upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
       update: vi.fn().mockResolvedValue({ data: null, error: null }),
-      delete: vi.fn().mockResolvedValue({ data: null, error: null }),
+      delete: vi.fn(() => {
+        const query = { eq: vi.fn() };
+        query.eq
+          .mockReturnValueOnce(query)
+          .mockReturnValueOnce(query)
+          .mockResolvedValueOnce({ data: null, error: null });
+        return query;
+      }),
     })),
     rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
     channel: vi.fn(() => ({
@@ -106,7 +115,7 @@ const generateLogs = (): AttendanceLog[] => {
       const d = new Date(baseDate);
       d.setDate(d.getDate() + day);
       const dateStr = d.toISOString().split('T')[0];
-      const isFriday = d.getDay() === 6;
+      const isFriday = d.getDay() === 5;
 
       if (isFriday) continue; // جمعة
 
@@ -188,7 +197,7 @@ describe('📋 1. مشاهدة حضور الفريق (Team Dashboard)', () => {
       const d = new Date(baseDate);
       d.setDate(d.getDate() + day);
       const dateStr = d.toISOString().split('T')[0];
-      const isFriday = d.getDay() === 6;
+      const isFriday = d.getDay() === 5;
       if (isFriday) continue;
 
       const dayLogs = logs.filter(
@@ -213,7 +222,7 @@ describe('📋 1. مشاهدة حضور الفريق (Team Dashboard)', () => {
       const d = new Date(baseDate);
       d.setDate(d.getDate() + day);
       const dateStr = d.toISOString().split('T')[0];
-      const isFriday = d.getDay() === 6;
+      const isFriday = d.getDay() === 5;
       if (isFriday) continue;
 
       const dayLogs = logs.filter(
@@ -238,7 +247,7 @@ describe('📋 1. مشاهدة حضور الفريق (Team Dashboard)', () => {
       const d = new Date(baseDate);
       d.setDate(d.getDate() + day);
       const dateStr = d.toISOString().split('T')[0];
-      const isFriday = d.getDay() === 6;
+      const isFriday = d.getDay() === 5;
       if (isFriday) continue;
 
       const summary = createAttendanceSummary('emp-003', [], dateStr, {
@@ -298,9 +307,9 @@ describe('📋 2. الموافقة على إجازة (Leave Approval Flow)', () 
   });
 
   it('يجب أن لا تؤثر العطل والجمعة على أيام الإجازة', () => {
-    const dates = ['2026-06-15', '2026-06-16', '2026-06-17', '2026-06-18'];
+    const dates = ['2026-06-16', '2026-06-17', '2026-06-18', '2026-06-19'];
 
-    const workDays = dates.filter(d => new Date(d).getDay() !== 6);
+    const workDays = dates.filter(d => new Date(d).getDay() !== 5);
 
     // 4 أيام - 1 جمعة = 3 أيام عمل
     expect(workDays.length).toBe(3);
@@ -444,7 +453,7 @@ describe('📋 6. التقارير التحليلية (Analytics Reports)', () =
       const d = new Date(baseDate);
       d.setDate(d.getDate() + day);
       const dateStr = d.toISOString().split('T')[0];
-      const isFriday = d.getDay() === 6;
+      const isFriday = d.getDay() === 5;
       if (isFriday) continue;
 
       const dayLogs = logs.filter(
@@ -475,7 +484,7 @@ describe('📋 6. التقارير التحليلية (Analytics Reports)', () =
         const d = new Date(baseDate);
         d.setDate(d.getDate() + day);
         const dateStr = d.toISOString().split('T')[0];
-        const isFriday = d.getDay() === 6;
+        const isFriday = d.getDay() === 5;
         if (isFriday) continue;
 
         const dayLogs = logs.filter(l => l.employee_id === emp.id && l.shift_date === dateStr);
@@ -556,7 +565,6 @@ describe('📋 7. تصدير البيانات (CSV Export)', () => {
       'emp-002': 'سارة خالد',
     };
 
-    const { attendanceToCSVRows, generateCSV } = require('../utils/shiftUtils');
     const rows = attendanceToCSVRows(summaries, names);
 
     // Header: 9 أعمدة
@@ -648,7 +656,7 @@ describe('📋 8. حالات الحافة (Edge Cases)', () => {
   it('تقرير الموظف بنسبة حضور 0%', () => {
     const summaries: AttendanceSummary[] = Array(5).fill(null).map((_, i) =>
       createAttendanceSummary('emp-003', [], `2026-06-${15 + i}`, {
-        isFriday: new Date(`2026-06-${15 + i}`).getDay() === 6,
+        isFriday: new Date(`2026-06-${15 + i}`).getDay() === 5,
         isHoliday: false,
       })
     );

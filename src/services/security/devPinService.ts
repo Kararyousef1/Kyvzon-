@@ -2,12 +2,11 @@
 //  devPinService — خدمة التحقق الآمن لبوابة المطور
 //
 //  الميزات:
-//  • لا يوجد رمز ثابت في الكود — يُقرأ من VITE_DEV_PIN
-//  • حد 5 محاولات ثم قفل 10 دقائق
+//  • هذا gate مخصص للتطوير المحلي فقط
+//  • لا يمثل authorization في الإنتاج
+//  • الإنتاج يحتاج تحققاً خادمياً عبر Supabase/RLS/Edge Function
+//  • حد 5 محاولات ثم قفل 10 دقائق للتطوير المحلي
 //  • تسجيل كل محاولة في securityService
-//  • تسجيل تصدير البيانات في audit trail
-//  • جلسة موقوتة (60 دقيقة)
-//  • 🔐 HMAC signature لمنع التلاعب بـ localStorage
 // ════════════════════════════════════════════════════════════════
 
 import { securityService } from './securityService';
@@ -19,7 +18,6 @@ const LOCKOUT_MS        = 10 * 60 * 1000;   // 10 دقائق
 const SESSION_MS        = 60 * 60 * 1000;   // 60 دقيقة
 const STORAGE_KEY_PIN   = 'dev_pin_state';
 const STORAGE_KEY_SES   = 'dev_session';
-const HMAC_SECRET      = 'dev_hr_s1_2026';  // كلمة سر داخلية للتوقيع
 
 // ── Types ─────────────────────────────────────────────────────────
 interface SignedPinState {
@@ -39,16 +37,11 @@ export interface PinCheckResult {
   message:   string;
 }
 
-// ── HMAC Helper ───────────────────────────────────────────────────
+// ── Local development state helper ───────────────────────────────
+// هذا ليس توقيعاً أمنياً؛ كل ما في المتصفح قابل للتعديل. لا تستخدمه
+// لاتخاذ قرار صلاحيات في الإنتاج.
 function signData(data: string): string {
-  let hash = 0;
-  const combined = data + HMAC_SECRET;
-  for (let i = 0; i < combined.length; i++) {
-    const char = combined.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return hash.toString(36);
+  return data;
 }
 
 function createSignedState(attempts: number, lockedUntil: number): SignedPinState {
@@ -102,6 +95,8 @@ function clearPinState(): void {
 
 /** هل الجلسة سارية؟ (تُستدعى من DeveloperDashboard) */
 export function isDevSessionActive(): boolean {
+  // لا توجد جلسة PIN من المتصفح في الإنتاج.
+  if (import.meta.env.PROD) return false;
   try {
     const raw = localStorage.getItem(STORAGE_KEY_SES);
     if (!raw) return false;
@@ -113,6 +108,7 @@ export function isDevSessionActive(): boolean {
 }
 
 function startDevSession(): void {
+  if (import.meta.env.PROD) return;
   const ses: DevSession = { verifiedAt: Date.now() };
   localStorage.setItem(STORAGE_KEY_SES, JSON.stringify(ses));
 }
@@ -125,10 +121,19 @@ export function clearDevSession(): void {
 // ── Core — PIN check ─────────────────────────────────────────────
 
 /**
- * يتحقق من PIN المُدخَل مقابل متغير البيئة VITE_DEV_PIN.
- * كل المنطق (القفل، التسجيل، الجلسة) هنا.
+ * يتحقق من PIN للتطوير المحلي فقط.
+ * في الإنتاج يُرفض الطلب؛ القرار الأمني يجب أن يصدر من الخادم.
  */
 export function checkDevPin(input: string): PinCheckResult {
+  if (import.meta.env.PROD) {
+    return {
+      success: false,
+      locked: false,
+      remaining: 0,
+      message: 'بوابة المطور تحتاج تحققاً خادمياً في بيئة الإنتاج.',
+    };
+  }
+
   const state = loadPinState();
   const now   = Date.now();
 
@@ -144,7 +149,7 @@ export function checkDevPin(input: string): PinCheckResult {
   }
 
   // ── مقارنة الرمز ─────────────────────────────────────────────
-  const expected = import.meta.env.VITE_DEV_PIN as string | undefined;
+  const expected = import.meta.env.DEV ? import.meta.env.VITE_DEV_PIN as string | undefined : undefined;
 
   if (!expected) {
     // لم يُضبط المتغير — نرفض دائماً ونُسجّل كخطأ إعداد

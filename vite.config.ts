@@ -32,19 +32,17 @@ export default defineConfig({
     chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // React core
-          vendor: ["react", "react-dom"],
-          // مكتبات التوجيه والحالة
-          router: ["react-router-dom", "zustand"],
-          // Supabase في chunk منفصل (كبير)
-          supabase: ["@supabase/supabase-js"],
-          // مكتبات الرسوم البيانية (ثقيلة)
-          charts: ["recharts"],
-          // مكتبات واجهة المستخدم
-          ui: ["framer-motion", "lucide-react"],
-          // مكتبات النماذج والتحقق
-          forms: ["react-hook-form", "zod", "@hookform/resolvers"],
+        // Rolldown/Vite 8 يقبل manualChunks كدالة فقط.
+        // إبقاء التجميع حسب المجال يمنع خطأ build السابق مع Vite 8.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('/react/') || id.includes('/react-dom/')) return 'vendor';
+          if (id.includes('react-router-dom') || id.includes('/zustand/')) return 'router';
+          if (id.includes('@supabase/supabase-js')) return 'supabase';
+          if (id.includes('/recharts/')) return 'charts';
+          if (id.includes('/framer-motion/') || id.includes('/lucide-react/')) return 'ui';
+          if (id.includes('react-hook-form') || id.includes('/zod/') || id.includes('@hookform/resolvers')) return 'forms';
+          return undefined;
         },
       },
     },

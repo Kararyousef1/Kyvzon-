@@ -4,7 +4,7 @@
  * تم إعادة هيكلتها لتكون أكثر قابلية للصيانة والاختبار
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useUIStore } from '../../../core/stores';
 import { useHRDashboardData } from './hooks/useHRDashboardData';
 
