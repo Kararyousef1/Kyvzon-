@@ -214,3 +214,15 @@ supabase/migrations/0007_support_and_security.sql
 تم إجراء فحص parsing لـ PostgreSQL على الملفات السبعة، وكلها صالحة تركيبياً. كما تم فحص جداول `.from()` الحرفية في التطبيق والـ Edge Functions، ولم يبقَ جدول مفقود في المسار canonical.
 
 هذا المسار هو الذي يجب استخدامه مع قاعدة التطوير الجديدة؛ أما `database/migrations/archive` وملفات الإصلاح القديمة فهي مرجع تاريخي.
+
+## تصحيح بعد أول تنفيذ على Supabase Cloud
+
+أول محاولة `supabase db push` اتصلت بالمشروع بنجاح، لكن migration 0001 توقف لأن Supabase توفر `uuid-ossp` خارج search_path بينما الكود كان يستخدم `uuid_generate_v4()` مباشرة.
+
+تم تصحيح جميع migrations canonical لاستخدام:
+
+```sql
+gen_random_uuid()
+```
+
+المتوافق مع `pgcrypto` في Supabase. فحص PostgreSQL parsing للملفات السبعة ما زال PASS.

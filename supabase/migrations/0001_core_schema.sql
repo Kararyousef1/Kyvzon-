@@ -17,7 +17,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- ════════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS tenants (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT,
     name_ar TEXT NOT NULL,
     name_en TEXT,
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 -- ════════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS departments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     name_ar TEXT NOT NULL,
     name_en TEXT,
@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS departments (
 -- ════════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS employees (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
     employee_code TEXT NOT NULL,

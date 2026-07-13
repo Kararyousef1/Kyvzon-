@@ -531,7 +531,7 @@ CREATE INDEX IF NOT EXISTS idx_performance_reviews_employee ON performance_revie
 -- ════════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS courses (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT,
@@ -545,7 +545,7 @@ CREATE TABLE IF NOT EXISTS courses (
 );
 
 CREATE TABLE IF NOT EXISTS course_progress (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
     course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
@@ -562,7 +562,7 @@ CREATE TABLE IF NOT EXISTS course_progress (
 -- ════════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS sops (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     department_id UUID REFERENCES departments(id),
@@ -579,7 +579,7 @@ CREATE TABLE IF NOT EXISTS sops (
 -- ════════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS notifications (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     type TEXT NOT NULL,

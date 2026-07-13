@@ -15,7 +15,7 @@
 -- ════════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS error_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id),
     message TEXT NOT NULL,
     source TEXT,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS error_logs (
 -- ════════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS security_events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id),
     event_type TEXT NOT NULL,
     user_id UUID REFERENCES profiles(id),
