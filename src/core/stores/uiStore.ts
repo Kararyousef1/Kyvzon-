@@ -50,7 +50,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     set({ isLoadingConfig: true });
     try {
       const { data, error } = await supabase
-        .from('system_settings')
+        .from('public_landing_config')
         .select('landing_config')
         .eq('id', 'singleton')
         .single();

@@ -37,10 +37,14 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 | **3** | `003_indexes.sql` | إنشاء الفهارس | يمكن تنفيذه لاحقاً |
 | **4** | `005_employee_features.sql` | جداول الحضور والإجازات | يعتمد على 001 |
 | **5** | `006_hr_modules.sql` | الدورات + SOPs + الإشعارات | يعتمد على 001 |
-| **6** | `007_tawathul_module.sql` | وحدة التواصل | مستقل |
-| **7** | `004_fixes_and_patches.sql` | التصحيحات | يُفضل بعد 001-006 |
-| **8** | `008_final_cleanup.sql` | التنظيف النهائي | يُنفذ أخيراً |
-| **9** | `103_secure_tenant_isolation.sql` | عزل tenant مبني على auth.uid() | يُنفذ بعد اكتمال schema ووجود `profiles.tenant_id` |
+| **6** | `007_tawathul_module.sql` | وحدة التواصل الأساسية | ينشئ الجداول والدوال المساعدة |
+| **7** | `009_tawathul_rls_and_features.sql` | RLS والمرفقات والتفاعلات والإشعارات | يعتمد على 007 |
+| **8** | `004_fixes_and_patches.sql` | التصحيحات | يُفضل بعد 001-007 |
+| **9** | `008_final_cleanup.sql` | التنظيف النهائي | قبل hardening |
+| **10** | `103_secure_tenant_isolation.sql` | عزل tenant مبني على auth.uid() | بعد اكتمال schema ووجود `profiles.tenant_id` |
+| **11** | `104_device_sync_nonces.sql` | منع إعادة إرسال طلبات ZKTeco الموقعة | قبل تفعيل `zkteco-sync` |
+| **12** | `105_hr_modules_tenant_rls.sql` | إضافة tenant_id وRLS لوحدات HR | بعد إنشاء جداول 999 وقبل إدخال بيانات production |
+| **13** | `106_harden_system_settings.sql` | حماية الإعدادات وفصل landing عن AI settings | بعد 103 وقبل فتح public landing |
 
 ---
 

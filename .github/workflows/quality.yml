@@ -46,6 +46,9 @@ jobs:
       - name: Unit and integration tests
         run: npm run test:run -- --reporter=dot
 
+      - name: Core coverage gate
+        run: npm run test:coverage -- --reporter=dot
+
       - name: Dependency audit
         run: npm audit --omit=optional --audit-level=high
 

@@ -518,56 +518,11 @@ SELECT public.auto_create_triggers();
 -- ============================================================================
 -- 6. تفعيل RLS وسياسات الوصول
 -- ============================================================================
-CREATE OR REPLACE FUNCTION public.auto_setup_rls()
-RETURNS void AS $$
-DECLARE
-  tbl TEXT;
-  tables_list TEXT[] := ARRAY[
-    'payroll_periods', 'payroll_records', 'employee_loans', 'loan_repayments', 'bonuses', 'payroll_settings',
-    'performance_cycles', 'performance_reviews', 'disciplinary_actions',
-    'expense_requests', 'shift_schedules', 'shift_assignments', 'job_postings',
-    'onboarding_tasks', 'employee_onboarding', 'offboarding_records', 'employee_documents', 'employee_certifications'
-  ];
-BEGIN
-  FOREACH tbl IN ARRAY tables_list
-  LOOP
-    BEGIN
-      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', tbl);
-    EXCEPTION WHEN OTHERS THEN
-      RAISE NOTICE 'Skipping RLS enable for %: %', tbl, SQLERRM;
-    END;
-    
-    BEGIN
-      EXECUTE format('DROP POLICY IF EXISTS %I_select_all ON public.%I;', tbl, tbl);
-      EXECUTE format('CREATE POLICY %I_select_all ON public.%I FOR SELECT USING (true);', tbl, tbl);
-    EXCEPTION WHEN OTHERS THEN
-      RAISE NOTICE 'Skipping SELECT policy for %: %', tbl, SQLERRM;
-    END;
-
-    BEGIN
-      EXECUTE format('DROP POLICY IF EXISTS %I_insert_all ON public.%I;', tbl, tbl);
-      EXECUTE format('CREATE POLICY %I_insert_all ON public.%I FOR INSERT WITH CHECK (true);', tbl, tbl);
-    EXCEPTION WHEN OTHERS THEN
-      RAISE NOTICE 'Skipping INSERT policy for %: %', tbl, SQLERRM;
-    END;
-
-    BEGIN
-      EXECUTE format('DROP POLICY IF EXISTS %I_update_all ON public.%I;', tbl, tbl);
-      EXECUTE format('CREATE POLICY %I_update_all ON public.%I FOR UPDATE USING (true);', tbl, tbl);
-    EXCEPTION WHEN OTHERS THEN
-      RAISE NOTICE 'Skipping UPDATE policy for %: %', tbl, SQLERRM;
-    END;
-
-    BEGIN
-      EXECUTE format('DROP POLICY IF EXISTS %I_delete_all ON public.%I;', tbl, tbl);
-      EXECUTE format('CREATE POLICY %I_delete_all ON public.%I FOR DELETE USING (true);', tbl, tbl);
-    EXCEPTION WHEN OTHERS THEN
-      RAISE NOTICE 'Skipping DELETE policy for %: %', tbl, SQLERRM;
-    END;
-  END LOOP;
-END;
-$$ LANGUAGE plpgsql;
-SELECT public.auto_setup_rls();
+-- SECURITY NOTE:
+-- The previous version created USING(true)/WITH CHECK(true) policies for HR tables.
+-- That was removed. Tables must receive explicit tenant/role policies in the
+-- approved security migration; a table with RLS and no policy is deny-by-default.
+-- See 103_secure_tenant_isolation.sql for the current policy baseline.
 
 -- ============================================================================
 -- نهاية الملف - جميع الأخطاء تم التقاطها ومعالجتها

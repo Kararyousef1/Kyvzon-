@@ -146,3 +146,50 @@
 - `npm run test:run`: **PASS — 163/163**.
 - `npm run build`: **PASS**.
 - `npm audit --omit=optional`: **0 vulnerabilities**.
+
+## المرحلة الثالثة — إغلاق مشاكل المنصة المتبقية في المستودع
+
+### 10. توحيد Tawathul في مسار التنفيذ
+
+- تم استبدال نسخة `database/migrations/300_tawathul_core.sql` المبسطة بالنسخة الكاملة التي تطابق خدمات Tawathul الحالية.
+- تم تحديث `database/migrations/consolidated/007_tawathul_module.sql`.
+- تمت إضافة `database/migrations/consolidated/009_tawathul_rls_and_features.sql` لضم RLS والتفاعلات والمرفقات والإشعارات.
+- تم حذف مسار RLS المفتوح من `999_fix_all_missing_tables.sql`؛ لم تعد جداول HR تحصل على `USING(true)` تلقائياً.
+- تمت إضافة `105_hr_modules_tenant_rls.sql` لإضافة tenant_id وRLS لوحدات HR.
+- تمت إضافة `106_harden_system_settings.sql` لفصل landing العامة عن `ai_settings` والإعدادات الداخلية.
+
+### 11. منع Replay في ZKTeco
+
+- أصبح التوقيع HMAC-SHA256 على:
+
+```text
+`${timestamp}.${nonce}.${rawBody}`
+```
+
+- الطلبات القديمة أو غير الموقعة تُرفض.
+- تم وضع حد لحجم body.
+- تمت إضافة `104_device_sync_nonces.sql` لتسجيل nonce ومنع إعادة الاستخدام.
+- تم تقييد CORS وعدم استخدام wildcard.
+
+### 12. استكمال وظائف الإدارة
+
+تمت إضافة Edge Functions المفقودة التي كانت الواجهة تستدعيها:
+
+- `admin-delete-user`
+- `admin-update-role`
+- `admin-reset-password`
+- `admin-toggle-status`
+
+مع helper مشترك في:
+
+```text
+supabase/functions/_shared/adminAuth.ts
+```
+
+### 13. الإعدادات والتبعيات والتغطية
+
+- حذف عميل Supabase المكرر `src/services/supabase/client.ts`.
+- حذف التبعيات المباشرة غير المستخدمة من `package.json`.
+- جعل `npm run test:coverage` يعمل بنجاح ضمن نطاق core موثق.
+- التغطية الحالية للنطاق المختبر: **72.8% statements / 65.8% branches / 72.56% functions / 74.12% lines**.
+- إضافة coverage gate إلى GitHub Actions.

@@ -13,7 +13,6 @@ interface PunchRequest {
   punch_type?: 'check-in' | 'check-out';
   verification_type?: 'finger' | 'face' | 'card' | 'password';
   device_id?: string;
-  secret?: string;
 }
 
 interface SyncResult {
@@ -25,11 +24,51 @@ interface SyncResult {
 }
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  // Machine-to-machine callers do not need wildcard browser CORS.
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'null',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-app-secret',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-adms-timestamp, x-adms-nonce, x-adms-signature',
   'Content-Type': 'application/json',
 };
+
+const MAX_BODY_BYTES = 2 * 1024 * 1024;
+const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+function hexToBytes(hex: string): Uint8Array | null {
+  if (!/^[0-9a-f]{64}$/i.test(hex)) return null;
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < bytes.length; i += 1) {
+    bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+async function verifyRequestSignature(req: Request, rawBody: string, secret: string): Promise<boolean> {
+  const timestamp = req.headers.get('x-adms-timestamp') || '';
+  const nonce = req.headers.get('x-adms-nonce') || '';
+  const signature = req.headers.get('x-adms-signature') || '';
+  const timestampMs = Number(timestamp);
+  const signatureBytes = hexToBytes(signature);
+
+  if (!timestamp || !nonce || !signatureBytes || !Number.isFinite(timestampMs)) return false;
+  if (Math.abs(Date.now() - timestampMs) > MAX_CLOCK_SKEW_MS) return false;
+  if (!/^[A-Za-z0-9._-]{8,128}$/.test(nonce)) return false;
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['verify'],
+  );
+  const signedPayload = `${timestamp}.${nonce}.${rawBody}`;
+  return crypto.subtle.verify(
+    'HMAC',
+    key,
+    signatureBytes,
+    new TextEncoder().encode(signedPayload),
+  );
+}
 
 serve(async (req: Request) => {
   // CORS preflight
@@ -63,7 +102,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    // Fail closed: لا يجوز تشغيل مزامنة Service Role بدون سر مضبوط.
+    // Fail closed: لا يجوز تشغيل مزامنة Service Role بدون توقيع HMAC حديث.
     const appSecret = Deno.env.get('ADMS_SECRET');
     if (!appSecret) {
       console.error('ADMS_SECRET is not configured; refusing biometric sync');
@@ -73,16 +112,70 @@ serve(async (req: Request) => {
       );
     }
 
-    const requestSecret = req.headers.get('x-app-secret') || '';
-    if (!requestSecret || requestSecret !== appSecret) {
-      await logSyncError('ADMS', 'توقيع غير صالح');
+    const contentLength = Number(req.headers.get('content-length') || 0);
+    if (contentLength > MAX_BODY_BYTES) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Invalid secret' }),
+        JSON.stringify({ success: false, error: 'Request body too large' }),
+        { status: 413, headers: corsHeaders }
+      );
+    }
+
+    const rawBody = await req.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Request body too large' }),
+        { status: 413, headers: corsHeaders }
+      );
+    }
+
+    if (!(await verifyRequestSignature(req, rawBody, appSecret))) {
+      await logSyncError('ADMS', 'توقيع HMAC غير صالح أو منتهي');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid signature' }),
         { status: 401, headers: corsHeaders }
       );
     }
 
-    const body = await req.json();
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const nonce = req.headers.get('x-adms-nonce') || '';
+    if (!supabaseUrl || !supabaseKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Sync service is not configured' }),
+        { status: 503, headers: corsHeaders }
+      );
+    }
+
+    const serviceClient = createClient(supabaseUrl, supabaseKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    await serviceClient
+      .from('device_sync_nonces')
+      .delete()
+      .lt('expires_at', new Date().toISOString());
+
+    const { error: nonceError } = await serviceClient
+      .from('device_sync_nonces')
+      .insert({
+        nonce,
+        expires_at: new Date(Date.now() + MAX_CLOCK_SKEW_MS).toISOString(),
+      });
+
+    if (nonceError) {
+      if (nonceError.code === '23505') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Replay detected' }),
+          { status: 409, headers: corsHeaders }
+        );
+      }
+      console.error('Nonce persistence failed:', nonceError.message);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Replay protection unavailable' }),
+        { status: 503, headers: corsHeaders }
+      );
+    }
+
+    const body = JSON.parse(rawBody);
     const url = new URL(req.url);
     const path = url.pathname;
 
@@ -106,7 +199,7 @@ serve(async (req: Request) => {
  * معالجة بصمة واحدة
  */
 async function handleSinglePunch(body: any, appSecret: string): Promise<Response> {
-  const { employee_code, punch_time, punch_type, verification_type, device_id, secret } = body as PunchRequest;
+  const { employee_code, punch_time, punch_type, verification_type, device_id } = body as PunchRequest;
 
   // التحقق من الحقول المطلوبة
   if (!employee_code || !punch_time) {
