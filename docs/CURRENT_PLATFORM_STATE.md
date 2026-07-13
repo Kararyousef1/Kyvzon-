@@ -91,3 +91,31 @@ Current (Phase 1):  7.6/10   ↑
 
 **Platform Architect Conclusion:**  
 The platform has transitioned from "a working HR system" to "a well-governed, observable platform" in a very short time. The foundation is solid.
+---
+
+## تحديث الحالة بعد المعالجة — 13 يوليو 2026
+
+هذا القسم أحدث من التقييمات السابقة في هذا الملف. تم تنفيذ معالجة واسعة على فرع `remediation/p0-security-and-build-health`.
+
+### نتائج التحقق الحالية
+
+- TypeScript: **PASS**.
+- الاختبارات: **163/163 PASS**.
+- Coverage core: **PASS** — Lines 74.12%، Statements 72.8%، Functions 72.56%، Branches 65.8%.
+- Build باستخدام Vite 8.1.4: **PASS**.
+- `npm audit`: **0 vulnerabilities**.
+- تم نقل AI إلى Edge Function.
+- تم استكمال وظائف الإدارة الناقصة.
+- تم إضافة migrations 103–106.
+- تم إصلاح مسار Tawathul الأساسي.
+- تم إزالة سياسات RLS المفتوحة من مسار 999.
+
+### ما يزال مفتوحاً خارج المستودع
+
+- تدوير المفاتيح وتنظيف Git history.
+- تطبيق migrations على Staging حقيقية.
+- اختبارات cross-tenant وJWT فعلية.
+- نشر Edge Functions وضبط secrets.
+- backfill لـ `tenant_id` للبيانات القديمة.
+
+المرجع الموحد للتقارير هو `docs/REPORT_STATUS_INDEX_AR.md`.

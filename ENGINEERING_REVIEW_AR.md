@@ -487,3 +487,56 @@ Kyvzon يمتلك **نطاق منتج قوي وجهداً هندسياً واض�
 5. **بعد ذلك فقط** استكمال الأداء وCI/CD والتقسيم المعماري.
 
 **الحكم النهائي:** المشروع قابل للإنقاذ والتطوير، لكنه **ليس جاهزاً للإنتاج في النقطة الحالية**، ولا ينبغي الاعتماد على التقارير الذاتية الموجودة داخله كدليل قبول قبل إعادة تنفيذ الاختبارات والتحقق من قاعدة بيانات staging نظيفة.
+
+---
+
+# ملحق تحديث — ما بعد تنفيذ المعالجة
+
+**تاريخ التحديث:** 13 يوليو 2026
+
+تم تنفيذ عدة مراحل معالجة على الفرع:
+
+```text
+remediation/p0-security-and-build-health
+```
+
+## التغييرات الموثقة والمنفذة
+
+- إزالة ملفات `.env` و`.env.local` من working tree وتنظيف التقرير الذي كان يعيد عرض مفتاح AI.
+- نقل استدعاءات AI إلى `supabase/functions/ai-chat` وعدم وضع مفاتيح مزودي AI في frontend.
+- إضافة وظائف الإدارة الناقصة: حذف مستخدم، تغيير الدور، إعادة كلمة المرور، وتفعيل/تعطيل المستخدم.
+- إضافة migrations من 103 إلى 106 للعزل، منع replay، حماية وحدات HR، وحماية system settings.
+- توحيد Tawathul الأساسي مع RLS والمرفقات والتفاعلات والإشعارات.
+- إزالة سياسات `USING(true)` العامة من مسار `999_fix_all_missing_tables`.
+- جعل ZKTeco يعتمد HMAC وtimestamp وnonce وحداً لحجم الطلب.
+- حذف عميل Supabase المكرر والتبعيات المباشرة غير المستخدمة.
+- تحديث Vite/Vitest وإضافة coverage gate وGitHub Quality Gate.
+- إضافة PWA offline assets.
+
+## نتائج التحقق بعد التحديث
+
+| الفحص | النتيجة |
+|---|---|
+| `npm run type-check` | PASS |
+| `npm run test:run` | PASS — 163/163 |
+| `npm run test:coverage` | PASS ضمن نطاق core الموثق |
+| `npm run build` | PASS — Vite 8.1.4 |
+| `npm audit --omit=optional --audit-level=high` | PASS — 0 vulnerabilities |
+
+## قرار الجاهزية بعد التحديث
+
+تحسنت جاهزية المستودع البرمجية، لكن قرار الإنتاج يبقى **NO-GO مؤقتاً** حتى يتم تنفيذ الخطوات الخارجية التالية:
+
+1. تدوير مفاتيح Supabase وAI.
+2. تنظيف Git history على GitHub.
+3. تطبيق migrations 103–106 على staging حقيقية.
+4. اختبار RLS بــ JWT لمستخدمين من شركتين مختلفتين.
+5. نشر Edge Functions واختبارها من frontend وZKTeco.
+6. تنفيذ backfill للصفوف التي لا تملك `tenant_id` قبل فتح وحدات HR.
+
+للحالة التنفيذية المحدثة راجع:
+
+```text
+docs/REPORT_STATUS_INDEX_AR.md
+P0_REMEDIATION_LOG_AR.md
+```
