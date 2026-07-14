@@ -21,9 +21,21 @@ export default function MyLoansPage() {
 
   useEffect(() => {
     (async () => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
+      // إذا كان user.employee_id موجوداً نستخدمه مباشرة
+      if ((user as any).employee_id) {
+        setEmployeeId((user as any).employee_id);
+        return;
+      }
       const employees = await employeeService.findAll({ filters: { user_id: user.id }, limit: 1 });
-      if (employees.length > 0) setEmployeeId(employees[0].id);
+      if (employees.length > 0) {
+        setEmployeeId(employees[0].id);
+      } else {
+        setLoading(false);
+      }
     })();
   }, [user]);
 

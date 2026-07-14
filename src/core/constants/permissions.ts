@@ -106,7 +106,11 @@ export const PERMISSION_KEYS = [
   'tech-portal',           // البوابة التقنية
   'tawathul-portal',       // بوابة التواصل
   'tawathul-admin',        // إدارة إعدادات التواصل
-  
+
+  // ═══════════════ التبليغات ═══════════════
+  'announcements',          // عرض التبليغات
+  'publish-announcements',  // نشر تبليغات
+
 ] as const;
 
 export type PermissionKey = typeof PERMISSION_KEYS[number];
@@ -133,6 +137,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'employee-permissions',
     'employee-leaves',
     'tawathul-portal',
+    'announcements',
   ],
   
   // ═══════════════ المشرف ═══════════════

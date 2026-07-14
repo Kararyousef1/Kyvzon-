@@ -1,11 +1,14 @@
+import { type ReactNode, type ComponentType, type SVGProps } from 'react';
 import Badge from '../../../../shared/components/ui/Badge';
-import { ArrowUp, ArrowDown } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ArrowUp, ArrowDown, type LucideProps } from 'lucide-react';
+
+// LucideIcon يقبل string | number لخاصية size — نستخدم LucideProps مباشرة
+type IconComponent = ComponentType<LucideProps>;
 
 interface KPICardProps {
   label: string;
   value: string | number;
-  icon: LucideIcon;
+  icon: IconComponent;
   color: string;
   bg: string;
   trend?: string;

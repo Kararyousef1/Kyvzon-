@@ -33,7 +33,7 @@ export default function MovementAnalysisPage() {
             <CardTitle className="text-amber-900">قيد التطوير</CardTitle>
           </div>
         </CardHeader>
-        <div className="p-6">
+        <div className="px-5 pb-5">
           <p className="text-amber-800">
             هذه الصفحة قيد التطوير حالياً. سيتم إطلاقها في إصدار قادم مع ميزات تحليل الحركة المتقدمة،
             بما في ذلك الرسوم البيانية التفاعلية وتقارير التنقلات.

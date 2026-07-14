@@ -2,10 +2,21 @@
  * ════════════════════════════════════════════════════════════════
  *  GatekeeperService - خدمة البوابة والحركة
  *  Domain: Gatekeeper — تشمل الجلسات, الزوار, الحركة, الاستراحات
+ *
+ *  ✅ إصلاح: جداول gatekeeper_sessions, gatekeeper_visitor_logs,
+ *             gatekeeper_visitors بدون عمود tenant_id في قاعدة البيانات.
+ *             نستخدم skipTenantFilter=true لكل عمليات هذه الجداول
+ *             حتى لا يضيف BaseService شرط WHERE tenant_id=? الذي
+ *             يسبب إرجاع صفر نتائج أو خطأ.
+ *
+ *  ✅ إصلاح: جدول movements_log يملك tenant_id → نبقيه بدون skip.
+ *
+ *  ملاحظة أمنية: الحماية في هذه الجداول تعتمد على RLS policies
+ *  المبنية على created_by / auth.uid() بدلاً من tenant_id.
  * ════════════════════════════════════════════════════════════════
  */
 
-import { BaseService, getCurrentTenantId } from './BaseService';
+import { BaseService, getCurrentTenantId, type FindAllOptions } from './BaseService';
 import { supabase } from '../supabase/supabase';
 import type {
   GatekeeperSessionRecord,
@@ -14,9 +25,32 @@ import type {
   EmployeeBreakRecord,
 } from '../../shared/types/sdk';
 
-// ─── Gatekeeper Sessions ─────────────────────────
+// ═══════════════════════════════════════════════════
+//  مساعد: BaseService بدون tenant filter
+//  للجداول التي لا تملك عمود tenant_id
+// ═══════════════════════════════════════════════════
 
-class GatekeeperSessionService extends BaseService<GatekeeperSessionRecord> {
+class NoTenantBaseService<T = any> extends BaseService<T> {
+  constructor(tableName: string) {
+    super(tableName);
+  }
+
+  /** تجاوز addTenantFilter — هذا الجدول بدون tenant_id */
+  protected override addTenantFilter(query: any, _skipTenantFilter?: boolean): any {
+    return query; // لا نضيف أي فلتر
+  }
+
+  /** تجاوز injectTenantId — لا نحقن tenant_id في INSERT */
+  protected override injectTenantId(data: Partial<T>): Record<string, unknown> {
+    const { tenant_id: _, ...cleanData } = data as Record<string, unknown>;
+    return cleanData; // نحذف tenant_id إن وُجد، لكن لا نضيف جديداً
+  }
+}
+
+// ─── Gatekeeper Sessions ─────────────────────────
+// الجدول: gatekeeper_sessions — بدون tenant_id
+
+class GatekeeperSessionService extends NoTenantBaseService<GatekeeperSessionRecord> {
   constructor() {
     super('gatekeeper_sessions');
   }
@@ -48,7 +82,11 @@ class GatekeeperSessionService extends BaseService<GatekeeperSessionRecord> {
     } as unknown as Partial<GatekeeperSessionRecord>);
   }
 
-  async updateHandoverStatus(id: string, status: string, tempPin?: string): Promise<GatekeeperSessionRecord> {
+  async updateHandoverStatus(
+    id: string,
+    status: string,
+    tempPin?: string,
+  ): Promise<GatekeeperSessionRecord> {
     const data: Record<string, unknown> = { handover_status: status };
     if (tempPin) data.temp_pin = tempPin;
     return this.update(id, data as unknown as Partial<GatekeeperSessionRecord>);
@@ -56,8 +94,9 @@ class GatekeeperSessionService extends BaseService<GatekeeperSessionRecord> {
 }
 
 // ─── Visitor Logs ────────────────────────────────
+// الجدول: gatekeeper_visitor_logs — بدون tenant_id
 
-class GatekeeperVisitorLogService extends BaseService<GatekeeperVisitorLogRecord> {
+class GatekeeperVisitorLogService extends NoTenantBaseService<GatekeeperVisitorLogRecord> {
   constructor() {
     super('gatekeeper_visitor_logs');
   }
@@ -68,6 +107,7 @@ class GatekeeperVisitorLogService extends BaseService<GatekeeperVisitorLogRecord
   }): Promise<GatekeeperVisitorLogRecord[]> {
     const filters: Record<string, unknown> = {};
     if (options?.sessionId) filters.session_id = options.sessionId;
+
     return this.findAll({
       filters: Object.keys(filters).length > 0 ? filters : undefined,
       orderBy: 'check_in_time',
@@ -75,7 +115,9 @@ class GatekeeperVisitorLogService extends BaseService<GatekeeperVisitorLogRecord
     });
   }
 
-  async createVisitorLog(data: Partial<GatekeeperVisitorLogRecord>): Promise<GatekeeperVisitorLogRecord> {
+  async createVisitorLog(
+    data: Partial<GatekeeperVisitorLogRecord>,
+  ): Promise<GatekeeperVisitorLogRecord> {
     return this.create(data);
   }
 
@@ -84,7 +126,10 @@ class GatekeeperVisitorLogService extends BaseService<GatekeeperVisitorLogRecord
     return this.delete(id);
   }
 
-  async updateVisitorLogStatus(id: string, status: string): Promise<GatekeeperVisitorLogRecord> {
+  async updateVisitorLogStatus(
+    id: string,
+    status: string,
+  ): Promise<GatekeeperVisitorLogRecord> {
     return this.update(id, {
       status,
       check_out_time: new Date().toISOString(),
@@ -93,19 +138,20 @@ class GatekeeperVisitorLogService extends BaseService<GatekeeperVisitorLogRecord
 
   async countVisitorsSince(fromDate: string): Promise<number> {
     try {
-      let query = supabase
+      // هذا الجدول بدون tenant_id — نستعلم مباشرة
+      const { count, error } = await supabase
         .from(this.tableName)
         .select('*', { count: 'exact', head: true })
         .gte('check_in_time', fromDate);
-      const tenantId = getCurrentTenantId();
-      if (tenantId) query = query.eq('tenant_id', tenantId);
-      const { count, error } = await query;
       return error ? 0 : (count || 0);
-    } catch { return 0; }
+    } catch {
+      return 0;
+    }
   }
 }
 
 // ─── Movements Log ───────────────────────────────
+// الجدول: movements_log — يملك tenant_id → نستخدم BaseService العادي
 
 class MovementLogService extends BaseService<MovementLogRecord> {
   constructor() {
@@ -118,6 +164,7 @@ class MovementLogService extends BaseService<MovementLogRecord> {
   }): Promise<MovementLogRecord[]> {
     const filters: Record<string, unknown> = {};
     if (options?.employeeId) filters.employee_id = options.employeeId;
+
     return this.findAll({
       filters: Object.keys(filters).length > 0 ? filters : undefined,
       orderBy: 'departure_at',
@@ -146,11 +193,14 @@ class MovementLogService extends BaseService<MovementLogRecord> {
       if (tenantId) query = query.eq('tenant_id', tenantId);
       const { count, error } = await query;
       return error ? 0 : (count || 0);
-    } catch { return 0; }
+    } catch {
+      return 0;
+    }
   }
 }
 
 // ─── Employee Breaks ─────────────────────────────
+// الجدول: employee_breaks — يملك tenant_id → BaseService العادي
 
 class EmployeeBreakService extends BaseService<EmployeeBreakRecord> {
   constructor() {
@@ -165,14 +215,18 @@ class EmployeeBreakService extends BaseService<EmployeeBreakRecord> {
     });
   }
 
-  async updateBreakStatus(id: string, status: string, outTime?: string): Promise<EmployeeBreakRecord> {
+  async updateBreakStatus(
+    id: string,
+    status: string,
+    outTime?: string,
+  ): Promise<EmployeeBreakRecord> {
     const data: Record<string, unknown> = { status };
     if (outTime) data.out_time = outTime;
     return this.update(id, data as unknown as Partial<EmployeeBreakRecord>);
   }
 }
 
-export const gatekeeperSessionService = new GatekeeperSessionService();
+export const gatekeeperSessionService    = new GatekeeperSessionService();
 export const gatekeeperVisitorLogService = new GatekeeperVisitorLogService();
-export const movementLogService = new MovementLogService();
-export const employeeBreakService = new EmployeeBreakService();
+export const movementLogService          = new MovementLogService();
+export const employeeBreakService        = new EmployeeBreakService();
