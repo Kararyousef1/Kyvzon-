@@ -20,6 +20,8 @@ import { useUIStore, useAuthStore } from '../../../core/stores';
 import { useNotificationSubscription } from '../../hooks/useNotificationSubscription';
 
 import type { AppNotification } from '../../../core/constants/notificationTypes';
+import { useNavigate } from 'react-router-dom';
+import { legacyViewToPath } from '../../../router/legacyRedirect';
 
 // ════════════════════════════════════════════════════════════════
 //  الأنواع والثوابت
@@ -49,7 +51,7 @@ export default function NotificationBell({
   maxDisplay = 5,
 }: NotificationBellProps) {
   const { user } = useAuthStore();
-  const { setActiveView } = useUIStore();
+  const navigate = useNavigate();
 
   const [open, setOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -90,7 +92,16 @@ export default function NotificationBell({
     async (notif: AppNotification) => {
       if (!currentUserId) return;
 
-      const target = notif.actionUrl ? notif.actionUrl : 'my-notifications';
+      // notif.actionUrl قد يكون:
+      //  - path حقيقي يبدأ بـ / → نستخدمه كما هو
+      //  - view id قديم (e.g. 'hr-attendance') → نحوّله عبر legacyViewToPath
+      //  - undefined → نذهب لصفحة الإشعارات
+      const raw = notif.actionUrl;
+      let target = '/app/my-notifications';
+      if (raw) {
+        if (raw.startsWith('/')) target = raw;
+        else target = legacyViewToPath(raw) ?? '/app/my-notifications';
+      }
 
       // تحديد كمقروء (Hook يتعامل مع التفاؤلية)
       if (!notif.read) {
@@ -98,9 +109,9 @@ export default function NotificationBell({
       }
 
       setOpen(false);
-      setActiveView(target);
+      navigate(target);
     },
-    [currentUserId, markAsRead, setActiveView]
+    [currentUserId, markAsRead, navigate]
   );
 
   const handleMarkAllRead = useCallback(async () => {
@@ -127,8 +138,8 @@ export default function NotificationBell({
 
   const goToNotificationsPage = useCallback(() => {
     setOpen(false);
-    setActiveView('my-notifications');
-  }, [setActiveView]);
+    navigate('/app/my-notifications');
+  }, [navigate]);
 
   // ─── المتغيرات المشتقة ────────────────────────────────────────
   const displayedNotifications = notifications.slice(0, maxDisplay);

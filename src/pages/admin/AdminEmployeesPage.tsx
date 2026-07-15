@@ -271,14 +271,10 @@ export default function AdminEmployeesPage() {
   const handleImageUpload = async (file: File) => {
     setUploadingImg(true);
     try {
-      const ext = file.name.split('.').pop();
-      const path = `profiles/${Date.now()}.${ext}`;
-      const { supabase } = await import('../../services/supabase/supabase');
-      const { error } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
-      if (error) throw error;
-      const { data } = supabase.storage.from('public-assets').getPublicUrl(path);
-      setProfileImg(data.publicUrl);
-    } catch (err: unknown) {
+      const { storageService } = await import('../../services/sdk/StorageService');
+      const url = await storageService.uploadPublic('public-assets', 'profiles', file);
+      setProfileImg(url);
+    } catch {
       addToast('فشل رفع الصورة', 'error');
     } finally {
       setUploadingImg(false);

@@ -38,6 +38,7 @@ import {
   PermissionType, PERMISSION_TYPE_COLORS,
 } from '../../utils/shiftUtils';
 import { getErrorMessage } from '../../services/errors';
+import { useLocation } from 'react-router-dom';
 
 // ════════════════════════════════════════════════════
 // أنواع البيانات (تحلّ محل any)
@@ -100,14 +101,17 @@ interface PermissionDataForLink {
 
 export default function LeaveRequestPage() {
   const { user } = useAuthStore();
-  const { addToast, activeView } = useUIStore();
+  const location = useLocation();
+  const { addToast } = useUIStore();
 
   const viewMode: ViewMode = useMemo(() => {
-    if (activeView === 'hr-leave-requests') return 'hr';
-    if (activeView === 'supervisor-leave-requests') return 'supervisor';
-    if (activeView === 'manager-leave-requests') return 'manager';
+    // نستخرج الوضع من المسار الحالي (بديل عن view IDs القديمة)
+    const p = location.pathname;
+    if (p.startsWith('/app/hr/leave-requests')) return 'hr';
+    if (p.startsWith('/app/supervisor/')) return 'supervisor';
+    if (p.startsWith('/app/manager/')) return 'manager';
     return 'employee';
-  }, [activeView]);
+  }, [location.pathname]);
 
   const [activeTab, setActiveTab] = useState<string>(() => (viewMode !== 'employee' ? 'permissions' : 'leaves'));
   const canApprove = viewMode === 'hr' || viewMode === 'supervisor' || viewMode === 'manager';

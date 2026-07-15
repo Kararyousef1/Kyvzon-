@@ -26,6 +26,7 @@ import Button from '../../shared/components/ui/Button';
 import Input, { TextArea, Select } from '../../shared/components/ui/Input';
 import Badge from '../../shared/components/ui/Badge';
 import { ProblemCategory, ProblemSeverity } from '../../shared/types';
+import { useNavigate } from 'react-router-dom';
 
 // ════════════════════════════════════════════════════════════════
 //  ثوابت مساعدة (تقليل التكرار)
@@ -99,7 +100,8 @@ interface FormState {
 
 export default function NewProblemPage() {
   const { user } = useAuthStore();
-  const { setActiveView, addToast } = useUIStore();
+  const navigate = useNavigate();
+  const { addToast } = useUIStore();
 
   const [form, setForm] = useState<FormState>({
     title: '',
@@ -225,7 +227,7 @@ export default function NewProblemPage() {
       }
 
       addToast('تم رفع مشكلتك بنجاح ✅', 'success');
-      setActiveView('employee-problems');
+      navigate('/app/employee/problems');
     } catch (err) {
       console.error('Incident insert failed:', err);
       // ✅ إظهار رسالة الخطأ الحقيقية من Supabase
@@ -246,7 +248,7 @@ export default function NewProblemPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => setActiveView('employee-problems')}
+          onClick={() => navigate('/app/employee/problems')}
           className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors"
         >
           <ChevronRight size={18} />

@@ -12,7 +12,9 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "type-check": "tsc --noEmit",
-    "db:contract-check": "node scripts/check-db-contract.mjs"
+    "db:contract-check": "node scripts/check-db-contract.mjs",
+    "sdk:boundary-check": "node scripts/check-sdk-boundary.mjs",
+    "check:all": "npm run type-check && npm run sdk:boundary-check && npm run db:contract-check && npm run test:run && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
@@ -21,6 +23,7 @@
     "lucide-react": "^0.446.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-router-dom": "^7.18.1",
     "recharts": "^2.12.7",
     "tailwind-merge": "^2.5.2",
     "zustand": "^4.5.4"

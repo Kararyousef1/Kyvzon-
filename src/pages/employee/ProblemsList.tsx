@@ -7,7 +7,7 @@
  *  🔧 الإصلاحات المُطبّقة:
  *  ─────────────────────────────────────────────────────────────────
  *  ✅ تنظيف جميع markdown artifacts (15+ موضع)
- *  ✅ إصلاح template literals المكسورة (className + setActiveView)
+ *  ✅ إصلاح template literals المكسورة (className + التنقل)
  *  ✅ الاستعلام بـ user_id (يحل خطأ 400 + يتطلب Migration 051)
  *  ✅ إزالة Mock data fallback الذي كان يخفي خطأ 400 فعلياً
  *  ✅ إزالة الإدراج المحلي عند الفشل (بيانات وهمية لا تستمر)
@@ -32,6 +32,7 @@ import Badge from '../../shared/components/ui/Badge';
 import Button from '../../shared/components/ui/Button';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // ════════════════════════════════════════════════════════════════
 //  الأنواع والثوابت
@@ -110,7 +111,12 @@ interface ProblemsListProps {
 
 export default function ProblemsList({ isHR: isHRProp = false }: ProblemsListProps) {
   const { user } = useAuthStore();
-  const { setActiveView } = useUIStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+  // نستخدم مسار HR للتفاصيل عندما نكون في /app/hr/problems، وإلا مسار employee
+  const detailsBase = location.pathname.startsWith('/app/hr/')
+    ? '/app/hr/problems'
+    : '/app/employee/problems';
 
   // ─── الحالة ───────────────────────────────────────────────────
   const [problems, setProblems] = useState<Problem[]>([]);
@@ -243,7 +249,7 @@ export default function ProblemsList({ isHR: isHRProp = false }: ProblemsListPro
   // ═══════════════════════════════════════════════════════════════
 
   const handleSelectProblem = (id: string) => {
-    setActiveView(`problem-detail-${id}`);
+    navigate(`${detailsBase}/${id}`);
   };
 
   // ═══════════════════════════════════════════════════════════════
@@ -265,7 +271,7 @@ export default function ProblemsList({ isHR: isHRProp = false }: ProblemsListPro
           </p>
         </div>
         <Button
-          onClick={() => setActiveView('new-problem')}
+          onClick={() => navigate('/app/employee/problems/new')}
           className="bg-gradient-to-br from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800"
           icon={<Plus size={18} />}
         >
@@ -405,7 +411,7 @@ export default function ProblemsList({ isHR: isHRProp = false }: ProblemsListPro
               <p className="text-sm text-slate-500 mb-6">
                 {search ? 'جرب تغيير كلمة البحث' : 'ابدأ برفع بلاغ جديد'}
               </p>
-              <Button onClick={() => setActiveView('new-problem')} variant="outline" icon={<Plus size={18} />}>
+              <Button onClick={() => navigate('/app/employee/problems/new')} variant="outline" icon={<Plus size={18} />}>
                 رفع بلاغ جديد
               </Button>
             </div>

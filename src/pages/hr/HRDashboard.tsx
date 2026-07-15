@@ -22,6 +22,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
@@ -67,7 +68,7 @@ function KPICard({ label, value, icon: Icon, color, bg, trend, trendUp, suffix =
 }
 
 export default function HRDashboard() {
-  const { setActiveView } = useUIStore();
+  const navigate = useNavigate();
   const [loading,   setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview'|'problems'|'wellness'>('overview');
@@ -299,12 +300,12 @@ export default function HRDashboard() {
       {/* ── الإجراءات السريعة ── */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'فريق العمل',    icon: Users,     color: 'from-blue-500 to-indigo-600',   view: 'hr-team' },
-          { label: 'التحليلات',     icon: Activity,  color: 'from-purple-500 to-violet-600', view: 'hr-analytics' },
-          { label: 'التقارير',      icon: FileText,  color: 'from-emerald-500 to-teal-600',  view: 'hr-reports' },
-          { label: 'سجل الحضور',   icon: Calendar,  color: 'from-amber-500 to-orange-600',  view: 'hr-attendance' },
-        ].map(({ label, icon: Icon, color, view }, i) => (
-          <button key={i} onClick={() => setActiveView(view)}
+          { label: 'فريق العمل',    icon: Users,     color: 'from-blue-500 to-indigo-600',   path: '/app/hr/team' },
+          { label: 'التحليلات',     icon: Activity,  color: 'from-purple-500 to-violet-600', path: '/app/hr/analytics' },
+          { label: 'التقارير',      icon: FileText,  color: 'from-emerald-500 to-teal-600',  path: '/app/hr/reports' },
+          { label: 'سجل الحضور',   icon: Calendar,  color: 'from-amber-500 to-orange-600',  path: '/app/hr/attendance' },
+        ].map(({ label, icon: Icon, color, path }, i) => (
+          <button key={i} onClick={() => navigate(path)}
             className="bg-white border border-slate-100 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-3 card-hover w-full transition-all">
             <div className={`bg-gradient-to-br ${color} w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md`}>
               <Icon size={17} color="white" />
@@ -430,7 +431,7 @@ export default function HRDashboard() {
           <Card className="mt-5">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Star size={18} className="text-amber-500" /> أحدث مراجعات العملاء</CardTitle>
-              <Button size="xs" variant="outline" onClick={() => setActiveView('hr-movement-analysis')}>سجل المراجعات الكامل</Button>
+              <Button size="xs" variant="outline" onClick={() => navigate('/app/hr/movement-analysis')}>سجل المراجعات الكامل</Button>
             </CardHeader>
             <div className="flex flex-col gap-2.5 mt-4">
               {data.recentReviews.length === 0 ? (
@@ -461,7 +462,7 @@ export default function HRDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>📊 مشاكل الأشهر الستة</CardTitle>
-              <Button size="xs" variant="ghost" onClick={() => setActiveView('hr-problems')}>عرض الكل</Button>
+              <Button size="xs" variant="ghost" onClick={() => navigate('/app/hr/problems')}>عرض الكل</Button>
             </CardHeader>
             <div className="h-60 sm:h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -483,7 +484,7 @@ export default function HRDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>🗂️ آخر الحوادث المرفوعة</CardTitle>
-              <Button size="xs" variant="outline" onClick={() => setActiveView('hr-problems')}>عرض الكل</Button>
+              <Button size="xs" variant="outline" onClick={() => navigate('/app/hr/problems')}>عرض الكل</Button>
             </CardHeader>
             <div className="flex flex-col gap-2.5">
               {data.recentIncidents.length === 0 ? (
@@ -492,7 +493,7 @@ export default function HRDashboard() {
                   <p className="text-sm">لا توجد حوادث</p>
                 </div>
               ) : data.recentIncidents.map((inc, i) => (
-                <div key={i} onClick={() => setActiveView(`problem-detail-${inc.id}`)}
+                <div key={i} onClick={() => navigate(`/app/hr/problems/${inc.id}`)}
                   className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl cursor-pointer transition-colors group">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
@@ -574,7 +575,7 @@ export default function HRDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>🏢 صحة الأقسام</CardTitle>
-              <Button size="xs" variant="ghost" onClick={() => setActiveView('hr-analytics')}>التفاصيل</Button>
+              <Button size="xs" variant="ghost" onClick={() => navigate('/app/hr/analytics')}>التفاصيل</Button>
             </CardHeader>
             <div className="flex flex-col gap-3">
               {data.departmentStats.length === 0 ? (

@@ -12,6 +12,7 @@ import { supabase } from '../../services/supabase/supabase';
 import { authService } from '../../services/sdk/AuthService';
 import { userService } from '../../services/sdk/UserService';
 import { settingsService } from '../../services/sdk/SettingsService';
+import { storageService } from '../../services/sdk/StorageService';
 import {
   addNotification,
   createWelcomeNotification,
@@ -252,17 +253,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
         set({ user: normalizedUser, isAuthenticated: true });
 
-        const ROLE_DEFAULT_VIEW: Record<string, string> = {
-          developer:  'developer-dashboard',
-          hr:         'hr-dashboard',
-          admin:      'admin-dashboard',
-          employee:   'employee-dashboard',
-          gatekeeper: 'gatekeeper-portal',
-          supervisor: 'employee-dashboard',
-          manager:    'manager-dashboard',
-        };
-        const defaultView = ROLE_DEFAULT_VIEW[normalizedUser.role] ?? 'employee-dashboard';
-        useUIStore.getState().setActiveView(defaultView);
+        // Router يتولى التوجيه للصفحة الافتراضية عبر <RoleRedirect>
+        // (راجع src/router/constants.ts → ROLE_DEFAULT_PATH)
         createWelcomeNotification(data.user.id);
         const userName = getUserDisplayName(normalizedUser);
         const today = new Date().toISOString().slice(0, 10);
@@ -526,7 +518,6 @@ const defaultLandingConfig: LandingConfig = {
 
 interface UIState {
   sidebarOpen: boolean;
-  activeView: string;
   landingConfig: LandingConfig;
   userPermissions: string[];
   isLoadingConfig?: boolean;
@@ -541,7 +532,6 @@ interface UIState {
 
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
-  setActiveView: (view: string) => void;
   updateLandingConfig: (config: Partial<LandingConfig>) => void;
   fetchLandingConfig: () => Promise<void>;
   saveLandingConfig: (config: LandingConfig) => Promise<{ success: boolean; error?: string }>;
@@ -567,7 +557,6 @@ export const useUIStore = create<UIState>()(
   persist(
     (set, get) => ({
       sidebarOpen: false,
-      activeView: 'employee-dashboard',
       landingConfig: defaultLandingConfig,
       userPermissions: [],
       isLoadingConfig: false,
@@ -582,12 +571,6 @@ export const useUIStore = create<UIState>()(
 
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
-
-      setActiveView: (view) =>
-        set(() => {
-          const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 1024;
-          return { activeView: view, ...(isSmallScreen ? { sidebarOpen: false } : {}) };
-        }),
 
       updateLandingConfig: (config) =>
         set((state) => ({ landingConfig: { ...state.landingConfig, ...config } })),
@@ -634,12 +617,8 @@ export const useUIStore = create<UIState>()(
 
       uploadImage: async (file, path) => {
         try {
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${path}/${Date.now()}.${fileExt}`;
-          const { error } = await supabase.storage.from('public-assets').upload(fileName, file, { upsert: true });
-          if (error) throw error;
-          const { data } = supabase.storage.from('public-assets').getPublicUrl(fileName);
-          return data.publicUrl;
+          const url = await storageService.uploadPublic('public-assets', path, file);
+          return url;
         } catch (err) {
           console.error('Upload failed:', getErrorMessage(err));
           return null;
@@ -715,7 +694,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'kyvzon-platform-ui',
-      partialize: (state) => ({ activeView: state.activeView, landingConfig: state.landingConfig }),
+      partialize: (state) => ({ landingConfig: state.landingConfig }),
     },
   ),
 );

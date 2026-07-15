@@ -68,18 +68,21 @@ class ErrorStore {
   }
 
   private async tryPersistToDb(error: CapturedError): Promise<void> {
+    // نستخدم SDK: يحقن tenant_id إن وُجد، ولا يفشل إن لم يوجد.
+    // dynamic import للحفاظ على أن الـ ErrorBoundary لا يحمِّل SDK
+    // في bundle الأولي (يظل خفيفاً حتى قبل أي خطأ).
     try {
-      const { supabase } = await import('../../../../services/supabase/supabase');
-      await supabase.from('error_logs').insert({
-        message: error.message,
-        source: error.source,
+      const { errorLogService } = await import('../../../../services/sdk/ErrorLogService');
+      await errorLogService.logError({
+        message:     error.message,
+        source:      error.source,
         stack_trace: error.stackTrace,
-        severity: error.severity,
-        category: error.category,
-        file_name: error.fileName,
+        severity:    error.severity,
+        category:    error.category,
+        file_name:   error.fileName,
         line_number: error.lineNumber,
-        user_agent: error.userAgent,
-        route: error.route,
+        user_agent:  error.userAgent,
+        route:       error.route,
         environment: error.environment,
       });
     } catch {

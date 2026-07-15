@@ -1,15 +1,18 @@
-import { useUIStore } from '../../../core/stores';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../../core/stores';
+import { getDefaultPathForRole } from '../../../router/constants';
 
 /**
- * The main  KYVZON logo component for the application.
+ * The main KYVZON logo component for the application.
  * Designed to be placed in the sidebar or header.
+ * Clicking navigates the user to their role's default landing page.
  */
 export function Logo() {
-  const { setActiveView } = useUIStore();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
 
   const handleNavigateHome = () => {
-    // Navigate to the main dashboard view, respecting the app's navigation logic
-    setActiveView('employee-dashboard');
+    navigate(getDefaultPathForRole(user?.role));
   };
 
   return (

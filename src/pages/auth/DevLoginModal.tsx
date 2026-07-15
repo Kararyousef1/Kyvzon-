@@ -7,13 +7,15 @@
  */
 
 import { useState, type FC } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getDefaultPathForRole } from '../../router/constants';
 import {
   LayoutDashboard, Users, Shield, Fingerprint, Terminal,
   Cpu, MessageSquare, Briefcase, UserCheck, ChevronDown,
   Sparkles, X,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
-import { getEffectivePermissions, PermissionKey } from '../../core/constants/permissions';
+import type { PermissionKey } from '../../core/constants/permissions';
 import type { UserRole } from '../../shared/types';
 
 // ════════════════════════════════════════════════════════════════
@@ -81,17 +83,6 @@ const DEV_PORTALS: DevPortal[] = [
   },
 ];
 
-const ROLE_DEFAULT_VIEW: Record<string, string> = {
-  developer:  'developer-dashboard',
-  hr:         'hr-dashboard',
-  admin:      'admin-dashboard',
-  employee:   'employee-dashboard',
-  gatekeeper: 'gatekeeper-portal',
-  supervisor: 'employee-dashboard',
-  manager:    'manager-dashboard',
-  it_admin:   'tech-portal',
-};
-
 // ════════════════════════════════════════════════════════════════
 //  Component
 // ════════════════════════════════════════════════════════════════
@@ -99,6 +90,7 @@ const ROLE_DEFAULT_VIEW: Record<string, string> = {
 export default function DevLoginModal() {
   const [open, setOpen] = useState(false);
   const { addToast } = useUIStore();
+  const navigate = useNavigate();
 
   // Quick login is opt-in and disabled when using a real Supabase project.
   // It creates synthetic IDs and must never call UUID-backed database queries.
@@ -106,14 +98,11 @@ export default function DevLoginModal() {
 
   const handleDevLogin = (portal: DevPortal) => {
     const userRole = portal.role;
-    const permissions = getEffectivePermissions(userRole, null);
-
-    // استخدام loginLocal بدلاً من setState المباشر
+    // permissions are computed inside loginLocal via getEffectivePermissions.
     useAuthStore.getState().loginLocal(portal.email, userRole, portal.fullName);
 
-    // Navigate to default view
-    const defaultView = portal.defaultView || ROLE_DEFAULT_VIEW[userRole] || 'employee-dashboard';
-    useUIStore.getState().setActiveView(defaultView);
+    // Navigate to the role's default path (Router-based, no page reload)
+    navigate(getDefaultPathForRole(userRole));
 
     addToast(`🚀 دخول سريع: ${portal.label}`, 'success');
     setOpen(false);

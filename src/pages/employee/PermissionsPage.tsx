@@ -22,6 +22,7 @@ import { notifyUser, notifyRole } from '../../services/notifications/notificatio
 import { addNotification } from '../../services/notifications/notificationManager';
 import { getErrorMessage } from '../../services/errors';
 import { PermissionType, PERMISSION_TYPE_COLORS } from '../../utils/shiftUtils';
+import { useLocation } from 'react-router-dom';
 
 // ════════════════════════════════════════════════════
 // أنواع البيانات
@@ -69,7 +70,8 @@ const PERMISSION_DESCRIPTIONS: Record<PermissionType, string> = {
 
 export default function PermissionsPage() {
   const { user } = useAuthStore();
-  const { addToast, activeView } = useUIStore();
+  const location = useLocation();
+  const { addToast } = useUIStore();
 
   const [employeeId, setEmployeeId] = useState<string>('');
   const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -89,7 +91,13 @@ export default function PermissionsPage() {
     reason: '',
   });
 
-  const viewMode = activeView === 'hr-permissions' || activeView === 'admin-permissions-management' ? 'hr' : activeView === 'manager-permissions' ? 'manager' : 'employee';
+  // نستخرج الوضع من مسار URL بدل view IDs القديمة
+  const viewMode = (() => {
+    const p = location.pathname;
+    if (p.startsWith('/app/hr/') || p === '/app/admin/permissions-management') return 'hr';
+    if (p.startsWith('/app/manager/')) return 'manager';
+    return 'employee';
+  })();
   const canApprove = viewMode === 'hr' || viewMode === 'manager';
   const canSubmit = viewMode === 'employee';
 

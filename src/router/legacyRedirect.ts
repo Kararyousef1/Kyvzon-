@@ -1,0 +1,107 @@
+/**
+ * ═════════════════════════════════════════════════════════════════════════
+ *  Legacy view → URL path mapping
+ *
+ *  الغرض: التوافق العكسي — أي مستخدم عنده bookmark لـ ?view=xxx القديم
+ *  يجب أن يُوجَّه للمسار الجديد بدون كسر تجربته.
+ * ═════════════════════════════════════════════════════════════════════════
+ */
+
+export const VIEW_TO_PATH: Record<string, string> = {
+  // Notifications
+  'notifications':                '/app/notifications',
+  'my-notifications':             '/app/my-notifications',
+
+  // Employee
+  'employee-dashboard':           '/app/employee',
+  'employee-problems':            '/app/employee/problems',
+  'new-problem':                  '/app/employee/problems/new',
+  'employee-wellness':            '/app/employee/wellness',
+  'employee-ai-chat':             '/app/employee/ai-chat',
+  'employee-survey':              '/app/employee/survey',
+  'employee-training':            '/app/employee/training',
+  'employee-sops':                '/app/employee/sops',
+  'employee-profile':             '/app/employee/profile',
+  'employee-contact':             '/app/employee/contact',
+  'employee-attendance':          '/app/employee/attendance',
+  'employee-requests':            '/app/employee/leave-requests',
+  'employee-leave-requests':      '/app/employee/leave-requests',
+  'employee-permissions':         '/app/employee/permissions',
+  'employee-payroll':             '/app/employee/payroll',
+  'employee-loans':               '/app/employee/loans',
+  'employee-expenses':            '/app/employee/expenses',
+  'employee-ai-insights':         '/app/employee/insights',
+  'insights':                     '/app/insights',
+
+  // Kiosk
+  'kiosk-mode':                   '/app/kiosk',
+
+  // Manager
+  'manager-dashboard':            '/app/manager',
+  'manager-attendance':           '/app/manager/attendance',
+  'manager-leave-requests':       '/app/employee/leave-requests',
+
+  // Supervisor
+  'supervisor-breaks':            '/app/supervisor/breaks',
+  'supervisor-leave-requests':    '/app/employee/leave-requests',
+
+  // HR
+  'hr-dashboard':                 '/app/hr',
+  'hr-problems':                  '/app/hr/problems',
+  'hr-analytics':                 '/app/hr/analytics',
+  'hr-sentiment':                 '/app/hr/analytics',
+  'hr-predictions':               '/app/hr/analytics',
+  'hr-team':                      '/app/hr/team',
+  'hr-reports':                   '/app/hr/reports',
+  'hr-attendance':                '/app/hr/attendance',
+  'hr-talent-market':             '/app/hr/talent-market',
+  'hr-movement-analysis':         '/app/hr/movement-analysis',
+  'hr-manage-training':           '/app/hr/training/manage',
+  'hr-training-reports':          '/app/hr/training/reports',
+  'hr-payroll':                   '/app/hr/payroll',
+  'hr-loans':                     '/app/hr/loans',
+  'hr-bonuses':                   '/app/hr/bonuses',
+  'hr-expenses':                  '/app/hr/expenses',
+  'hr-recruitment':               '/app/hr/recruitment',
+  'hr-onboarding':                '/app/hr/onboarding',
+  'hr-documents':                 '/app/hr/documents',
+  'hr-performance':               '/app/hr/performance',
+  'hr-disciplinary':              '/app/hr/disciplinary',
+  'hr-shifts':                    '/app/hr/shifts',
+  'hr-communication':             '/app/hr/communication',
+  'hr-leave-requests':            '/app/hr/leave-requests',
+  'hr-sops':                      '/app/hr/sops',
+  'hr-manage-surveys':            '/app/employee/survey',
+  'hr-ai-insights':               '/app/insights',
+
+  // Admin
+  'admin-dashboard':              '/app/admin',
+  'admin-employees':              '/app/admin/employees',
+  'admin-permissions':            '/app/admin/permissions',
+  'admin-permissions-management': '/app/admin/permissions-management',
+  'admin-audit-log':              '/app/admin/audit-log',
+  'admin-settings':               '/app/admin/settings',
+  'admin-ai-config':              '/app/admin/ai-config',
+  'admin-cms':                    '/app/admin/cms',
+  'admin-gatekeeper-permissions': '/app/admin/gatekeeper-permissions',
+  'admin-sops':                   '/app/admin/sops',
+  'admin-sops-reports':           '/app/admin/sops-reports',
+  'admin-attendance':             '/app/hr/attendance',
+  'admin-reports':                '/app/hr/reports',
+
+  // Other portals
+  'gatekeeper-portal':            '/app/gatekeeper',
+  'tech-portal':                  '/app/tech-portal',
+  'tawathul-portal':              '/app/tawathul',
+  'tawathul-admin':               '/app/tawathul/admin',
+  'developer-dashboard':          '/dev',
+};
+
+/**
+ * محاولة تحويل view قديم إلى المسار الجديد.
+ * يعيد null إن كان view غير معروف.
+ */
+export function legacyViewToPath(view: string | null | undefined): string | null {
+  if (!view) return null;
+  return VIEW_TO_PATH[view] ?? null;
+}

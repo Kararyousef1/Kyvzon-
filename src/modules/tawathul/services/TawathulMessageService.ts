@@ -88,7 +88,9 @@ class TawathulMessageService {
     conversationId?: string,
   ): Promise<TawathulMessage[]> {
     if (!messages.length) return messages;
-    const me = (await supabase.auth.getUser()).data.user?.id || '';
+    // نستخدم authService عبر utils/errors بدلاً من supabase.auth مباشرة
+    let me = '';
+    try { me = await requireAuthUserId(); } catch { /* enrichment يعمل بدون me */ }
     const ids = messages.map((m) => m.id);
     const senderIds = Array.from(
       new Set(messages.map((m) => m.sender_id).filter(Boolean)),
@@ -177,7 +179,7 @@ class TawathulMessageService {
 
   async sendMessage(input: SendMessageInput): Promise<TawathulMessage> {
     const tenantId = requireTawathulTenantId();
-    const me = await requireAuthUserId(supabase);
+    const me = await requireAuthUserId();
     const body = (input.body || '').trim();
     const files = input.files || [];
     if (!body && !files.length) {
@@ -330,7 +332,7 @@ class TawathulMessageService {
     emoji: string,
   ): Promise<void> {
     const tenantId = requireTawathulTenantId();
-    const me = await requireAuthUserId(supabase);
+    const me = await requireAuthUserId();
 
     const { data: existing } = await supabase
       .from(this.reactionsTable)

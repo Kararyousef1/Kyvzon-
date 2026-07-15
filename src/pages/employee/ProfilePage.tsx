@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { userService } from '../../services/sdk/UserService';
-import { supabase } from '../../services/supabase/supabase';
+import { storageService } from '../../services/sdk/StorageService';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import Badge from '../../shared/components/ui/Badge';
@@ -190,19 +190,17 @@ export default function ProfilePage() {
         return;
       }
 
-      const ext = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('public-assets')
-        .upload(`profiles/${fileName}`, file, { upsert: true });
-      if (uploadError) throw uploadError;
+      const url = await storageService.uploadPublic(
+        'public-assets',
+        'profiles',
+        file,
+        { fileName: `${user.id}-${Date.now()}` },
+      );
+      setProfileImage(url);
 
-      const { data: urlData } = supabase.storage.from('public-assets').getPublicUrl(`profiles/${fileName}`);
-      setProfileImage(urlData.publicUrl);
+      await userService.updateUser(user.id, { profile_image: url });
 
-      await userService.updateUser(user.id, { profile_image: urlData.publicUrl });
-
-      updateUser({ profile_image: urlData.publicUrl });
+      updateUser({ profile_image: url });
       addToast('تم رفع الصورة بنجاح', 'success');
     } catch (err) {
       addToast('فشل رفع الصورة (' + getErrorMessage(err, 'تحقق من دلو public-assets') + ')', 'error');

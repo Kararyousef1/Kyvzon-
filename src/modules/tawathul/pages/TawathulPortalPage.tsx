@@ -23,10 +23,11 @@ import { cn } from '../../../utils/cn';
 import Button from '../../../shared/components/ui/Button';
 import { tawathulMessageService, tawathulNotificationService } from '../services';
 import type { TawathulMessage, TawathulNotification } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 export default function TawathulPortalPage() {
   const { user } = useAuthStore();
-  const setActiveView = useUIStore((s) => s.setActiveView);
+  const navigate = useNavigate();
   const {
     conversations,
     activeConversationId,
@@ -181,7 +182,7 @@ export default function TawathulPortalPage() {
           {isAdmin && (
             <button
               type="button"
-              onClick={() => setActiveView('tawathul-admin')}
+              onClick={() => navigate('/app/tawathul/admin')}
               className="p-2 rounded-xl hover:bg-white/10"
               title="إدارة"
             >

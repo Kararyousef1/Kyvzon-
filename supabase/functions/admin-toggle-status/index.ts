@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
-import { audit, headers, isUuid, json, requireAdmin, targetInCallerTenant } from '../_shared/adminAuth.ts';
+import { audit, enforceRateLimit, headers, isUuid, json, requireAdmin, targetInCallerTenant } from '../_shared/adminAuth.ts';
+import { RATE_LIMITS } from '../_shared/rateLimit.ts';
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: headers(req) });
@@ -7,6 +8,9 @@ serve(async (req: Request) => {
 
   const context = await requireAdmin(req);
   if (context instanceof Response) return context;
+
+  const rl = enforceRateLimit(req, context.caller.id, 'admin-toggle-status', RATE_LIMITS.ADMIN_TOGGLE);
+  if (rl) return rl;
 
   try {
     const body = await req.json() as { target_user_id?: unknown; disabled?: unknown };

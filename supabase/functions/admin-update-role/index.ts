@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
-import { audit, headers, isUuid, json, requireAdmin, targetInCallerTenant, TARGET_ROLES } from '../_shared/adminAuth.ts';
+import { audit, enforceRateLimit, headers, isUuid, json, PLATFORM_ROLES, requireAdmin, targetInCallerTenant, TARGET_ROLES } from '../_shared/adminAuth.ts';
+import { RATE_LIMITS } from '../_shared/rateLimit.ts';
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: headers(req) });
@@ -7,6 +8,9 @@ serve(async (req: Request) => {
 
   const context = await requireAdmin(req);
   if (context instanceof Response) return context;
+
+  const rl = enforceRateLimit(req, context.caller.id, 'admin-update-role', RATE_LIMITS.ADMIN_UPDATE_ROLE);
+  if (rl) return rl;
 
   try {
     const body = await req.json() as { target_user_id?: unknown; new_role?: unknown };
@@ -16,10 +20,24 @@ serve(async (req: Request) => {
       return json(req, { error: 'البيانات غير صالحة' }, 400);
     }
 
+    // 🛡️ منع Privilege Escalation:
+    // TARGET_ROLES لا تحوي developer/it_admin، لكن نتحقق صراحةً كطبقة دفاع إضافية.
+    // لا يجوز رفع مستخدم إلى دور منصة عبر Edge Function عام.
+    if (PLATFORM_ROLES.has(newRole)) {
+      return json(req, { error: 'لا يمكن ترقية مستخدم إلى دور منصة عبر هذه الواجهة' }, 403);
+    }
+
     const target = await targetInCallerTenant(context.adminClient, targetId, context.callerProfile.tenant_id!);
     if (target.error || !target.profile) return json(req, { error: 'المستخدم غير موجود في الشركة' }, 404);
-    if (['developer', 'it_admin'].includes(target.profile.role) && context.callerProfile.role !== 'developer') {
+
+    // 🛡️ منع تعديل مستخدم منصة إلا من developer نفسه
+    if (PLATFORM_ROLES.has(target.profile.role) && context.callerProfile.role !== 'developer') {
       return json(req, { error: 'لا يمكن تعديل مستخدم منصة' }, 403);
+    }
+
+    // 🛡️ منع self-demote للـ admin (يحمي من قفل النظام)
+    if (targetId === context.caller.id && context.callerProfile.role === 'admin' && newRole !== 'admin') {
+      return json(req, { error: 'لا يمكنك تخفيض دورك بنفسك (استخدم admin آخر)' }, 400);
     }
 
     const { error: profileError } = await context.adminClient
@@ -37,7 +55,10 @@ serve(async (req: Request) => {
       .eq('user_id', targetId)
       .eq('tenant_id', context.callerProfile.tenant_id);
 
-    await audit(context.adminClient, context.callerProfile.tenant_id!, context.caller.id, targetId, 'admin_update_role', { new_role: newRole });
+    await audit(context.adminClient, context.callerProfile.tenant_id!, context.caller.id, targetId, 'admin_update_role', {
+      previous_role: target.profile.role,
+      new_role: newRole,
+    });
     return json(req, { success: true, role: newRole }, 200);
   } catch (error) {
     console.error('admin-update-role error:', error instanceof Error ? error.message : String(error));

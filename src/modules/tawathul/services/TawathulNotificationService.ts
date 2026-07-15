@@ -13,7 +13,7 @@ class TawathulNotificationService {
 
   async list(limit = 30): Promise<TawathulNotification[]> {
     const tenantId = getTawathulTenantId();
-    const userId = await requireAuthUserId(supabase);
+    const userId = await requireAuthUserId();
     const { data, error } = await supabase
       .from(this.table)
       .select('*')
@@ -31,7 +31,7 @@ class TawathulNotificationService {
 
   async countUnread(): Promise<number> {
     const tenantId = getTawathulTenantId();
-    const userId = await requireAuthUserId(supabase);
+    const userId = await requireAuthUserId();
     const { count, error } = await supabase
       .from(this.table)
       .select('*', { count: 'exact', head: true })
@@ -52,7 +52,7 @@ class TawathulNotificationService {
 
   async markAllRead(): Promise<void> {
     const tenantId = getTawathulTenantId();
-    const userId = await requireAuthUserId(supabase);
+    const userId = await requireAuthUserId();
     const { error } = await supabase
       .from(this.table)
       .update({ is_read: true })
@@ -68,7 +68,7 @@ class TawathulNotificationService {
   async countUnreadConversations(): Promise<number> {
     try {
       const tenantId = getTawathulTenantId();
-      const userId = await requireAuthUserId(supabase);
+      const userId = await requireAuthUserId();
       const { data: memberships } = await supabase
         .from('tawathul_members')
         .select('conversation_id, last_read_at')

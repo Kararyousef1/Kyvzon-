@@ -33,9 +33,11 @@ import {
   LandingConfig,
 } from '../../core/stores';
 import { supabase } from '../../services/supabase/supabase';
+import { storageService } from '../../services/sdk/StorageService';
 import { settingsService } from '../../services/sdk';
 import LandingPage from '../public/LandingPage';
 import { getErrorMessage } from '../../services/errors';
+import { useNavigate } from 'react-router-dom';
 
 // ════════════════════════════════════════════════════════════════
 //  أنواع موسّعة محلياً (تحلّ محل any جذرياً)
@@ -305,12 +307,8 @@ const ImageUpload = ({ value, onChange, label, aspectRatio = 'landscape', compac
     if (file.size > 5 * 1024 * 1024) { setError('الحجم الأقصى 5MB'); return; }
     setUploading(true); setError('');
     try {
-      const ext = file.name.split('.').pop();
-      const path = `landing/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true });
-      if (upErr) throw upErr;
-      const { data } = supabase.storage.from('public-assets').getPublicUrl(path);
-      onChange(data.publicUrl);
+      const url = await storageService.uploadPublic('public-assets', 'landing', file);
+      onChange(url);
     } catch (err) {
       setError(getErrorMessage(err, 'خطأ في الرفع'));
     } finally {
@@ -486,7 +484,8 @@ const DEFAULT_CONFIG: CMSConfig = {
 };
 
 export default function AdminLandingPageCMS() {
-  const { landingConfig, updateLandingConfig, addToast, setActiveView } = useUIStore();
+  const navigate = useNavigate();
+  const { landingConfig, updateLandingConfig, addToast } = useUIStore();
 
   const [config, setConfig] = useState<CMSConfig>(() => ({ ...DEFAULT_CONFIG, ...landingConfig } as CMSConfig));
   const [activeTab, setActiveTab] = useState('general');
@@ -694,7 +693,7 @@ export default function AdminLandingPageCMS() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button onClick={() => setIsSidebarOpen(true)} className="xl:hidden w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all shrink-0"><Eye size={18} /></button>
-              <button onClick={() => setActiveView('dashboard')} className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all shrink-0" title="العودة للوحة التحكم"><ArrowRight size={20} /></button>
+              <button onClick={() => navigate('/app/admin')} className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all shrink-0" title="العودة للوحة التحكم"><ArrowRight size={20} /></button>
               <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md shrink-0" style={{ background: `linear-gradient(135deg, ${tc}, ${tc}cc)`, boxShadow: `0 4px 12px rgba(${tcRgb}, 0.4)` }}><Globe size={20} /></div>
               <div>
                 <h2 className="text-base sm:text-lg font-black text-slate-800 leading-tight">إدارة صفحة الزوار</h2>

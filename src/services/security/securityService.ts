@@ -1,9 +1,12 @@
 // ════════════════════════════════════════════════════════════════
 //  Security Service - خدمة الأمان والمراقبة
 //  لتسجيل محاولات الدخول، التهديدات، والأنشطة المشبوهة
+//
+//  ملاحظة: يستخدم securityEventService من SDK لكتابة قاعدة البيانات
+//  (يحقن tenant_id تلقائياً + يتعامل مع RLS بأمان).
 // ════════════════════════════════════════════════════════════════
 
-import { supabase } from '../supabase/supabase';
+import { securityEventService } from '../sdk/SecurityEventService';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type ThreatLevel = 'low' | 'medium' | 'high' | 'critical';
@@ -137,20 +140,17 @@ class SecurityServiceImpl {
   }
 
   private async persistToDb(event: SecurityEvent): Promise<void> {
-    try {
-      await supabase.from('security_events').insert({
-        type: event.type,
-        threat_level: event.threatLevel,
-        user_id: event.userId,
-        user_name: event.userName,
-        ip_address: event.ipAddress,
-        user_agent: event.userAgent,
-        details: event.details,
-        metadata: event.metadata,
-      });
-    } catch {
-      // الحفظ محلي كافي
-    }
+    // SDK يتولى: حقن tenant_id إن وُجد، إدارة أخطاء الشبكة، عدم رمي أخطاء.
+    await securityEventService.recordEvent({
+      type: event.type,
+      threatLevel: event.threatLevel,
+      userId: event.userId,
+      userName: event.userName,
+      ipAddress: event.ipAddress,
+      userAgent: event.userAgent,
+      details: event.details,
+      metadata: event.metadata,
+    });
   }
 
   private getThreatTitle(type: EventType, level: ThreatLevel): string {

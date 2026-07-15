@@ -10,7 +10,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { securityService } from './securityService';
-import { supabase } from '../supabase/supabase';
+import { auditLogService } from '../sdk/AuditLogService';
 
 // ── Constants ────────────────────────────────────────────────────
 const MAX_ATTEMPTS      = 5;
@@ -243,15 +243,12 @@ export async function logDataExport(
     metadata:    { exportType, count },
   });
 
-  // تسجيل مستقل في audit_logs
-  try {
-    await supabase.from('audit_logs').insert({
-      action:     'DATA_EXPORT',
-      actor_id:   actorId,
-      actor_role: actorRole,
-      target:     exportType,
-      details,
-      timestamp:  new Date().toISOString(),
-    });
-  } catch { /* securityService يكفي */ }
+  // تسجيل مستقل في audit_logs عبر SDK (يحقن tenant_id تلقائياً إن وُجد)
+  await auditLogService.createLog({
+    action:     'DATA_EXPORT',
+    actor_id:   actorId,
+    actor_role: actorRole,
+    target:     exportType,
+    details,
+  });
 }

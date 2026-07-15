@@ -15,6 +15,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Heart, ClipboardList, BookOpen,
   Bot, MessageSquare, User, Clock, Bell, LogOut, Building2,
@@ -27,6 +28,7 @@ import {
   Briefcase, UserPlus, Plus, Cpu,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../../core/stores';
+import { VIEW_TO_PATH } from '../../../router/legacyRedirect';
 import { UserRole } from '../../types';
 import {
   getEffectivePermissions,
@@ -270,7 +272,12 @@ const ROLE_CONFIG: Record<UserRole, { label: string; portalName: string; gradien
 export default function Sidebar() {
   const { user, logout } = useAuthStore();
   const refreshUser = useAuthStore.getState().refreshUser;
-  const { sidebarOpen, activeView, setActiveView, setSidebarOpen } = useUIStore();
+  const { sidebarOpen, setSidebarOpen } = useUIStore();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // نستخدم location.pathname بدل activeView من Zustand
+  const currentPath = location.pathname;
   const [dynamicBadges, setDynamicBadges] = useState({ problems: 0, messages: 0 });
 
   // ✅ إصلاح: عداد الإشعارات عبر Hook الموحد — لا channel مستقل هنا
@@ -352,15 +359,27 @@ export default function Sidebar() {
 
   // ─── فحص العنصر النشط ────────────────────────────────────────
   const isActive = (itemId: string): boolean => {
-    if (activeView === itemId) return true;
-    if (itemId === 'employee-problems' && activeView.startsWith('problem-detail')) return true;
+    const targetPath = VIEW_TO_PATH[itemId];
+    if (!targetPath) return false;
+    // مطابقة تامة أو parent path (لـ /app/employee/problems يشمل /app/employee/problems/new)
+    if (currentPath === targetPath) return true;
+    if (itemId === 'employee-problems' && currentPath.startsWith('/app/employee/problems')) return true;
+    if (itemId === 'hr-problems' && currentPath.startsWith('/app/hr/problems')) return true;
     return false;
   };
 
-  // ─── معالج التنقل (يغلق الـ sidebar على الموبايل) ────────────
+  // ─── معالج التنقل (يغلق الـ sidebar على الموبايل + يستخدم Router) ────
   const handleNavigate = (itemId: string) => {
-    setActiveView(itemId);
-    if (window.innerWidth < 1024) setSidebarOpen(false);
+    const targetPath = VIEW_TO_PATH[itemId];
+    if (targetPath) {
+      navigate(targetPath);
+    } else {
+      // fallback للأزرار غير المعروفة — لا نُوقف التطبيق
+      console.warn(`Sidebar: no route for id "${itemId}"`);
+    }
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
   };
 
   return (

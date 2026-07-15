@@ -1,20 +1,39 @@
-# إصلاحات قاعدة البيانات - Database Fixes
+# 📁 `database/` — نظرة عامة
 
-## المشاكل الموجودة
-1. تضارب بين جدولي `profiles` و `employees` (نفس البيانات في جدولين)
-2. مشكلة توليد `employee_code` من UUID مما يسبب تضارباً
-3. بيانات meta-data ناقصة عند إنشاء المستخدمين
-4. السياسات (RLS) متناثرة في schema.sql القديم والجديد
-5. دالة `handle_new_user()` غير مكتملة
+هذا المجلد يحتوي على:
 
-## الحل
-استخدمنا `database/schema.sql` كـ **المصدر الرسمي** الوحيد (1514 سطر) 
-ونهمل `schema.sql` في الجذر (312 سطر).
+- **`seeds/`** — بيانات ديمو للاختبار المحلي (`complete_demo.sql`, `gatekeeper_extra.sql`, `seed_courses_sops_data.sql`).
+- **`legacy-DO-NOT-USE/`** — ملفات تاريخية للاطلاع فقط. **لا تُنفَّذ**.
 
-### ملفات الإصلاح:
-- `migrations/001_unify_profiles_employees.sql` - توحيد الحسابات
-- `migrations/002_fix_triggers.sql` - إصلاح المشغلات
-- `migrations/003_fix_rls.sql` - إصلاح سياسات الأمان
+---
 
-### لتطبيق الإصلاحات:
-اذهب إلى Supabase Dashboard > SQL Editor وارفع الملفات بالترتيب.
+## 🎯 لإعداد قاعدة بيانات جديدة، اتبع:
+
+```
+supabase/migrations/README.md
+```
+
+هذا هو **المسار الوحيد الرسمي** لكل ما يتعلق بـ schema.
+
+---
+
+## طريقة تحميل بيانات الديمو (اختياري)
+
+بعد تنفيذ كل ملفات `supabase/migrations/`:
+
+```bash
+# 1. حمّل الجدول الأساسي
+psql "$DB_URL" -f database/seeds/complete_demo.sql
+
+# 2. (اختياري) بيانات Gatekeeper
+psql "$DB_URL" -f database/seeds/gatekeeper_extra.sql
+
+# 3. (اختياري) بيانات الدورات والـ SOPs
+psql "$DB_URL" -f database/seeds/seed_courses_sops_data.sql
+```
+
+⚠️ **لا تحمّل seeds على بيئة production.**
+
+---
+
+**آخر تحديث:** 2026-07-15

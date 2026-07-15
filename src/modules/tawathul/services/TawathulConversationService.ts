@@ -20,15 +20,9 @@ import type {
   TawathulMember,
 } from '../types';
 
-async function requireAuthUserId(): Promise<string> {
-  const { data, error } = await supabase.auth.getUser();
-  if (error) throw SdkError.fromSupabaseError(error);
-  const id = data.user?.id;
-  if (!id) {
-    throw new SdkError(SdkErrorCode.PERMISSION_DENIED, 'يجب تسجيل الدخول لاستخدام بوابة التواصل');
-  }
-  return id;
-}
+// Reuse the shared requireAuthUserId from tawathul/utils/errors
+// (which delegates to authService — no supabase.auth here).
+import { requireAuthUserId } from '../utils/errors';
 
 function friendlyDbError(error: { message?: string; code?: string } | null): never {
   const msg = error?.message || 'خطأ في قاعدة البيانات';

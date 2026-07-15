@@ -16,6 +16,7 @@ import Button from '../../shared/components/ui/Button';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { getErrorMessage } from '../../services/errors';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 
 // ════════════════════════════════════════════════════
 // أنواع البيانات
@@ -72,12 +73,18 @@ const SEVERITY_META = {
 
 export default function ProblemDetail() {
   const { user } = useAuthStore();
-  const { activeView, setActiveView, addToast } = useUIStore();
+  const navigate = useNavigate();
+  const params = useParams<{ id: string }>();
+  const location = useLocation();
+  const { addToast } = useUIStore();
 
-  const problemId = useMemo(() => {
-    const parts = activeView.split(':');
-    return parts.length > 1 ? parts[1] : null;
-  }, [activeView]);
+  // نأخذ id من مسار URL. المسار الصحيح: /app/employee/problems/:id
+  const problemId = params.id ?? null;
+
+  // مسار قائمة البلاغات — يعتمد على السياق (HR أم Employee)
+  const problemsListPath = location.pathname.startsWith('/app/hr/')
+    ? '/app/hr/problems'
+    : '/app/employee/problems';
 
   // ─── State ────────────────────────────────────────────────────
   const [problem, setProblem] = useState<ProblemDetailData | null>(null);
@@ -211,7 +218,7 @@ export default function ProblemDetail() {
         <AlertCircle size={48} className="mx-auto text-slate-300 mb-4" />
         <h3 className="text-lg font-bold text-slate-700">البلاغ غير موجود</h3>
         <p className="text-sm text-slate-500 mt-2">قد يكون قد تم حذفه أو أن الرابط غير صحيح</p>
-        <Button variant="outline" onClick={() => setActiveView('employee-problems')} className="mt-4">
+        <Button variant="outline" onClick={() => navigate(problemsListPath)} className="mt-4">
           العودة إلى البلاغات
         </Button>
       </div>
@@ -229,7 +236,7 @@ export default function ProblemDetail() {
     <div className="max-w-4xl mx-auto p-4 space-y-6 animate-fade-in" dir="rtl">
       {/* زر الرجوع */}
       <button
-        onClick={() => setActiveView('employee-problems')}
+        onClick={() => navigate(problemsListPath)}
         className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 transition-colors"
       >
         <ArrowRight size={16} /> العودة إلى البلاغات

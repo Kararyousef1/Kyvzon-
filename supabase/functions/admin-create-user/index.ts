@@ -1,5 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { audit, PLATFORM_ROLES } from '../_shared/adminAuth.ts';
+import { checkRateLimit, rateLimitHeaders, RATE_LIMITS } from '../_shared/rateLimit.ts';
 
 const TARGET_ROLES = new Set([
   'employee',
@@ -88,6 +90,18 @@ serve(async (req: Request) => {
       return json(req, { error: 'لا توجد شركة مرتبطة بالمستخدم الإداري.' }, 403);
     }
 
+    // 🛡️ Rate limiting — بعد التحقق من الهوية (لا نضيع حدوداً على غير المصرّح لهم)
+    const rl = checkRateLimit(authData.user.id, 'admin-create-user', RATE_LIMITS.ADMIN_CREATE);
+    if (!rl.allowed) {
+      return new Response(
+        JSON.stringify({ error: `تجاوزت الحد المسموح. حاول بعد ${Math.ceil(rl.retryAfterMs / 1000)} ثانية.` }),
+        {
+          status: 429,
+          headers: { ...corsHeaders(req), ...rateLimitHeaders(rl) },
+        },
+      );
+    }
+
     const payload = await req.json() as Partial<CreateUserPayload>;
     const email = String(payload.email || '').trim().toLowerCase();
     const password = String(payload.password || '');
@@ -105,6 +119,11 @@ serve(async (req: Request) => {
     }
     if (!TARGET_ROLES.has(role)) {
       return json(req, { error: 'الدور المطلوب غير مسموح' }, 400);
+    }
+
+    // 🛡️ منع Privilege Escalation عبر إنشاء مستخدم بدور منصة
+    if (PLATFORM_ROLES.has(role)) {
+      return json(req, { error: 'لا يمكن إنشاء مستخدم بدور منصة عبر هذه الواجهة' }, 403);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -167,15 +186,15 @@ serve(async (req: Request) => {
       return json(req, { error: 'فشل إنشاء سجل الموظف' }, 500);
     }
 
-    await adminClient.from('security_events').insert({
-      event_type: 'admin_create_user',
-      actor_id: authData.user.id,
-      target_id: newUser.user.id,
-      tenant_id: callerProfile.tenant_id,
-      description: `إنشاء مستخدم جديد: ${email} (${role})`,
-      metadata: { email, role, department_id: payload.department_id || null },
-      created_at: new Date().toISOString(),
-    });
+    // Audit (fire-and-forget — لن يفشل حتى لو DB down)
+    await audit(
+      adminClient,
+      callerProfile.tenant_id,
+      authData.user.id,
+      newUser.user.id,
+      'admin_create_user',
+      { email, role, department_id: payload.department_id || null },
+    );
 
     return json(req, {
       success: true,

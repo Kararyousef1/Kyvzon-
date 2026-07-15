@@ -10,7 +10,7 @@
  *  ✅ لا كتابة مزدوجة: العمليات تذهب للخادم فقط، ثم تُحدّث الحالة
  *  ✅ تحديثات تفاؤلية (Optimistic UI) مع استرجاع عند الفشل
  *  ✅ معالجة أخطاء محكمة + حالات Loading/Error/Empty
- *  ✅ إصلاح أخطاء الصياغة (template literals في setActiveView)
+ *  ✅ إصلاح أخطاء الصياغة (template literals في التنقل)
  *  ✅ Fallback آمن للأنواع غير المعروفة في TYPE_META
  *  ✅ زر تحديث يدوي (Retry/Refresh)
  *  ✅ Realtime فقط كمصدر للتحديث الفوري (إزالة الازدواجية)
@@ -43,6 +43,8 @@ import {
 import type { AppNotification, NotificationType, NotificationFilter } from '../../core/constants/notificationTypes';
 import Card from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
+import { useNavigate } from 'react-router-dom';
+import { legacyViewToPath } from '../../router/legacyRedirect';
 
 // ════════════════════════════════════════════════════════════════
 //  ثوابت الأنواع والفلاتر
@@ -182,7 +184,7 @@ const FILTER_OPTIONS: { value: NotificationFilter; label: string; icon: React.Co
 
 export default function MyNotificationsPage() {
   const { user } = useAuthStore();
-  const { setActiveView } = useUIStore();
+  const navigate = useNavigate();
 
   // ✅ Hook الموحد يدير: الجلب + Realtime + العمليات (تفاؤلية + استرجاع)
   const {
@@ -251,12 +253,16 @@ export default function MyNotificationsPage() {
     }
 
     // التوجيه (actionUrl الأولوية، ثم metadata.problemId)
+    // actionUrl قد يكون path حقيقي (يبدأ بـ /) أو view id قديم
     if (notif.actionUrl) {
-      setActiveView(notif.actionUrl);
+      const target = notif.actionUrl.startsWith('/')
+        ? notif.actionUrl
+        : (legacyViewToPath(notif.actionUrl) ?? '/app/my-notifications');
+      navigate(target);
     } else if (notif.metadata?.problemId) {
-      setActiveView(`problem-detail-${notif.metadata.problemId}`);
+      navigate(`/app/employee/problems/${notif.metadata.problemId}`);
     }
-  }, [handleMarkAsRead, setActiveView]);
+  }, [handleMarkAsRead, navigate]);
 
   // ─── المشتقات (فلاتر + بحث + إحصائيات + تجميع) ────────────────
   const displayedNotifications = useMemo(() => {

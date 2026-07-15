@@ -32,10 +32,13 @@ import {
   PolarAngleAxis, Legend
 } from 'recharts';
 
+// Router shim
+import { useNavigate } from 'react-router-dom';
+
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
 export default function HRDashboard() {
-  const { setActiveView } = useUIStore();
+  const navigate = useNavigate();
   const { data, loading, refreshing, fetchData } = useHRDashboardData();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'problems' | 'wellness'>('overview');
@@ -222,13 +225,13 @@ export default function HRDashboard() {
 
       {/* Quick Actions */}
       <div className="flex flex-wrap gap-3 pt-4 border-t">
-        <Button onClick={() => setActiveView('hr-team')} variant="outline">
+        <Button onClick={() => navigate('/app/hr/team')} variant="outline">
           إدارة الفريق
         </Button>
-        <Button onClick={() => setActiveView('hr-attendance')} variant="outline">
+        <Button onClick={() => navigate('/app/hr/attendance')} variant="outline">
           سجل الحضور
         </Button>
-        <Button onClick={() => setActiveView('hr-problems')} variant="outline">
+        <Button onClick={() => navigate('/app/hr/problems')} variant="outline">
           إدارة المشاكل
         </Button>
       </div>

@@ -21,6 +21,7 @@ import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Badge from '../../shared/components/ui/Badge';
 import Button from '../../shared/components/ui/Button';
 import { getErrorMessage } from '../../services/errors';
+import { useNavigate } from 'react-router-dom';
 
 // ════════════════════════════════════════════════════
 // أنواع البيانات (تحلّ محل any)
@@ -88,7 +89,8 @@ interface QuickAction {
   label: string;
   icon: IconType;
   color: string;
-  view: string;
+  /** Router path — e.g. '/app/admin/employees' */
+  path: string;
 }
 
 // ════════════════════════════════════════════════════
@@ -107,7 +109,7 @@ const SYSTEM_HEALTH: SystemService[] = [
 // ════════════════════════════════════════════════════
 
 export default function AdminDashboard() {
-  const { setActiveView } = useUIStore();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData>({
     totalEmployees: 0,
@@ -208,12 +210,12 @@ export default function AdminDashboard() {
   ];
 
   const quickActions: QuickAction[] = [
-    { label: 'إدارة الموظفين', icon: Users, color: 'from-blue-500 to-indigo-600', view: 'admin-employees' },
-    { label: 'صلاحيات المدراء', icon: Shield, color: 'from-amber-500 to-yellow-600', view: 'admin-gatekeeper-permissions' },
-    { label: 'إعدادات النظام', icon: Settings, color: 'from-slate-600 to-slate-800', view: 'admin-settings' },
-    { label: 'سجل العمليات', icon: Shield, color: 'from-orange-500 to-red-500', view: 'admin-audit-log' },
-    { label: 'التقارير', icon: Activity, color: 'from-emerald-500 to-teal-600', view: 'admin-reports' },
-    { label: 'إعداد AI', icon: Cpu, color: 'from-purple-500 to-violet-600', view: 'admin-ai-config' },
+    { label: 'إدارة الموظفين', icon: Users, color: 'from-blue-500 to-indigo-600', path: '/app/admin/employees' },
+    { label: 'صلاحيات المدراء', icon: Shield, color: 'from-amber-500 to-yellow-600', path: '/app/admin/gatekeeper-permissions' },
+    { label: 'إعدادات النظام', icon: Settings, color: 'from-slate-600 to-slate-800', path: '/app/admin/settings' },
+    { label: 'سجل العمليات', icon: Shield, color: 'from-orange-500 to-red-500', path: '/app/admin/audit-log' },
+    { label: 'التقارير', icon: Activity, color: 'from-emerald-500 to-teal-600', path: '/app/hr/reports' },
+    { label: 'إعداد AI', icon: Cpu, color: 'from-purple-500 to-violet-600', path: '/app/admin/ai-config' },
   ];
 
   const roleBadgeVariant = (role: string | null): 'danger' | 'success' | 'primary' =>
@@ -268,7 +270,7 @@ export default function AdminDashboard() {
           return (
             <button
               key={i}
-              onClick={() => setActiveView(action.view)}
+              onClick={() => navigate(action.path)}
               className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center gap-3 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 group cursor-pointer text-right"
             >
               <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center shadow-md`}>
@@ -304,7 +306,7 @@ export default function AdminDashboard() {
       <Card>
         <CardHeader>
           <CardTitle>📋 آخر العمليات</CardTitle>
-          <Button size="xs" variant="ghost" onClick={() => setActiveView('admin-audit-log')}>عرض الكل</Button>
+          <Button size="xs" variant="ghost" onClick={() => navigate('/app/admin/audit-log')}>عرض الكل</Button>
         </CardHeader>
         <div className="space-y-3">
           {data.recentLogs.map((log) => (

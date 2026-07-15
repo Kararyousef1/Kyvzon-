@@ -38,6 +38,7 @@ import {
 } from 'recharts';
 import type { LucideIcon } from 'lucide-react';
 import { getErrorMessage } from '../../services/errors';
+import { useNavigate } from 'react-router-dom';
 
 // ════════════════════════════════════════════════════
 // أنواع البيانات
@@ -116,7 +117,7 @@ const calculateStreakFromAttendance = (records: AttendanceRecord[]): number => {
 
 export default function EmployeeDashboard() {
   const { user } = useAuthStore();
-  const { setActiveView } = useUIStore();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalProblems: 0,
@@ -178,10 +179,10 @@ export default function EmployeeDashboard() {
   useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
 
   const quickActions: QuickAction[] = [
-    { label: 'بلاغ جديد', icon: Plus, action: () => setActiveView('new-problem'), color: 'bg-gradient-to-br from-rose-500 to-pink-600' },
-    { label: 'طلب إجازة', icon: Calendar, action: () => setActiveView('employee-leave-requests'), color: 'bg-gradient-to-br from-emerald-500 to-teal-600' },
-    { label: 'تسجيل مزاج', icon: Heart, action: () => setActiveView('employee-wellness'), color: 'bg-gradient-to-br from-violet-500 to-purple-600' },
-    { label: 'تدريب', icon: BookOpen, action: () => setActiveView('employee-training'), color: 'bg-gradient-to-br from-amber-500 to-orange-600' },
+    { label: 'بلاغ جديد', icon: Plus, action: () => navigate('/app/employee/problems/new'), color: 'bg-gradient-to-br from-rose-500 to-pink-600' },
+    { label: 'طلب إجازة', icon: Calendar, action: () => navigate('/app/employee/leave-requests'), color: 'bg-gradient-to-br from-emerald-500 to-teal-600' },
+    { label: 'تسجيل مزاج', icon: Heart, action: () => navigate('/app/employee/wellness'), color: 'bg-gradient-to-br from-violet-500 to-purple-600' },
+    { label: 'تدريب', icon: BookOpen, action: () => navigate('/app/employee/training'), color: 'bg-gradient-to-br from-amber-500 to-orange-600' },
   ];
 
   const greeting = () => {
@@ -345,7 +346,7 @@ export default function EmployeeDashboard() {
           <CardTitle>
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold text-slate-700">آخر البلاغات</span>
-              <Button size="sm" variant="ghost" onClick={() => setActiveView('employee-problems')}>عرض الكل</Button>
+              <Button size="sm" variant="ghost" onClick={() => navigate('/app/employee/problems')}>عرض الكل</Button>
             </div>
           </CardTitle>
         </CardHeader>

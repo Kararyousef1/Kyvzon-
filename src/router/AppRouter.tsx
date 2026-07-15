@@ -1,0 +1,285 @@
+/**
+ * ═════════════════════════════════════════════════════════════════════════
+ *  AppRouter — Router الرئيسي للتطبيق
+ *
+ *  البنية:
+ *   /                   → LandingPage (عامة)
+ *   /login              → LoginPage
+ *   /disclaimer         → DisclaimerPage
+ *   /guide              → SystemGuide
+ *   /app/*              → المسارات المصادَق عليها (AppLayout)
+ *   /dev                → KyvzonDevPortal (DevLayout — لـ developer/it_admin)
+ *
+ *  Lazy loading لكل الصفحات الثقيلة (67 صفحة).
+ * ═════════════════════════════════════════════════════════════════════════
+ */
+import { lazy, useEffect } from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useSearchParams,
+  useNavigate,
+} from 'react-router-dom';
+
+// طبقات
+import { AppLayout } from './layouts/AppLayout';
+import { DevLayout } from './layouts/DevLayout';
+
+// حراس
+import { RequireAuth } from './guards/RequireAuth';
+import { RequireRole } from './guards/RequireRole';
+import { RoleRedirect } from './guards/RoleRedirect';
+
+// legacy
+import { legacyViewToPath } from './legacyRedirect';
+
+// الصفحات العامة (eager — دائماً محتاجة)
+import LoginPage from '../pages/auth/LoginPage';
+import LandingPage from '../pages/public/LandingPage';
+import DisclaimerPage from '../pages/public/DisclaimerPage';
+import SystemGuide from '../pages/public/SystemGuide';
+import NotificationsPage from '../pages/public/NotificationsPage';
+import MyNotificationsPage from '../pages/public/MyNotificationsPage';
+
+// ─── Lazy: Employee ─────────────────────────────────────────────────────
+const EmployeeDashboard    = lazy(() => import('../pages/employee/EmployeeDashboard'));
+const ProblemsList         = lazy(() => import('../pages/employee/ProblemsList'));
+const ProblemDetail        = lazy(() => import('../pages/employee/ProblemDetail'));
+const NewProblemPage       = lazy(() => import('../pages/employee/NewProblemPage'));
+const WellnessPage         = lazy(() => import('../pages/employee/WellnessPage'));
+const AIChatPage           = lazy(() => import('../pages/employee/AIChatPage'));
+const SurveyPage           = lazy(() => import('../pages/employee/SurveyPage'));
+const ProfilePage          = lazy(() => import('../pages/employee/ProfilePage'));
+const ContactPage          = lazy(() => import('../pages/employee/ContactPage'));
+const TrainingPage         = lazy(() => import('../pages/employee/TrainingPage'));
+const SOPsPage             = lazy(() => import('../pages/employee/SOPsPage'));
+const MyAttendancePage     = lazy(() => import('../pages/employee/MyAttendancePage'));
+const LeaveRequestPage     = lazy(() => import('../pages/employee/LeaveRequestPage'));
+const PermissionsPage      = lazy(() => import('../pages/employee/PermissionsPage'));
+const AIInsightsDashboard  = lazy(() => import('../pages/employee/AIInsightsDashboard'));
+const MyPayrollPage        = lazy(() => import('../pages/employee/MyPayrollPage'));
+const MyLoansPage          = lazy(() => import('../pages/employee/MyLoansPage'));
+const MyExpensesPage       = lazy(() => import('../pages/employee/MyExpensesPage'));
+
+// ─── Lazy: HR ─────────────────────────────────────────────────────────
+const HRDashboard              = lazy(() => import('../pages/hr/HRDashboard'));
+const AnalyticsPage            = lazy(() => import('../pages/hr/AnalyticsPage'));
+const TeamPage                 = lazy(() => import('../pages/hr/TeamPage'));
+const ReportsPage              = lazy(() => import('../pages/hr/ReportsPage'));
+const AttendancePage           = lazy(() => import('../pages/hr/AttendancePage'));
+const TalentMarketPage         = lazy(() => import('../pages/hr/TalentMarketPage'));
+const KioskPage                = lazy(() => import('../pages/hr/KioskPage'));
+const HRMovementAnalyticsPage  = lazy(() => import('../pages/hr/HRMovementAnalyticsPage'));
+const TrainingManagementPage   = lazy(() => import('../pages/hr/TrainingManagementPage'));
+const TrainingReportsPage      = lazy(() => import('../pages/hr/TrainingReportsPage'));
+const HRPayrollPage            = lazy(() => import('../pages/hr/PayrollPage'));
+const HRLoansPage              = lazy(() => import('../pages/hr/LoansPage'));
+const HRBonusesPage            = lazy(() => import('../pages/hr/BonusesPage'));
+const HRExpensesPage           = lazy(() => import('../pages/hr/ExpensesPage'));
+const RecruitmentPage          = lazy(() => import('../pages/hr/RecruitmentPage'));
+const OnboardingPage           = lazy(() => import('../pages/hr/OnboardingPage'));
+const DocumentsPage            = lazy(() => import('../pages/hr/DocumentsPage'));
+const PerformancePage          = lazy(() => import('../pages/hr/PerformancePage'));
+const DisciplinaryPage         = lazy(() => import('../pages/hr/DisciplinaryPage'));
+const ShiftSchedulingPage      = lazy(() => import('../pages/hr/ShiftSchedulingPage'));
+const HRCommunicationPage      = lazy(() => import('../pages/hr/HRCommunicationPage'));
+
+// ─── Lazy: Admin ────────────────────────────────────────────────────
+const AdminDashboard             = lazy(() => import('../pages/admin/AdminDashboard'));
+const AdminEmployeesPage         = lazy(() => import('../pages/admin/AdminEmployeesPage'));
+const AdminPermissionsTree       = lazy(() => import('../pages/admin/AdminPermissionsTree'));
+const AuditLogPage               = lazy(() => import('../pages/admin/AuditLogPage'));
+const SettingsPage               = lazy(() => import('../pages/admin/SettingsPage'));
+const AIConfigPage               = lazy(() => import('../pages/admin/AIConfigPage'));
+const AdminLandingPageCMS        = lazy(() => import('../pages/admin/AdminLandingPageCMS'));
+const AdminGatekeeperPermissions = lazy(() => import('../pages/admin/AdminGatekeeperPermissions'));
+const AdminSOPsPage              = lazy(() => import('../pages/admin/AdminSOPsPage'));
+const AdminSOPsReport            = lazy(() => import('../pages/admin/AdminSOPsReport'));
+
+// ─── Lazy: Other roles ──────────────────────────────────────────────
+const GatekeeperPage        = lazy(() => import('../pages/gatekeeper/GatekeeperPage'));
+const SupervisorBreaksPage  = lazy(() => import('../pages/supervisor/SupervisorBreaksPage'));
+const ManagerAttendancePage = lazy(() => import('../pages/manager/ManagerAttendancePage'));
+const TechPortal            = lazy(() => import('../pages/techportal/TechPortal'));
+const TawathulPortalPage    = lazy(() => import('../modules/tawathul/pages/TawathulPortalPage'));
+const TawathulAdminPage     = lazy(() => import('../modules/tawathul/pages/TawathulAdminPage'));
+const KyvzonDevPortal       = lazy(() => import('../pages/devportal/KyvzonDevPortal'));
+
+// ═════════════════════════════════════════════════════════════════════════
+//  LegacyRedirect: يترجم ?view=xxx القديم إلى المسار الجديد
+// ═════════════════════════════════════════════════════════════════════════
+
+function LegacyViewHandler({ children }: { children: React.ReactNode }) {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const view = params.get('view');
+
+  useEffect(() => {
+    if (!view) return;
+    const target = legacyViewToPath(view);
+    if (target) navigate(target, { replace: true });
+  }, [view, navigate]);
+
+  return <>{children}</>;
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+//  AppRoutes — التعريف الفعلي لكل المسارات (مفصول ليسهل الاختبار)
+// ═════════════════════════════════════════════════════════════════════════
+
+export function AppRoutes() {
+  return (
+    <Routes>
+      {/* المسارات العامة */}
+      <Route path="/" element={<LandingPage onLoginClick={() => window.location.assign('/login')} />} />
+      <Route path="/login" element={<LoginPage onNavigate={() => {}} onBack={() => window.history.back()} />} />
+      <Route path="/disclaimer" element={<DisclaimerPage onAccess={() => {
+        localStorage.setItem('disclaimer_passed', 'true');
+        window.location.assign('/');
+      }} />} />
+      <Route path="/guide" element={<SystemGuide onSkip={() => {
+        localStorage.setItem('guide_passed', 'true');
+        window.location.assign('/');
+      }} />} />
+
+      {/* المسارات المصادَق عليها */}
+      <Route element={<RequireAuth />}>
+        {/* Dev Portal — طبقة مستقلة */}
+        <Route path="/dev" element={<RequireRole roles={['developer', 'it_admin']} />}>
+          <Route element={<DevLayout />}>
+            <Route index element={<KyvzonDevPortal />} />
+          </Route>
+        </Route>
+
+        {/* App: كل باقي الصفحات */}
+        <Route path="/app" element={<AppLayout />}>
+          {/* Root: تحويل حسب الدور */}
+          <Route index element={<RoleRedirect />} />
+
+          {/* Notifications */}
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="my-notifications" element={<MyNotificationsPage />} />
+
+          {/* Insights (متاح لعدة أدوار) */}
+          <Route path="insights" element={<AIInsightsDashboard />} />
+
+          {/* Employee */}
+          <Route path="employee" element={<RequireRole roles={['employee', 'supervisor', 'manager']} />}>
+            <Route index element={<EmployeeDashboard />} />
+            <Route path="problems" element={<ProblemsList isHR={false} />} />
+            <Route path="problems/new" element={<NewProblemPage />} />
+            <Route path="problems/:id" element={<ProblemDetail />} />
+            <Route path="wellness" element={<WellnessPage />} />
+            <Route path="ai-chat" element={<AIChatPage />} />
+            <Route path="survey" element={<SurveyPage />} />
+            <Route path="training" element={<TrainingPage />} />
+            <Route path="sops" element={<SOPsPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="contact" element={<ContactPage />} />
+            <Route path="attendance" element={<MyAttendancePage />} />
+            <Route path="leave-requests" element={<LeaveRequestPage />} />
+            <Route path="permissions" element={<PermissionsPage />} />
+            <Route path="payroll" element={<MyPayrollPage />} />
+            <Route path="loans" element={<MyLoansPage />} />
+            <Route path="expenses" element={<MyExpensesPage />} />
+            <Route path="insights" element={<AIInsightsDashboard />} />
+          </Route>
+
+          {/* Manager */}
+          <Route path="manager" element={<RequireRole roles={['manager', 'hr', 'admin']} />}>
+            <Route index element={<HRDashboard />} />
+            <Route path="attendance" element={<ManagerAttendancePage />} />
+          </Route>
+
+          {/* Supervisor */}
+          <Route path="supervisor" element={<RequireRole roles={['supervisor', 'manager', 'hr', 'admin']} />}>
+            <Route path="breaks" element={<SupervisorBreaksPage />} />
+          </Route>
+
+          {/* HR */}
+          <Route path="hr" element={<RequireRole roles={['hr', 'admin']} />}>
+            <Route index element={<HRDashboard />} />
+            <Route path="problems" element={<ProblemsList isHR={true} />} />
+            <Route path="problems/:id" element={<ProblemDetail />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="team" element={<TeamPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="attendance" element={<AttendancePage />} />
+            <Route path="talent-market" element={<TalentMarketPage />} />
+            <Route path="movement-analysis" element={<HRMovementAnalyticsPage />} />
+            <Route path="training/manage" element={<TrainingManagementPage />} />
+            <Route path="training/reports" element={<TrainingReportsPage />} />
+            <Route path="payroll" element={<HRPayrollPage />} />
+            <Route path="loans" element={<HRLoansPage />} />
+            <Route path="bonuses" element={<HRBonusesPage />} />
+            <Route path="expenses" element={<HRExpensesPage />} />
+            <Route path="recruitment" element={<RecruitmentPage />} />
+            <Route path="onboarding" element={<OnboardingPage />} />
+            <Route path="documents" element={<DocumentsPage />} />
+            <Route path="performance" element={<PerformancePage />} />
+            <Route path="disciplinary" element={<DisciplinaryPage />} />
+            <Route path="shifts" element={<ShiftSchedulingPage />} />
+            <Route path="communication" element={<HRCommunicationPage />} />
+            <Route path="leave-requests" element={<LeaveRequestPage />} />
+            <Route path="sops" element={<AdminSOPsPage />} />
+          </Route>
+
+          {/* Admin */}
+          <Route path="admin" element={<RequireRole roles={['admin']} />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="employees" element={<AdminEmployeesPage />} />
+            <Route path="permissions" element={<AdminPermissionsTree />} />
+            <Route path="permissions-management" element={<PermissionsPage />} />
+            <Route path="audit-log" element={<AuditLogPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="ai-config" element={<AIConfigPage />} />
+            <Route path="cms" element={<AdminLandingPageCMS />} />
+            <Route path="gatekeeper-permissions" element={<AdminGatekeeperPermissions />} />
+            <Route path="sops" element={<AdminSOPsPage />} />
+            <Route path="sops-reports" element={<AdminSOPsReport />} />
+          </Route>
+
+          {/* Gatekeeper */}
+          <Route path="gatekeeper" element={<RequireRole roles={['gatekeeper', 'admin', 'hr']} />}>
+            <Route index element={<GatekeeperPage />} />
+          </Route>
+
+          {/* IT / Tech Portal */}
+          <Route path="tech-portal" element={<RequireRole roles={['it_admin', 'admin', 'developer']} />}>
+            <Route index element={<TechPortal />} />
+          </Route>
+
+          {/* Kiosk (متاح لأي مستخدم مصادَق عليه — يُستخدم في أجهزة عامة) */}
+          <Route path="kiosk" element={<KioskPage />} />
+
+          {/* Tawathul (بوابة التواصل) */}
+          <Route path="tawathul">
+            <Route index element={<TawathulPortalPage />} />
+            <Route path="admin" element={<RequireRole roles={['admin', 'hr']}><TawathulAdminPage /></RequireRole>} />
+          </Route>
+        </Route>
+
+        {/* أي مسار غير معروف تحت auth → redirect للـ default */}
+        <Route path="*" element={<RoleRedirect />} />
+      </Route>
+    </Routes>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+//  AppRouter: يُحيط AppRoutes بـ BrowserRouter + LegacyViewHandler
+// ═════════════════════════════════════════════════════════════════════════
+
+export function AppRouter() {
+  return (
+    <BrowserRouter>
+      <LegacyViewHandler>
+        <AppRoutes />
+      </LegacyViewHandler>
+    </BrowserRouter>
+  );
+}
+
+export default AppRouter;

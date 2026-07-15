@@ -158,6 +158,27 @@ export class BaseService<T = any> {
     return { ...cleanData, tenant_id: tenantId };
   }
 
+  /**
+   * نسخة تسامحية من injectTenantId — تُستخدم للجداول الأمنية
+   * (audit_logs, security_events, error_logs) التي قد تُكتب في سياقات
+   * لا يوجد فيها tenant بعد (مثل ErrorBoundary قبل تسجيل الدخول،
+   * أو securityService عند تسجيل محاولة دخول فاشلة).
+   *
+   * السلوك:
+   *   - إذا وُجد tenant_id في السياق → يُحقن.
+   *   - إذا لم يوجد → يُترك null (RLS يسمح بذلك عبر Migration 0015).
+   *
+   * لا تُستخدم في الجداول العادية — قد تسبب سجلات يتيمة.
+   */
+  protected injectTenantIdOptional(data: Partial<T>): Record<string, unknown> {
+    const tenantId = getCurrentTenantId();
+    const { tenant_id: _, ...cleanData } = data as Record<string, unknown>;
+    if (tenantId) {
+      return { ...cleanData, tenant_id: tenantId };
+    }
+    return { ...cleanData, tenant_id: null };
+  }
+
   // ─────────────────────────────────────────────────
   //  CRUD Operations
   // ─────────────────────────────────────────────────

@@ -14,7 +14,7 @@ import {
   Fingerprint, Monitor, Router, Settings as SettingsIcon,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
-import { supabase } from '../../services/supabase/supabase';
+import { biometricDeviceService } from '../../services/sdk/BiometricDeviceService';
 import { getErrorMessage } from '../../services/errors';
 
 // ════════════════════════════════════════════════════════════════
@@ -124,15 +124,14 @@ function TechDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const { data: devices } = await supabase.from('biometric_devices').select('*');
-        const devs = devices || [];
+        const s = await biometricDeviceService.getStats();
         setStats({
-          devices: devs.length,
-          online: devs.filter((d: any) => d.is_active).length,
-          lastSync: devs.length > 0 ? devs[0].last_sync_at || '—' : '—',
-          punches: 0,
+          devices:  s.total,
+          online:   s.online,
+          lastSync: s.lastSync,
+          punches:  0,
         });
-      } catch (err) { console.warn(err); }
+      } catch (err) { console.warn(getErrorMessage(err)); }
       finally { setLoading(false); }
     })();
   }, []);
@@ -211,9 +210,9 @@ function BiometricDevicesPage() {
 
   const fetchDevices = async () => {
     try {
-      const { data } = await supabase.from('biometric_devices').select('*').order('name');
-      setDevices((data || []) as BioDevice[]);
-    } catch (err) { addToast('فشل تحميل الأجهزة', 'error'); }
+      const list = await biometricDeviceService.findAllDevices();
+      setDevices(list as unknown as BioDevice[]);
+    } catch { addToast('فشل تحميل الأجهزة', 'error'); }
     finally { setLoading(false); }
   };
 
@@ -222,19 +221,19 @@ function BiometricDevicesPage() {
   const handleAdd = async () => {
     if (!form.name || !form.ip_address) { addToast('يرجى تعبئة الاسم وعنوان IP', 'error'); return; }
     try {
-      await supabase.from('biometric_devices').insert({ ...form, device_type: 'zkteco' });
+      await biometricDeviceService.createDevice(form);
       addToast('تمت إضافة الجهاز', 'success');
       setShowForm(false);
       setForm({ name: '', ip_address: '', port: 4370, location: '', sync_interval_minutes: 5 });
       fetchDevices();
-    } catch (err) { addToast('فشل الإضافة', 'error'); }
+    } catch { addToast('فشل الإضافة', 'error'); }
   };
 
   const handleToggle = async (device: BioDevice) => {
     try {
-      await supabase.from('biometric_devices').update({ is_active: !device.is_active }).eq('id', device.id);
+      await biometricDeviceService.toggleActive(device.id, !device.is_active);
       fetchDevices();
-    } catch (err) { addToast('فشل التحديث', 'error'); }
+    } catch { addToast('فشل التحديث', 'error'); }
   };
 
   return (

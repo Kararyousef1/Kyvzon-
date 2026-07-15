@@ -9,6 +9,7 @@ import { tawathulConversationService } from '../services';
 import { useUIStore } from '../../../core/stores';
 import { ensureDefaultTenantCached } from '../utils/tenant';
 import type { TawathulEntityType } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 interface Props {
   entityType: TawathulEntityType | string;
@@ -32,7 +33,7 @@ export default function OpenEntityDiscussionButton({
   label = 'فتح نقاش',
 }: Props) {
   const [loading, setLoading] = useState(false);
-  const setActiveView = useUIStore((s) => s.setActiveView);
+  const navigate = useNavigate();
   const addToast = useUIStore((s) => s.addToast);
 
   const open = async () => {
@@ -50,7 +51,7 @@ export default function OpenEntityDiscussionButton({
         memberIds,
       });
       sessionStorage.setItem('tawathul_open_conversation', conv.id);
-      setActiveView('tawathul');
+      navigate('/app/tawathul');
       addToast('تم فتح نقاش التواصل', 'success');
     } catch (e: any) {
       console.error(e);

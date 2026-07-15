@@ -86,7 +86,10 @@ class AuditLogService extends BaseService<AuditLogRecord> {
   }
 
   /**
-   * إنشاء سجل عملية جديد
+   * إنشاء سجل عملية جديد.
+   * يستخدم injectTenantIdOptional — لأن بعض العمليات (تصدير بيانات dev,
+   * أحداث ما قبل التسجيل) قد لا يكون لها tenant.
+   * لا يرمي أخطاء — التسجيل fire-and-forget.
    */
   async createLog(data: {
     action: string;
@@ -94,8 +97,22 @@ class AuditLogService extends BaseService<AuditLogRecord> {
     details?: string;
     actor_id?: string;
     actor_role?: string;
-  }): Promise<AuditLogRecord> {
-    return this.create(data as unknown as Partial<AuditLogRecord>);
+    timestamp?: string;
+  }): Promise<void> {
+    try {
+      const payload = this.injectTenantIdOptional({
+        ...data,
+        timestamp: data.timestamp ?? new Date().toISOString(),
+      } as Partial<AuditLogRecord>);
+
+      const { error } = await supabase.from(this.tableName).insert(payload);
+      if (error) {
+        console.warn('AuditLogService.createLog failed:', error.message);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('AuditLogService.createLog exception:', msg);
+    }
   }
 
   /**

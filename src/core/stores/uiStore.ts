@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../../services/supabase/supabase';
+import { storageService } from '../../services/sdk/StorageService';
 import type { LandingConfig } from '../../shared/types/landing';
 
 const defaultConfig: LandingConfig = {
@@ -94,20 +95,7 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   uploadImage: async (file: File, path: string) => {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${path}/${Date.now()}.${fileExt}`;
-      
-      const { error } = await supabase.storage
-        .from('public-assets')
-        .upload(fileName, file, { upsert: true });
-
-      if (error) throw error;
-
-      const { data } = supabase.storage
-        .from('public-assets')
-        .getPublicUrl(fileName);
-
-      return data.publicUrl;
+      return await storageService.uploadPublic('public-assets', path, file);
     } catch (err) {
       console.error('Upload failed:', err);
       return null;

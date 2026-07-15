@@ -3,7 +3,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { FileText, Plus, Loader2, Download, Upload, X } from 'lucide-react';
-import { supabase } from '../../services/supabase/supabase';
+import { storageService } from '../../services/sdk/StorageService';
 import { useUIStore } from '../../core/stores';
 import { employeeDocumentService, employeeService } from '../../services/sdk';
 import { getErrorMessage } from '../../services/errors';
@@ -47,16 +47,12 @@ export default function DocumentsPage() {
     if (!file) return;
     try {
       setForm({ ...form, file_name: file.name, file_url: 'uploading...' });
-      const fileExt = file.name.split('.').pop();
-      const fileName = `employee-docs/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-      const { error: uploadErr } = await supabase.storage
-        .from('employee-documents')
-        .upload(fileName, file, { upsert: true });
-      if (uploadErr) throw uploadErr;
-      const { data: urlData } = supabase.storage
-        .from('employee-documents')
-        .getPublicUrl(fileName);
-      setForm({ ...form, file_name: file.name, file_url: urlData.publicUrl });
+      const url = await storageService.uploadPublic(
+        'employee-documents',
+        'employee-docs',
+        file,
+      );
+      setForm({ ...form, file_name: file.name, file_url: url });
       addToast('تم رفع الملف بنجاح', 'success');
     } catch (err) {
       addToast(getErrorMessage(err), 'error');

@@ -25,6 +25,9 @@ import { ar } from 'date-fns/locale';
 import { useUIStore } from '../../core/stores';
 import { notifyUser } from '../../services/notifications/notificationService';
 import { getErrorMessage } from '../../services/errors';
+import { useNavigate } from 'react-router-dom';
+import { getDefaultPathForRole } from '../../router/constants';
+import { useAuthStore } from '../../core/stores';
 
 // ════════════════════════════════════════════════════════════════
 //  أنواع البيانات
@@ -91,7 +94,9 @@ function useIsMobile() {
 // ════════════════════════════════════════════════════════════════
 
 export default function KioskPage() {
-  const { setActiveView } = useUIStore();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const backPath = getDefaultPathForRole(user?.role);
   const { isMobile, isTablet } = useIsMobile();
 
   const [search, setSearch] = useState('');
@@ -335,7 +340,7 @@ export default function KioskPage() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <button
-            onClick={() => setActiveView('hr-dashboard')}
+            onClick={() => navigate(backPath)}
             style={{
               background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '12px',
               width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center',

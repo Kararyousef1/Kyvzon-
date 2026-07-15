@@ -25,6 +25,8 @@ import { getUserDisplayName } from '../../../utils/userUtils';
 import NotificationBell from './NotificationBell';
 
 import type { LucideIcon } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { VIEW_TO_PATH } from '../../../router/legacyRedirect';
 
 export const viewTitles: Record<string, string> = {
   // Employee
@@ -126,7 +128,26 @@ interface QuickSearchItem {
 
 export default function Header() {
   const { user, logout } = useAuthStore();
-  const { toggleSidebar, sidebarOpen, activeView, setActiveView } = useUIStore();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  /**
+   * تحويل مسار URL الحالي إلى view id مقارَن بـ VIEW_TO_PATH.
+   * (نعكس الـ mapping لأن viewTitles يستخدم view IDs كمفاتيح).
+   */
+  const currentViewId = (() => {
+    for (const [view, path] of Object.entries(VIEW_TO_PATH)) {
+      if (location.pathname === path) return view;
+    }
+    return '';
+  })();
+
+  /** Navigate helper: يتلقى view id قديم ويحوّله لمسار جديد */
+  const goToView = (viewId: string) => {
+    const path = VIEW_TO_PATH[viewId];
+    if (path) navigate(path);
+  };
+  const { toggleSidebar, sidebarOpen } = useUIStore();
 
   // ✅ لا state للإشعارات هنا — NotificationBell يديرها بالكامل
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -186,7 +207,7 @@ export default function Header() {
     Object.entries(viewTitles).forEach(([id, title]) => {
       items.push({
         id, title, subtitle: 'صفحة', icon: FileText, category: 'page',
-        action: () => { setActiveView(id); setShowSearch(false); setSearchQuery(''); },
+        action: () => { goToView(id); setShowSearch(false); setSearchQuery(''); },
       });
     });
     if (
@@ -197,7 +218,7 @@ export default function Header() {
       items.push({
         id: 'quick-problem', title: 'رفع بلاغ جديد', subtitle: 'إجراء سريع',
         icon: AlertCircle, category: 'action',
-        action: () => { setActiveView('new-problem'); setShowSearch(false); },
+        action: () => { navigate('/app/employee/problems/new'); setShowSearch(false); },
       });
     }
     return items;
@@ -212,10 +233,13 @@ export default function Header() {
         .slice(0, 5)
     : [];
 
-  // ─── عنوان الصفحة ────────────────────────────────────────────
+  // ─── عنوان الصفحة (يعتمد على مسار URL الحالي) ────────────────
   const getPageTitle = () => {
-    if (activeView.startsWith('problem-detail')) return 'تفاصيل البلاغ';
-    return viewTitles[activeView] || 'لوحة التحكم';
+    // مسارات التفاصيل الديناميكية (e.g. /app/employee/problems/:id)
+    if (/\/(employee|hr)\/problems\/[^/]+/.test(location.pathname)) {
+      return 'تفاصيل البلاغ';
+    }
+    return viewTitles[currentViewId] || 'لوحة التحكم';
   };
 
   return (
@@ -383,14 +407,14 @@ export default function Header() {
                 </div>
                 <div className="p-2">
                   <button
-                    onClick={() => { setActiveView('employee-profile'); setShowUserMenu(false); }}
+                    onClick={() => { navigate('/app/employee/profile'); setShowUserMenu(false); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-slate-700 hover:text-slate-900 transition-colors"
                   >
                     <User size={16} />
                     <span className="text-sm font-medium">حسابي</span>
                   </button>
                   <button
-                    onClick={() => { setActiveView('admin-settings'); setShowUserMenu(false); }}
+                    onClick={() => { navigate('/app/admin/settings'); setShowUserMenu(false); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-slate-700 hover:text-slate-900 transition-colors"
                   >
                     <Settings size={16} />
