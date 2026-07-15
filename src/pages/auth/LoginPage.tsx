@@ -19,8 +19,10 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ShieldCheck, ArrowLeft, Lock, Zap } from 'lucide-react';
 import { useAuthStore } from '../../core/stores';
+import { getDefaultPathForRole } from '../../router/constants';
 import LoginBackground from './LoginBackground';
 import LoginForm from './LoginForm';
 import DevLoginModal from './DevLoginModal';
@@ -35,8 +37,10 @@ interface LoginPageProps {
 }
 
 export default function LoginPage({ onBack }: LoginPageProps) {
-  const { login: storeLogin } = useAuthStore();
+  const { login: storeLogin, isAuthenticated, user } = useAuthStore();
   const security = useLoginSecurity();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -44,6 +48,22 @@ export default function LoginPage({ onBack }: LoginPageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // 🚀 إذا كان المستخدم مسجَّل دخول بالفعل → حوّله فوراً
+  //    (يحدث عند فتح /login بينما جلسة سابقة موجودة، أو بعد نجاح login)
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    // إن كان هناك ?redirect= في URL نستخدمه، وإلا نُوجّه لصفحة الدور الافتراضية
+    const params = new URLSearchParams(location.search);
+    const redirect = params.get('redirect');
+    const target = redirect
+      ? decodeURIComponent(redirect)
+      : getDefaultPathForRole(user.role);
+
+    // replace: true حتى لا يستطيع المستخدم الرجوع بـ Back لصفحة login
+    navigate(target, { replace: true });
+  }, [isAuthenticated, user, navigate, location.search]);
 
   // مسح رسالة الخطأ تلقائياً بعد 6 ثوانٍ
   useEffect(() => {
