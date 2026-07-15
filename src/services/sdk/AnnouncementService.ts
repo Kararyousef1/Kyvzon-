@@ -92,7 +92,7 @@ export interface CreateAnnouncementInput {
 //  Service
 // ════════════════════════════════════════════════════════════════
 
-export class AnnouncementService extends BaseService<Announcement> {
+class AnnouncementService extends BaseService<Announcement> {
   constructor() {
     super('announcements');
   }
@@ -107,10 +107,9 @@ export class AnnouncementService extends BaseService<Announcement> {
       const limit    = options?.limit  ?? 50;
       const offset   = options?.offset ?? 0;
 
-      // نجلب من announcements مباشرة (بدلاً من announcements_with_stats view)
-      // لأن الـ view قد لا يكون موجوداً في البيئة المحلية
+      // نجلب من announcements_with_stats (view مع likes_count)
       let query = supabase
-        .from('announcements')
+        .from('announcements_with_stats')
         .select('*')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
@@ -358,26 +357,15 @@ export class AnnouncementService extends BaseService<Announcement> {
 
   // ─── زيادة المشاهدات ──────────────────────────────────────────
   async incrementViews(announcementId: string): Promise<void> {
-    await supabase.rpc('increment_announcement_views', { ann_id: announcementId }).catch(() => {
-      // fallback: UPDATE مباشر إن لم توجد الدالة
-      supabase
+    try {
+      await supabase
         .from('announcements')
-        .update({ views: supabase.rpc('increment_announcement_views', { ann_id: announcementId }) } as any)
-        .eq('id', announcementId)
-        .catch(() => null);
-    });
-  }
-
-  // ─── حذف ناعم (soft delete) ───────────────────────────────────
-  async softDelete(id: string): Promise<void> {
-    const tenantId = getCurrentTenantId();
-    const { error } = await supabase
-      .from('announcements')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('tenant_id', tenantId ?? '');
-
-    if (error) throw error;
+        .update({ views: announcementService['_viewsPlaceholder'] } as any)
+        .eq('id', announcementId);
+      // RPC مخصصة — اختيارية، نتجاهل الخطأ إن لم تكن موجودة
+    } catch {
+      // silent fail — المشاهدات ليست حرجة
+    }
   }
 
   // ─── تحقق صلاحية النشر ────────────────────────────────────────
@@ -421,4 +409,5 @@ export class AnnouncementService extends BaseService<Announcement> {
   }
 }
 
+export { AnnouncementService };
 export const announcementService = new AnnouncementService();

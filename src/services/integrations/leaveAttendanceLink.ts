@@ -11,7 +11,7 @@
  */
 
 import { supabase } from '../supabase/supabase';
-import { addNotification } from '../notifications/notificationManager';
+import { notifyUser } from '../notifications/notificationService';
 
 // ============================================================================
 //  1. ربط الموافقة على إجازة ← تحديث ملخص الحضور
@@ -205,6 +205,7 @@ export async function linkLeaveRejection(
 
 /**
  * إرسال إشعار للموظف عند الموافقة على إجازته
+ * ✅ إصلاح: يكتب في Supabase عبر notifyUser بدل localStorage
  */
 async function notifyEmployeeLeaveApproved(
   userId: string,
@@ -212,12 +213,12 @@ async function notifyEmployeeLeaveApproved(
   dateFrom: string,
   dateTo: string
 ): Promise<void> {
-  addNotification(userId, {
+  await notifyUser(userId, {
     type: 'leave_approved',
     priority: 'high',
     title: '✅ تمت الموافقة على الإجازة',
     message: `تمت الموافقة على إجازتك ${leaveType} من ${dateFrom} إلى ${dateTo}`,
-    actionUrl: '/employee/leaves',
+    actionUrl: 'employee-leaves',
     groupKey: `leave-approved-${userId}-${dateFrom}`,
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
   });
@@ -225,35 +226,37 @@ async function notifyEmployeeLeaveApproved(
 
 /**
  * إرسال إشعار للموظف عند رفض إجازته
+ * ✅ إصلاح: يكتب في Supabase عبر notifyUser بدل localStorage
  */
 async function notifyEmployeeLeaveRejected(
   userId: string,
   leaveType: string,
   reason: string
 ): Promise<void> {
-  addNotification(userId, {
+  await notifyUser(userId, {
     type: 'leave_rejected',
     priority: 'high',
     title: '❌ تم رفض الإجازة',
     message: `تم رفض إجازتك ${leaveType}. السبب: ${reason}`,
-    actionUrl: '/employee/leaves',
+    actionUrl: 'employee-leaves',
     groupKey: `leave-rejected-${userId}-${Date.now()}`,
   });
 }
 
 /**
  * إرسال إشعار للموظف عند الموافقة على الزمنية
+ * ✅ إصلاح: يكتب في Supabase عبر notifyUser بدل localStorage
  */
 async function notifyEmployeePermissionApproved(
   userId: string,
   date: string
 ): Promise<void> {
-  addNotification(userId, {
+  await notifyUser(userId, {
     type: 'attendance_recorded',
     priority: 'normal',
     title: '✅ تمت الموافقة على الزمنية',
     message: `تمت الموافقة على طلب الزمنية ليوم ${date}`,
-    actionUrl: '/employee/permissions',
+    actionUrl: 'employee-permissions',
   });
 }
 

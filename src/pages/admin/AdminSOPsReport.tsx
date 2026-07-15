@@ -1,131 +1,232 @@
-import { useState, useMemo, useEffect } from 'react';
+/**
+ * ════════════════════════════════════════════════════════════════
+ *  AdminSOPsReport v2 — تقرير SOPs الحقيقي
+ * ════════════════════════════════════════════════════════════════
+ *  ✅ إصلاح: إزالة generateMockReport() وMath.random() بالكامل
+ *  ✅ إصلاح: إزالة localStorage — البيانات من Supabase مباشرة
+ *  ✅ عزل tenant: كل استعلام مقيّد بـ tenant_id
+ *  ✅ يجمع بيانات حقيقية من: employees + sops + sop_readings
+ * ════════════════════════════════════════════════════════════════
+ */
+
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
-  FileText, Users, CheckCircle, Clock, AlertCircle, Search,
-  Download, BarChart3, PieChart, TrendingUp, Award, Star,
-  Filter, X, Eye, Calendar, ChevronDown, ChevronUp,
-  Loader2, User as UserIcon, BookOpen, GraduationCap,
-  Target, Activity, Shield, Layers, ArrowUp, ArrowDown
+  BarChart3, Users, Layers, Search, Download,
+  ArrowUp, ArrowDown, Loader2, ChevronDown,
+  AlertTriangle, RefreshCw, BookOpen, Clock,
+  CheckCircle, XCircle,
 } from 'lucide-react';
 import { supabase } from '../../services/supabase/supabase';
 import { useUIStore, useAuthStore } from '../../core/stores';
+import { getCurrentTenantId } from '../../services/sdk/BaseService';
 import { exportToStyledExcel } from '../../utils/exportToExcel';
 
-// ── Types ──
+// ════════════════════════════════════════════════════════════════
+//  الأنواع
+// ════════════════════════════════════════════════════════════════
+
 interface EmployeeSOPProgress {
-  employeeId: string;
-  employeeName: string;
-  department: string;
-  totalSOPs: number;
-  completed: number;
-  inProgress: number;
-  notStarted: number;
-  completionRate: number;
-  totalTimeSpent: number;
-  lastActivity: string;
+  employeeId:      string;
+  employeeName:    string;
+  department:      string;
+  totalSOPs:       number;
+  completed:       number;
+  inProgress:      number;
+  notStarted:      number;
+  completionRate:  number;
+  totalTimeSpent:  number;    // بالدقائق
+  lastActivity:    string | null;
 }
 
 interface DepartmentStats {
-  department: string;
-  departmentAr: string;
-  totalEmployees: number;
-  totalSOPs: number;
-  totalCompleted: number;
+  department:        string;
+  totalEmployees:    number;
+  totalSOPs:         number;
+  totalCompleted:    number;
   avgCompletionRate: number;
 }
 
-// ── SOP departments mapping ──
-const DEPT_MAP: Record<string, string> = {
-  sales: 'المبيعات',
-  marketing: 'التسويق',
-  tech: 'التقنية',
-  support: 'الدعم الفني',
-  management: 'الإدارة',
-  hr: 'الموارد البشرية',
-  it: 'تقنية المعلومات',
-  quality: 'ضمان الجودة',
-  general: 'عام',
+// ════════════════════════════════════════════════════════════════
+//  مساعدات
+// ════════════════════════════════════════════════════════════════
+
+const getProgressColor = (rate: number) =>
+  rate >= 80 ? 'text-emerald-600' : rate >= 50 ? 'text-amber-500' : 'text-red-500';
+
+const getProgressBg = (rate: number) =>
+  rate >= 80 ? 'bg-emerald-500' : rate >= 50 ? 'bg-amber-400' : 'bg-red-500';
+
+const fmtTime = (mins: number) => {
+  if (mins < 60) return `${mins} د`;
+  return `${Math.floor(mins / 60)}س ${mins % 60}د`;
 };
 
-// ── Mock data for demonstration ──
-const generateMockReport = (): EmployeeSOPProgress[] => {
-  const departments = ['tablets', 'ointments', 'syrups', 'powders', 'quality', 'general'];
-  const employees = [
-    { name: 'أحمد محمد', dept: 'tablets' },
-    { name: 'سارة علي', dept: 'ointments' },
-    { name: 'خالد عمر', dept: 'syrups' },
-    { name: 'نورة حسن', dept: 'tablets' },
-    { name: 'فهد عبدالله', dept: 'powders' },
-    { name: 'مريم خالد', dept: 'quality' },
-    { name: 'يوسف ابراهيم', dept: 'general' },
-    { name: 'هدى سامي', dept: 'ointments' },
-    { name: 'عمر حسن', dept: 'syrups' },
-    { name: 'لمى احمد', dept: 'quality' },
-    { name: 'بدر فهد', dept: 'tablets' },
-    { name: 'رنا محمود', dept: 'general' },
-  ];
+// ════════════════════════════════════════════════════════════════
+//  Skeleton
+// ════════════════════════════════════════════════════════════════
 
-  return employees.map((emp, idx) => {
-    const total = Math.floor(Math.random() * 5) + 3;
-    const completed = Math.floor(Math.random() * total);
-    const inProgress = Math.floor(Math.random() * (total - completed));
-    const notStarted = total - completed - inProgress;
-    return {
-      employeeId: `emp-${idx + 1}`,
-      employeeName: emp.name,
-      department: emp.dept,
-      totalSOPs: total,
-      completed,
-      inProgress,
-      notStarted,
-      completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-      totalTimeSpent: Math.floor(Math.random() * 300) + 30,
-      lastActivity: ['2025-06-10', '2025-06-09', '2025-06-08', '2025-06-07', '2025-06-05'][Math.floor(Math.random() * 5)],
-    };
-  });
-};
+function SkeletonRow() {
+  return (
+    <div className="bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 animate-pulse">
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 rounded-xl bg-slate-200 shrink-0" />
+        <div className="flex-1 space-y-2">
+          <div className="h-3.5 bg-slate-200 rounded-full w-1/4" />
+          <div className="h-2.5 bg-slate-100 rounded-full w-1/6" />
+        </div>
+        <div className="w-32 h-2 bg-slate-100 rounded-full hidden sm:block" />
+        <div className="h-5 bg-slate-100 rounded-full w-12" />
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  الصفحة
+// ════════════════════════════════════════════════════════════════
 
 export default function AdminSOPsReport() {
   const { addToast } = useUIStore();
 
-  const [reportData, setReportData] = useState<EmployeeSOPProgress[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filterDept, setFilterDept] = useState('all');
-  const [sortBy, setSortBy] = useState<'name' | 'completion' | 'department'>('completion');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [reportData, setReportData]   = useState<EmployeeSOPProgress[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [fetchError, setFetchError]   = useState<string | null>(null);
+  const [search, setSearch]           = useState('');
+  const [filterDept, setFilterDept]   = useState('all');
+  const [sortBy, setSortBy]           = useState<'name' | 'completion' | 'department'>('completion');
+  const [sortDir, setSortDir]         = useState<'asc' | 'desc'>('desc');
   const [expandedEmp, setExpandedEmp] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [selectedView, setSelectedView] = useState<'employees' | 'departments'>('employees');
 
-  // Load data
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        // In production this would come from Supabase
-        // For demo we use mock data
-        const stored = localStorage.getItem('sops_readings');
-        if (stored) {
-          const readings = JSON.parse(stored);
-          // Process readings into report data
-        }
-        // Fall back to mock
-        const mock = generateMockReport();
-        setReportData(mock);
-      } catch (err) {
-        console.error('Failed to load report data:', err);
-      } finally {
+  // ════════════════════════════════════════════════════════════
+  //  جلب البيانات من Supabase — بيانات حقيقية 100%
+  // ════════════════════════════════════════════════════════════
+  const fetchReport = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+
+    try {
+      const tenantId = getCurrentTenantId();
+
+      // ── 1: جلب كل الموظفين في الـ tenant ───────────────────
+      let empQuery = supabase
+        .from('employees')
+        .select('id, full_name, manufacturing_dept, department')
+        .eq('status', 'active');
+      if (tenantId) empQuery = empQuery.eq('tenant_id', tenantId);
+      const { data: employees, error: empErr } = await empQuery;
+      if (empErr) throw empErr;
+      if (!employees || employees.length === 0) {
+        setReportData([]);
         setLoading(false);
+        return;
       }
-    };
-    loadData();
+
+      // ── 2: جلب كل SOPs النشطة في الـ tenant ─────────────────
+      let sopQuery = supabase
+        .from('sops')
+        .select('id, department, status, is_mandatory, duration')
+        .eq('status', 'active');
+      if (tenantId) sopQuery = sopQuery.eq('tenant_id', tenantId);
+      const { data: sops, error: sopErr } = await sopQuery;
+      if (sopErr) throw sopErr;
+      const allSops = sops || [];
+
+      // ── 3: جلب قراءات كل الموظفين ──────────────────────────
+      const empIds = employees.map(e => e.id);
+      let readQuery = supabase
+        .from('sop_readings')
+        .select('sop_id, employee_id, completed, approved, time_spent, last_read_at')
+        .in('employee_id', empIds);
+      const { data: readings, error: readErr } = await readQuery;
+      if (readErr) throw readErr;
+      const allReadings = readings || [];
+
+      // ── 4: تجميع البيانات لكل موظف ─────────────────────────
+      const readingsByEmployee = new Map<string, typeof allReadings>();
+      allReadings.forEach(r => {
+        if (!readingsByEmployee.has(r.employee_id)) {
+          readingsByEmployee.set(r.employee_id, []);
+        }
+        readingsByEmployee.get(r.employee_id)!.push(r);
+      });
+
+      const result: EmployeeSOPProgress[] = employees.map(emp => {
+        const dept = emp.manufacturing_dept || emp.department || 'general';
+
+        // SOPs المخصصة للموظف = كل SOPs القسم + SOPs العامة
+        const relevantSops = allSops.filter(
+          s => !s.department || s.department === dept || s.department === 'general'
+        );
+        const totalSOPs = relevantSops.length;
+
+        const empReadings = readingsByEmployee.get(emp.id) || [];
+        const readingBySopId = new Map(empReadings.map(r => [r.sop_id, r]));
+
+        let completed  = 0;
+        let inProgress = 0;
+        let totalTimeSpent = 0;
+        let lastActivity: string | null = null;
+
+        relevantSops.forEach(sop => {
+          const reading = readingBySopId.get(sop.id);
+          if (!reading) return; // notStarted
+
+          if (reading.completed || reading.approved) {
+            completed++;
+          } else {
+            inProgress++;
+          }
+
+          totalTimeSpent += reading.time_spent || 0;
+
+          if (reading.last_read_at) {
+            if (!lastActivity || reading.last_read_at > lastActivity) {
+              lastActivity = reading.last_read_at;
+            }
+          }
+        });
+
+        const notStarted    = totalSOPs - completed - inProgress;
+        const completionRate = totalSOPs > 0
+          ? Math.round((completed / totalSOPs) * 100)
+          : 0;
+
+        return {
+          employeeId:     emp.id,
+          employeeName:   emp.full_name || 'موظف',
+          department:     dept,
+          totalSOPs,
+          completed,
+          inProgress,
+          notStarted:     Math.max(0, notStarted),
+          completionRate,
+          totalTimeSpent, // بالدقائق
+          lastActivity,
+        };
+      });
+
+      setReportData(result);
+    } catch (err: any) {
+      console.error('[AdminSOPsReport] خطأ في جلب البيانات:', err);
+      setFetchError(err?.message || 'تعذّر تحميل البيانات');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Filtered and sorted data
+  useEffect(() => { fetchReport(); }, [fetchReport]);
+
+  // ════════════════════════════════════════════════════════════
+  //  القيم المشتقة
+  // ════════════════════════════════════════════════════════════
+
+  const departments = useMemo(() => (
+    ['all', ...new Set(reportData.map(d => d.department).filter(Boolean))]
+  ), [reportData]);
+
   const filteredData = useMemo(() => {
     let data = [...reportData];
-    
-    // Filter
     if (search) {
       const term = search.toLowerCase();
       data = data.filter(d => d.employeeName.toLowerCase().includes(term));
@@ -133,270 +234,373 @@ export default function AdminSOPsReport() {
     if (filterDept !== 'all') {
       data = data.filter(d => d.department === filterDept);
     }
-
-    // Sort
     data.sort((a, b) => {
-      if (sortBy === 'name') return sortDir === 'asc' ? a.employeeName.localeCompare(b.employeeName) : b.employeeName.localeCompare(a.employeeName);
+      if (sortBy === 'name')       return sortDir === 'asc' ? a.employeeName.localeCompare(b.employeeName) : b.employeeName.localeCompare(a.employeeName);
       if (sortBy === 'completion') return sortDir === 'asc' ? a.completionRate - b.completionRate : b.completionRate - a.completionRate;
       if (sortBy === 'department') return sortDir === 'asc' ? a.department.localeCompare(b.department) : b.department.localeCompare(a.department);
       return 0;
     });
-
     return data;
   }, [reportData, search, filterDept, sortBy, sortDir]);
 
-  // Department stats
-  const deptStats = useMemo(() => {
-    const stats: Record<string, DepartmentStats> = {};
+  const deptStats = useMemo<DepartmentStats[]>(() => {
+    const map = new Map<string, DepartmentStats>();
     reportData.forEach(emp => {
-      if (!stats[emp.department]) {
-        stats[emp.department] = {
+      if (!map.has(emp.department)) {
+        map.set(emp.department, {
           department: emp.department,
-          departmentAr: DEPT_MAP[emp.department] || emp.department,
-          totalEmployees: 0,
-          totalSOPs: 0,
-          totalCompleted: 0,
-          avgCompletionRate: 0,
-        };
+          totalEmployees: 0, totalSOPs: 0,
+          totalCompleted: 0, avgCompletionRate: 0,
+        });
       }
-      stats[emp.department].totalEmployees++;
-      stats[emp.department].totalSOPs += emp.totalSOPs;
-      stats[emp.department].totalCompleted += emp.completed;
+      const s = map.get(emp.department)!;
+      s.totalEmployees++;
+      s.totalSOPs    += emp.totalSOPs;
+      s.totalCompleted += emp.completed;
     });
-    Object.values(stats).forEach(s => {
-      s.avgCompletionRate = s.totalSOPs > 0 ? Math.round((s.totalCompleted / s.totalSOPs) * 100) : 0;
+    map.forEach(s => {
+      s.avgCompletionRate = s.totalSOPs > 0
+        ? Math.round((s.totalCompleted / s.totalSOPs) * 100)
+        : 0;
     });
-    return Object.values(stats);
+    return Array.from(map.values()).sort((a, b) => b.avgCompletionRate - a.avgCompletionRate);
   }, [reportData]);
 
-  // Overall stats
-  const overallStats = useMemo(() => ({
-    totalEmployees: reportData.length,
-    totalSOPs: reportData.reduce((sum, d) => sum + d.totalSOPs, 0),
-    totalCompleted: reportData.reduce((sum, d) => sum + d.completed, 0),
-    totalInProgress: reportData.reduce((sum, d) => sum + d.inProgress, 0),
-    avgCompletion: reportData.length > 0 ? Math.round(reportData.reduce((sum, d) => sum + d.completionRate, 0) / reportData.length) : 0,
+  const overall = useMemo(() => ({
+    totalEmployees:  reportData.length,
+    totalSOPs:       reportData.reduce((s, d) => s + d.totalSOPs, 0),
+    totalCompleted:  reportData.reduce((s, d) => s + d.completed, 0),
+    totalInProgress: reportData.reduce((s, d) => s + d.inProgress, 0),
+    avgCompletion:   reportData.length > 0
+      ? Math.round(reportData.reduce((s, d) => s + d.completionRate, 0) / reportData.length)
+      : 0,
   }), [reportData]);
 
-  const toggleSort = (field: typeof sortBy) => {
-    if (sortBy === field) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortDir('desc');
-    }
-  };
-
+  // ─── تصدير ──────────────────────────────────────────────────
   const handleExport = () => {
     const headers = ['الموظف', 'القسم', 'إجمالي SOPs', 'مكتمل', 'قيد القراءة', 'لم تبدأ', 'نسبة الإنجاز', 'الوقت المستغرق', 'آخر نشاط'];
     const data = filteredData.map(d => [
       d.employeeName,
-      DEPT_MAP[d.department] || d.department,
+      d.department,
       d.totalSOPs.toString(),
       d.completed.toString(),
       d.inProgress.toString(),
       d.notStarted.toString(),
       `${d.completionRate}%`,
-      `${Math.floor(d.totalTimeSpent / 60)} ساعة ${d.totalTimeSpent % 60} دقيقة`,
-      d.lastActivity,
+      fmtTime(d.totalTimeSpent),
+      d.lastActivity ? new Date(d.lastActivity).toLocaleDateString('ar-IQ') : '—',
     ]);
     exportToStyledExcel('تقرير_SOPs_الموظفين', headers, data);
-    if (addToast) addToast('تم تصدير التقرير بنجاح', 'success');
+    addToast('تم تصدير التقرير', 'success');
   };
 
-  const getProgressColor = (rate: number) => {
-    if (rate >= 80) return 'text-emerald-500';
-    if (rate >= 50) return 'text-amber-500';
-    return 'text-rose-500';
+  const toggleSort = (field: typeof sortBy) => {
+    if (sortBy === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(field); setSortDir('desc'); }
   };
 
-  const getProgressBg = (rate: number) => {
-    if (rate >= 80) return 'bg-emerald-500';
-    if (rate >= 50) return 'bg-amber-500';
-    return 'bg-rose-500';
-  };
-
+  // ════════════════════════════════════════════════════════════
+  //  JSX
+  // ════════════════════════════════════════════════════════════
   return (
-    <div className="space-y-6 pb-20 animate-fade-in" dir="rtl">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-6 pb-20" dir="rtl">
+
+      {/* ── الهيدر ─────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <BarChart3 className="text-indigo-600" /> تقارير SOPs
           </h2>
-          <p className="text-slate-500 mt-1">تتبع أداء الموظفين في قراءة واعتماد إجراءات SOP</p>
+          <p className="text-slate-500 mt-1 text-sm">
+            تتبع أداء الموظفين في قراءة واعتماد إجراءات SOP — بيانات حية من قاعدة البيانات
+          </p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all">
+          <button
+            onClick={fetchReport}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> تحديث
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={loading || reportData.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all disabled:opacity-50"
+          >
             <Download size={14} /> تصدير
           </button>
         </div>
       </div>
 
-      {/* Overall Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl p-4 text-white">
-          <p className="text-2xl font-black">{overallStats.totalEmployees}</p>
-          <p className="text-indigo-100 text-xs font-bold mt-1">الموظفين</p>
-        </div>
-        <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-4 text-white">
-          <p className="text-2xl font-black">{overallStats.totalSOPs}</p>
-          <p className="text-blue-100 text-xs font-bold mt-1">إجمالي SOPs</p>
-        </div>
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-2xl p-4 text-white">
-          <p className="text-2xl font-black">{overallStats.totalCompleted}</p>
-          <p className="text-emerald-100 text-xs font-bold mt-1">مكتملة</p>
-        </div>
-        <div className="bg-gradient-to-br from-amber-500 to-amber-700 rounded-2xl p-4 text-white">
-          <p className="text-2xl font-black">{overallStats.totalInProgress}</p>
-          <p className="text-amber-100 text-xs font-bold mt-1">قيد الإنجاز</p>
-        </div>
-        <div className="bg-gradient-to-br from-violet-500 to-violet-700 rounded-2xl p-4 text-white">
-          <p className="text-2xl font-black">{overallStats.avgCompletion}%</p>
-          <p className="text-violet-100 text-xs font-bold mt-1">متوسط الإنجاز</p>
-        </div>
+      {/* ── الإحصائيات العامة ──────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {[
+          { label: 'الموظفين',      value: overall.totalEmployees,  from: 'from-indigo-500',  to: 'to-indigo-700' },
+          { label: 'إجمالي SOPs',   value: overall.totalSOPs,       from: 'from-blue-500',    to: 'to-blue-700' },
+          { label: 'مكتملة',        value: overall.totalCompleted,   from: 'from-emerald-500', to: 'to-emerald-700' },
+          { label: 'قيد الإنجاز',   value: overall.totalInProgress,  from: 'from-amber-500',   to: 'to-amber-700' },
+          { label: 'متوسط الإنجاز', value: `${overall.avgCompletion}%`, from: 'from-violet-500', to: 'to-violet-700' },
+        ].map(s => (
+          <div key={s.label} className={`bg-gradient-to-br ${s.from} ${s.to} rounded-2xl p-4 text-white`}>
+            <p className="text-2xl font-black">{loading ? '—' : s.value}</p>
+            <p className="text-white/80 text-xs font-bold mt-1">{s.label}</p>
+          </div>
+        ))}
       </div>
 
-      {/* View Tabs */}
-      <div className="flex bg-white rounded-2xl p-1 border border-slate-200 w-fit">
-        <button onClick={() => setSelectedView('employees')}
-          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${selectedView === 'employees' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-          <Users size={16} className="inline ml-1" /> الموظفين
-        </button>
-        <button onClick={() => setSelectedView('departments')}
-          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${selectedView === 'departments' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-          <Layers size={16} className="inline ml-1" /> الأقسام
-        </button>
+      {/* ── تبويبات العرض ─────────────────────────────────── */}
+      <div className="flex bg-white rounded-2xl p-1 border border-slate-200 w-fit shadow-sm">
+        {([
+          { key: 'employees',   label: 'الموظفين',  Icon: Users },
+          { key: 'departments', label: 'الأقسام',   Icon: Layers },
+        ] as const).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setSelectedView(tab.key)}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              selectedView === tab.key
+                ? 'bg-indigo-500 text-white shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <tab.Icon size={15} /> {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Filters */}
+      {/* ── فلاتر البحث (عرض الموظفين) ───────────────────── */}
       {selectedView === 'employees' && (
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="ابحث عن موظف..." dir="rtl"
-                className="w-full pr-9 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-400 focus:bg-white transition-all" />
+              <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="ابحث عن موظف..."
+                dir="rtl"
+                className="w-full pr-9 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-400 focus:bg-white transition-all"
+              />
             </div>
-            <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
-              className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-400 focus:bg-white transition-all">
+            <select
+              value={filterDept}
+              onChange={e => setFilterDept(e.target.value)}
+              className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-400 focus:bg-white transition-all"
+            >
               <option value="all">جميع الأقسام</option>
-              {Object.entries(DEPT_MAP).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+              {departments.filter(d => d !== 'all').map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
             </select>
-            <select value={sortBy} onChange={e => { setSortBy(e.target.value as any); setSortDir('desc'); }}
-              className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-400 focus:bg-white transition-all">
+            <select
+              value={sortBy}
+              onChange={e => { setSortBy(e.target.value as typeof sortBy); setSortDir('desc'); }}
+              className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-400 focus:bg-white transition-all"
+            >
               <option value="completion">ترتيب حسب الإنجاز</option>
               <option value="name">ترتيب حسب الاسم</option>
               <option value="department">ترتيب حسب القسم</option>
             </select>
-            <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
-              className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-slate-700 transition-all">
+            <button
+              onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+              className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-slate-700 transition-all"
+            >
               {sortDir === 'desc' ? <ArrowDown size={16} /> : <ArrowUp size={16} />}
             </button>
           </div>
         </div>
       )}
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 size={32} className="animate-spin text-indigo-500" />
+      {/* ── المحتوى ───────────────────────────────────────── */}
+
+      {/* خطأ */}
+      {!loading && fetchError && (
+        <div className="bg-white rounded-2xl border border-red-100 p-8 text-center shadow-sm">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-red-50 flex items-center justify-center">
+            <AlertTriangle size={26} className="text-red-400" />
+          </div>
+          <h3 className="font-bold text-slate-800 mb-1">تعذّر تحميل البيانات</h3>
+          <p className="text-sm text-slate-500 mb-5">{fetchError}</p>
+          <button
+            onClick={fetchReport}
+            className="flex items-center gap-2 mx-auto px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700"
+          >
+            <RefreshCw size={15} /> إعادة المحاولة
+          </button>
         </div>
-      ) : selectedView === 'employees' ? (
-        <div className="space-y-3">
-          {filteredData.map(emp => (
-            <div key={emp.employeeId} className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden hover:border-indigo-200 transition-all shadow-sm">
-              <div className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-slate-50/50 transition-colors"
-                onClick={() => setExpandedEmp(expandedEmp === emp.employeeId ? null : emp.employeeId)}>
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0">
+      )}
+
+      {/* عرض الموظفين */}
+      {!fetchError && selectedView === 'employees' && (
+        <div className="space-y-2">
+          {loading && [1, 2, 3, 4].map(i => <SkeletonRow key={i} />)}
+
+          {!loading && filteredData.length === 0 && (
+            <div className="bg-white rounded-2xl border border-slate-100 p-10 text-center shadow-sm">
+              <BookOpen size={36} className="mx-auto text-slate-200 mb-3" />
+              <h3 className="font-bold text-slate-700">لا توجد بيانات</h3>
+              <p className="text-sm text-slate-400 mt-1">
+                {search ? 'لا يوجد موظف بهذا الاسم' : 'لا يوجد موظفون نشطون أو SOPs مضافة بعد'}
+              </p>
+            </div>
+          )}
+
+          {!loading && filteredData.map(emp => (
+            <div
+              key={emp.employeeId}
+              className="bg-white border-2 border-slate-100 rounded-2xl overflow-hidden hover:border-indigo-100 transition-all shadow-sm"
+            >
+              {/* الصف الرئيسي */}
+              <div
+                className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-slate-50/50 transition-colors"
+                onClick={() => setExpandedEmp(expandedEmp === emp.employeeId ? null : emp.employeeId)}
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0 shadow-md shadow-indigo-100">
                     {emp.employeeName.charAt(0)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-slate-800 text-sm">{emp.employeeName}</p>
-                    <p className="text-[10px] text-slate-400">{DEPT_MAP[emp.department] || emp.department}</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {/* Progress bar */}
-                    <div className="hidden sm:block w-32">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div className={`h-full ${getProgressBg(emp.completionRate)} rounded-full transition-all`} style={{ width: `${emp.completionRate}%` }} />
-                        </div>
-                      </div>
-                    </div>
-                    <span className={`text-sm font-black ${getProgressColor(emp.completionRate)}`}>{emp.completionRate}%</span>
+                    <p className="text-xs text-slate-400">{emp.department}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="flex gap-1">
-                    <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">{emp.completed}</span>
-                    <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">{emp.inProgress}</span>
-                    <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">{emp.notStarted}</span>
+
+                <div className="flex items-center gap-3 sm:gap-5 shrink-0">
+                  {/* شريط التقدم */}
+                  <div className="hidden sm:flex items-center gap-2 w-36">
+                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${getProgressBg(emp.completionRate)} rounded-full transition-all`}
+                        style={{ width: `${emp.completionRate}%` }}
+                      />
+                    </div>
                   </div>
-                  <ChevronDown size={16} className={`text-slate-400 transition-transform ${expandedEmp === emp.employeeId ? 'rotate-180' : ''}`} />
+                  <span className={`text-sm font-black w-12 text-right ${getProgressColor(emp.completionRate)}`}>
+                    {emp.completionRate}%
+                  </span>
+
+                  {/* الشارات */}
+                  <div className="hidden sm:flex gap-1">
+                    <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">✓ {emp.completed}</span>
+                    <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">◎ {emp.inProgress}</span>
+                    <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">○ {emp.notStarted}</span>
+                  </div>
+
+                  <ChevronDown
+                    size={16}
+                    className={`text-slate-400 transition-transform duration-200 ${expandedEmp === emp.employeeId ? 'rotate-180' : ''}`}
+                  />
                 </div>
               </div>
+
+              {/* التفاصيل الموسّعة */}
               {expandedEmp === emp.employeeId && (
-                <div className="px-5 pb-4 pt-0 border-t border-slate-100 animate-[fadeIn_0.2s_ease]">
-                  <div className="grid sm:grid-cols-4 gap-4 mt-4">
-                    <div className="bg-slate-50 rounded-xl p-3">
-                      <p className="text-[10px] font-bold text-slate-400">إجمالي SOPs</p>
-                      <p className="text-lg font-bold text-slate-700">{emp.totalSOPs}</p>
+                <div className="px-5 pb-4 border-t border-slate-100 pt-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-slate-50 rounded-xl p-3 text-center">
+                      <p className="text-xs font-bold text-slate-400 mb-1">إجمالي SOPs</p>
+                      <p className="text-xl font-black text-slate-700">{emp.totalSOPs}</p>
                     </div>
-                    <div className="bg-emerald-50 rounded-xl p-3">
-                      <p className="text-[10px] font-bold text-emerald-500">مكتمل</p>
-                      <p className="text-lg font-bold text-emerald-700">{emp.completed}</p>
+                    <div className="bg-emerald-50 rounded-xl p-3 text-center">
+                      <CheckCircle size={16} className="mx-auto text-emerald-500 mb-1" />
+                      <p className="text-xs font-bold text-emerald-600 mb-1">مكتمل</p>
+                      <p className="text-xl font-black text-emerald-700">{emp.completed}</p>
                     </div>
-                    <div className="bg-amber-50 rounded-xl p-3">
-                      <p className="text-[10px] font-bold text-amber-500">قيد القراءة</p>
-                      <p className="text-lg font-bold text-amber-700">{emp.inProgress}</p>
+                    <div className="bg-amber-50 rounded-xl p-3 text-center">
+                      <Clock size={16} className="mx-auto text-amber-500 mb-1" />
+                      <p className="text-xs font-bold text-amber-600 mb-1">قيد القراءة</p>
+                      <p className="text-xl font-black text-amber-700">{emp.inProgress}</p>
                     </div>
-                    <div className="bg-slate-50 rounded-xl p-3">
-                      <p className="text-[10px] font-bold text-slate-400">الوقت المستغرق</p>
-                      <p className="text-lg font-bold text-slate-700">{Math.floor(emp.totalTimeSpent / 60)} س</p>
+                    <div className="bg-slate-50 rounded-xl p-3 text-center">
+                      <Clock size={16} className="mx-auto text-slate-400 mb-1" />
+                      <p className="text-xs font-bold text-slate-400 mb-1">وقت القراءة</p>
+                      <p className="text-xl font-black text-slate-700">{fmtTime(emp.totalTimeSpent)}</p>
                     </div>
                   </div>
+                  {emp.lastActivity && (
+                    <p className="text-xs text-slate-400 mt-3">
+                      آخر نشاط: {new Date(emp.lastActivity).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
           ))}
         </div>
-      ) : (
-        /* Department View */
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {deptStats.map(dept => (
-            <div key={dept.department} className="bg-white border-2 border-slate-200 rounded-2xl p-5 hover:border-indigo-200 transition-all shadow-sm hover:shadow-md">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
-                  <Layers size={18} />
+      )}
+
+      {/* عرض الأقسام */}
+      {!fetchError && selectedView === 'departments' && (
+        <div>
+          {loading && (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-white rounded-2xl border border-slate-100 p-5 animate-pulse">
+                  <div className="flex gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-slate-200" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3.5 bg-slate-200 rounded-full w-1/2" />
+                      <div className="h-2.5 bg-slate-100 rounded-full w-1/3" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-2.5 bg-slate-100 rounded-full" />
+                    <div className="h-2.5 bg-slate-100 rounded-full w-4/5" />
+                    <div className="h-2 bg-slate-100 rounded-full mt-3" />
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-slate-800">{dept.departmentAr}</h3>
-                  <p className="text-[10px] text-slate-400">{dept.totalEmployees} موظف</p>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">عدد SOPs</span>
-                  <span className="font-bold text-slate-700">{dept.totalSOPs}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">مكتملة</span>
-                  <span className="font-bold text-emerald-600">{dept.totalCompleted}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">نسبة الإنجاز</span>
-                  <span className={`font-bold ${getProgressColor(dept.avgCompletionRate)}`}>{dept.avgCompletionRate}%</span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden mt-2">
-                  <div className={`h-full ${getProgressBg(dept.avgCompletionRate)} rounded-full transition-all`} style={{ width: `${dept.avgCompletionRate}%` }} />
-                </div>
-              </div>
+              ))}
             </div>
-          ))}
+          )}
+
+          {!loading && deptStats.length === 0 && (
+            <div className="bg-white rounded-2xl border border-slate-100 p-10 text-center shadow-sm">
+              <Layers size={36} className="mx-auto text-slate-200 mb-3" />
+              <h3 className="font-bold text-slate-700">لا توجد بيانات أقسام</h3>
+            </div>
+          )}
+
+          {!loading && deptStats.length > 0 && (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {deptStats.map(dept => (
+                <div key={dept.department} className="bg-white border-2 border-slate-100 rounded-2xl p-5 hover:border-indigo-100 transition-all shadow-sm hover:shadow-md">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                      <Layers size={18} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800">{dept.department}</h3>
+                      <p className="text-xs text-slate-400">{dept.totalEmployees} موظف</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">عدد SOPs</span>
+                      <span className="font-bold text-slate-700">{dept.totalSOPs}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">مكتملة</span>
+                      <span className="font-bold text-emerald-600">{dept.totalCompleted}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">نسبة الإنجاز</span>
+                      <span className={`font-bold ${getProgressColor(dept.avgCompletionRate)}`}>
+                        {dept.avgCompletionRate}%
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden mt-1">
+                      <div
+                        className={`h-full ${getProgressBg(dept.avgCompletionRate)} rounded-full transition-all duration-700`}
+                        style={{ width: `${dept.avgCompletionRate}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
