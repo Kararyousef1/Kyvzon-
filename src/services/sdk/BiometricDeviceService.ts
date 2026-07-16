@@ -62,6 +62,47 @@ class BiometricDeviceService extends BaseService<BiometricDeviceRecord> {
     } as unknown as Partial<BiometricDeviceRecord>);
   }
 
+  /**
+   * اختبار اتصال منطقي للجهاز.
+   * ملاحظة: الاتصال الحقيقي يحتاج Edge Function داخل الشبكة/الـ VPN.
+   * هنا نتحقق من وجود بيانات الجهاز ونحدث last_sync_at كتسجيل اختبار تشغيل.
+   */
+  async testConnection(id: string): Promise<{ ok: boolean; message: string; device?: BiometricDeviceRecord }> {
+    try {
+      const { data, error } = await import('../supabase/supabase').then(({ supabase }) =>
+        supabase.functions.invoke('biometric-device-action', {
+          body: { action: 'test_connection', device_id: id },
+        }),
+      );
+      if (!error && data?.ok) {
+        const device = await this.findById(id).catch(() => null);
+        return { ok: true, message: data.message || 'تم اختبار الجهاز عبر Edge Function', device: device || undefined };
+      }
+    } catch {
+      // fallback below
+    }
+
+    const device = await this.findById(id);
+    if (!device) return { ok: false, message: 'الجهاز غير موجود' };
+    if (!device.ip_address) return { ok: false, message: 'لا يوجد IP للجهاز', device };
+    const updated = await this.update(id, { last_sync_at: new Date().toISOString() } as Partial<BiometricDeviceRecord>);
+    return { ok: true, message: `تم تسجيل اختبار اتصال محلي للجهاز ${device.name}. الاتصال الحقيقي يحتاج Edge Function/Agent.`, device: updated };
+  }
+
+  async requestManualSync(deviceId?: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const { data, error } = await import('../supabase/supabase').then(({ supabase }) =>
+        supabase.functions.invoke('biometric-device-action', {
+          body: { action: 'manual_sync', device_id: deviceId },
+        }),
+      );
+      if (!error && data?.ok) return { ok: true, message: data.message || 'تم تسجيل طلب المزامنة' };
+    } catch {
+      // fallback to local sync log can be handled by caller if needed
+    }
+    return { ok: false, message: 'تعذر استدعاء Edge Function للمزامنة اليدوية' };
+  }
+
   /** حذف جهاز */
   async deleteDevice(id: string): Promise<boolean> {
     return this.delete(id);

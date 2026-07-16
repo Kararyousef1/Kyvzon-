@@ -69,6 +69,7 @@ class TawathulConversationService {
       .eq('tenant_id', tenantId)
       .in('id', ids)
       .is('deleted_at', null)
+      .is('archived_at', null)
       .order('last_message_at', { ascending: false });
 
     if (error) friendlyDbError(error);
@@ -85,7 +86,13 @@ class TawathulConversationService {
       return bt - at;
     });
 
-    return list;
+    return list.map((conversation) => ({
+      ...conversation,
+      metadata: {
+        ...(conversation.metadata || {}),
+        pinned: pinMap.get(conversation.id) || false,
+      },
+    }));
   }
 
   async getConversation(id: string): Promise<TawathulConversation | null> {
@@ -378,6 +385,51 @@ class TawathulConversationService {
       role,
     });
     if (insErr) friendlyDbError(insErr);
+  }
+
+  async getMyMembership(conversationId: string): Promise<TawathulMember | null> {
+    const tenantId = getTawathulTenantId();
+    const userId = await requireAuthUserId();
+    const { data, error } = await supabase
+      .from(this.members)
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+      .is('left_at', null)
+      .maybeSingle();
+    if (error) friendlyDbError(error);
+    return (data as TawathulMember) || null;
+  }
+
+  async updateMyMembershipPreferences(
+    conversationId: string,
+    patch: { is_muted?: boolean; is_pinned?: boolean },
+  ): Promise<void> {
+    const tenantId = requireTawathulTenantId();
+    const userId = await requireAuthUserId();
+    const updateData: Record<string, unknown> = {};
+    if (typeof patch.is_muted === 'boolean') updateData.is_muted = patch.is_muted;
+    if (typeof patch.is_pinned === 'boolean') updateData.is_pinned = patch.is_pinned;
+    if (!Object.keys(updateData).length) return;
+
+    const { error } = await supabase
+      .from(this.members)
+      .update(updateData)
+      .eq('tenant_id', tenantId)
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId);
+    if (error) friendlyDbError(error);
+  }
+
+  async archiveConversation(conversationId: string): Promise<void> {
+    const tenantId = requireTawathulTenantId();
+    const { error } = await supabase
+      .from(this.conversations)
+      .update({ archived_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId)
+      .eq('id', conversationId);
+    if (error) friendlyDbError(error);
   }
 
   async markRead(conversationId: string) {

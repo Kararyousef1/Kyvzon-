@@ -7,6 +7,8 @@ import { useUIStore } from '../../core/stores';
 import { format } from 'date-fns';
 import { incidentService } from '../../services/sdk/IncidentService';
 import { wellnessEntryService } from '../../services/sdk/WellnessService';
+import { workforceAnalyticsService } from '../../services/sdk/WorkforceAnalyticsService';
+import { employeeContractService, criticalPositionService } from '../../services/sdk';
 
 const reports = [
   { id: '1', title: 'تقرير المشاكل الشهري - ديسمبر 2024', type: 'problems', date: '2024-12-01', format: 'Excel' },
@@ -14,6 +16,9 @@ const reports = [
   { id: '3', title: 'تقرير رضا الموظفين السنوي 2024', type: 'satisfaction', date: '2024-10-01', format: 'Excel' },
   { id: '4', title: 'تقرير الأداء - الربع الثالث', type: 'performance', date: '2024-09-01', format: 'Excel' },
   { id: '5', title: 'تقرير التحليل الذكي للمشاعر', type: 'sentiment', date: '2024-08-01', format: 'Excel' },
+  { id: '6', title: 'تقرير مؤشرات القوى العاملة', type: 'workforce', date: format(new Date(), 'yyyy-MM-dd'), format: 'CSV' },
+  { id: '7', title: 'تقرير عقود الموظفين', type: 'contracts', date: format(new Date(), 'yyyy-MM-dd'), format: 'CSV' },
+  { id: '8', title: 'تقرير تخطيط التعاقب', type: 'succession', date: format(new Date(), 'yyyy-MM-dd'), format: 'CSV' },
 ];
 
 const typeColors: Record<string, string> = {
@@ -50,6 +55,27 @@ export default function ReportsPage() {
           e.mood || '',
           String(e.score || 0),
         ]);
+      } else if (reportType === 'workforce') {
+        const summary = await workforceAnalyticsService.getSummary();
+        headers = ['المؤشر', 'القيمة', 'تاريخ التوليد'];
+        rows = [
+          ['إجمالي الموظفين', String(summary.totalEmployees), summary.generatedAt],
+          ['الموظفون النشطون', String(summary.activeEmployees), summary.generatedAt],
+          ['معدل الحضور', `${summary.attendanceRate}%`, summary.generatedAt],
+          ['معدل الغياب', `${summary.absenteeismRate}%`, summary.generatedAt],
+          ['معدل التأخير', `${summary.lateRate}%`, summary.generatedAt],
+          ['البلاغات المفتوحة', String(summary.openIncidents), summary.generatedAt],
+          ['عقود قريبة الانتهاء', String(summary.contractsExpiring30Days), summary.generatedAt],
+          ['تغطية التعاقب', `${summary.successionCoverageRate}%`, summary.generatedAt],
+        ];
+      } else if (reportType === 'contracts') {
+        const contracts = await employeeContractService.findAll({ orderBy: 'end_date', ascending: true });
+        headers = ['رقم العقد', 'الموظف', 'النوع', 'البداية', 'النهاية', 'الحالة'];
+        rows = (contracts || []).map((c: any) => [c.contract_number || '', c.employee_id || '', c.contract_type || '', c.start_date || '', c.end_date || '', c.status || '']);
+      } else if (reportType === 'succession') {
+        const positions = await criticalPositionService.findAll({ orderBy: 'created_at', ascending: false });
+        headers = ['المنصب', 'مستوى الخطر', 'الشاغل الحالي', 'الحالة'];
+        rows = (positions || []).map((p: any) => [p.title || '', p.risk_level || '', p.incumbent_employee_id || '', p.status || '']);
       } else {
         headers = ['الاسم', 'القيمة', 'التاريخ'];
         rows = [['بيانات تجريبية', '—', '—']];

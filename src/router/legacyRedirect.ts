@@ -20,6 +20,7 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'employee-ai-chat':             '/app/employee/ai-chat',
   'employee-survey':              '/app/employee/survey',
   'employee-training':            '/app/employee/training',
+  'employee-goals':               '/app/employee/goals',
   'employee-sops':                '/app/employee/sops',
   'employee-profile':             '/app/employee/profile',
   'employee-contact':             '/app/employee/contact',
@@ -39,10 +40,17 @@ export const VIEW_TO_PATH: Record<string, string> = {
   // Manager
   'manager-dashboard':            '/app/manager',
   'manager-attendance':           '/app/manager/attendance',
+  'manager-approvals':            '/app/manager/approvals',
+  'manager-performance':          '/app/manager/performance',
+  'manager-workload':             '/app/manager/workload',
   'manager-leave-requests':       '/app/employee/leave-requests',
 
   // Supervisor
+  'supervisor-dashboard':         '/app/supervisor',
   'supervisor-breaks':            '/app/supervisor/breaks',
+  'supervisor-shift':             '/app/supervisor/shift',
+  'supervisor-tasks':             '/app/supervisor/tasks',
+  'supervisor-checklists':        '/app/supervisor/checklists',
   'supervisor-leave-requests':    '/app/employee/leave-requests',
 
   // HR
@@ -65,10 +73,14 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'hr-recruitment':               '/app/hr/recruitment',
   'hr-onboarding':                '/app/hr/onboarding',
   'hr-documents':                 '/app/hr/documents',
+  'hr-contracts':                 '/app/hr/contracts',
+  'hr-succession':                '/app/hr/succession',
   'hr-performance':               '/app/hr/performance',
   'hr-disciplinary':              '/app/hr/disciplinary',
   'hr-shifts':                    '/app/hr/shifts',
   'hr-communication':             '/app/hr/communication',
+  'hr-service-center':            '/app/hr/service-center',
+  'hr-health-safety':             '/app/hr/health-safety',
   'hr-leave-requests':            '/app/hr/leave-requests',
   'hr-sops':                      '/app/hr/sops',
   'hr-manage-surveys':            '/app/employee/survey',
@@ -81,6 +93,10 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'admin-permissions-management': '/app/admin/permissions-management',
   'admin-audit-log':              '/app/admin/audit-log',
   'admin-settings':               '/app/admin/settings',
+  'admin-company-profile':       '/app/admin/company-profile',
+  'admin-branches':              '/app/admin/branches',
+  'admin-org-structure':         '/app/admin/org-structure',
+  'admin-compliance':            '/app/admin/compliance',
   'admin-ai-config':              '/app/admin/ai-config',
   'admin-cms':                    '/app/admin/cms',
   'admin-gatekeeper-permissions': '/app/admin/gatekeeper-permissions',
@@ -91,6 +107,8 @@ export const VIEW_TO_PATH: Record<string, string> = {
 
   // Other portals
   'gatekeeper-portal':            '/app/gatekeeper',
+  'gatekeeper-movements':         '/app/gatekeeper/movements',
+  'movement-portal':              '/app/gatekeeper/movements',
   'tech-portal':                  '/app/tech-portal',
   'tawathul-portal':              '/app/tawathul',
   'tawathul-admin':               '/app/tawathul/admin',

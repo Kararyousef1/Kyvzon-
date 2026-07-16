@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { Globe, Menu, X, ChevronDown } from 'lucide-react';
 import { useLang, LANG_OPTIONS } from '../LangContext';
+import type { LandingConfig } from '../../../../shared/types/landing';
 
 interface HeaderProps {
   onLoginClick: () => void;
   scrolled: boolean;
   activeSection: string;
+  landingConfig?: Partial<LandingConfig> | null;
 }
 
 const NAV_IDS = ['home', 'portals', 'pricing', 'services', 'faq', 'contact'] as const;
 
-export function Header({ onLoginClick, scrolled, activeSection }: HeaderProps) {
+export function Header({ onLoginClick, scrolled, activeSection, landingConfig }: HeaderProps) {
   const { lang, setLang, isRTL, t } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -30,8 +32,8 @@ export function Header({ onLoginClick, scrolled, activeSection }: HeaderProps) {
           onClick={() => scrollTo('home')}
           aria-label={lang === 'ar' ? 'الانتقال إلى الرئيسية' : lang === 'en' ? 'Go to homepage' : 'گەڕانەوە بۆ ماڵەوە'}
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-indigo-500/30">K</div>
-          <span className="text-xl font-black tracking-tight text-white">KYV<span style={{ color: '#818cf8' }}>ZON</span></span>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-indigo-500/30" style={{ background: landingConfig?.themeColor ? `linear-gradient(135deg, ${landingConfig.themeColor}, ${landingConfig.themeColor}bb)` : undefined }}>{landingConfig?.logoUrl ? <img src={landingConfig.logoUrl} alt="KYVZON" className="w-full h-full rounded-xl object-cover" /> : (landingConfig?.logoSymbol || 'K')}</div>
+          <span className="text-xl font-black tracking-tight text-white">{landingConfig?.logoTextEn || 'KYVZON'}</span>
         </button>
 
         {/* Desktop nav */}

@@ -7,7 +7,9 @@ import {
   GraduationCap, Target, Flame, Layers,
 } from 'lucide-react';
 import Card from '../../shared/components/ui/Card';
-import { supabase } from '../../services/supabase/supabase';
+import { useAuthStore } from '../../core/stores';
+import { courseProgressService, courseService, employeeGoalService, employeeService, employeeSkillService } from '../../services/sdk';
+import { getErrorMessage } from '../../services/errors';
 
 // ── Types ──
 type CourseStatus = 'completed' | 'in_progress' | 'not_started' | 'locked';
@@ -75,35 +77,85 @@ const CATEGORIES = [
 
 // ── Main Component ──
 export default function TrainingPage() {
+  const { user } = useAuthStore();
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState<CourseLevel | 'all'>('all');
   const [lang, setLang] = useState<Language>('ar');
 
-  // Courses data from Supabase
+  // Courses data through SDK boundary
   const [courses, setCourses] = useState<Course[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [coursesError, setCoursesError] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<string[]>([]);
 
-  // Fetch courses from Supabase
+  // Fetch courses through SDK + enrich with employee progress/goals/skills
   useEffect(() => {
+    const normalizeCourse = (raw: any, progressByCourse: Map<string, any>): Course => {
+      const progress = progressByCourse.get(raw.id);
+      const progressPercent = Number(progress?.progress_percent ?? raw.progress ?? 0);
+      const status: CourseStatus = progress?.status === 'completed' || raw.status === 'completed'
+        ? 'completed'
+        : progressPercent > 0
+          ? 'in_progress'
+          : raw.status === 'locked'
+            ? 'locked'
+            : 'not_started';
+      return {
+        id: raw.id,
+        title: raw.title || 'دورة تدريبية',
+        titleEn: raw.title_en,
+        description: raw.description || 'لا يوجد وصف متاح لهذه الدورة حالياً.',
+        descriptionEn: raw.description_en,
+        category: raw.category || 'roles',
+        duration: raw.duration || `${raw.duration_minutes || 0} دقيقة`,
+        level: (raw.level as CourseLevel) || 'متوسط',
+        progress: progressPercent,
+        status,
+        modules: Number(raw.modules_count || raw.modules || 0),
+        points: Number(raw.points || (status === 'completed' ? 10 : 0)),
+        tags: Array.isArray(raw.tags) ? raw.tags : [raw.category, raw.title].filter(Boolean),
+        mandatory: Boolean(raw.is_mandatory ?? raw.mandatory),
+        instructor: raw.instructor || 'إدارة التدريب',
+        objectives: Array.isArray(raw.objectives) ? raw.objectives : [],
+        moduleList: Array.isArray(raw.moduleList) ? raw.moduleList : [],
+        thumbnail: raw.thumbnail,
+      };
+    };
+
     const fetchCourses = async () => {
       try {
         setCoursesLoading(true);
         setCoursesError(null);
-        const { data, error } = await supabase
-          .from('courses')
-          .select('*')
-          .order('created_at', { ascending: false });
+        const [courseRows, employees] = await Promise.all([
+          courseService.findAllCourses(),
+          user?.id ? employeeService.findAll({ filters: { user_id: user.id }, limit: 1 }) : Promise.resolve([]),
+        ]);
+        const employeeId = employees[0]?.id;
+        const [progressRows, skillRows, goalRows] = employeeId ? await Promise.all([
+          courseProgressService.findByEmployee(employeeId).catch(() => []),
+          employeeSkillService.findByEmployee(employeeId).catch(() => []),
+          employeeGoalService.findByEmployee(employeeId).catch(() => []),
+        ]) : [[], [], []];
 
-        if (error) {
-          throw error;
-        }
+        const progressByCourse = new Map<string, any>((progressRows || []).map((p: any) => [String(p.course_id), p] as [string, any]));
+        const normalized = (courseRows || []).map((course: any) => normalizeCourse(course, progressByCourse));
+        setCourses(normalized);
 
-        setCourses(data || []);
+        const skillNames = (skillRows || []).map((s: any) => String(s.skill_name || '').toLowerCase()).filter(Boolean);
+        const learningGoals = (goalRows || []).filter((g: any) => g.category === 'learning' || g.category === 'career');
+        const recommended = normalized
+          .filter(course => course.status !== 'completed')
+          .filter(course => {
+            const haystack = [course.title, course.description, course.category, ...course.tags].join(' ').toLowerCase();
+            return skillNames.some(skill => haystack.includes(skill)) || learningGoals.some((goal: any) => haystack.includes(String(goal.title || '').toLowerCase().split(' ')[0] || '')) || course.mandatory;
+          })
+          .slice(0, 4)
+          .map(course => course.id);
+        setRecommendations(recommended);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'فشل تحميل الدورات التدريبية';
-        console.error('Error fetching courses:', err);
+        const message = getErrorMessage(err, 'فشل تحميل الدورات التدريبية');
+        console.error('Error fetching courses:', message);
         setCoursesError(message);
         setCourses([]);
       } finally {
@@ -112,7 +164,7 @@ export default function TrainingPage() {
     };
 
     fetchCourses();
-  }, []);
+  }, [user?.id]);
 
   const totalCourses    = courses.length;
   const completedCount  = courses.filter(c => c.status === 'completed').length;
@@ -287,6 +339,29 @@ export default function TrainingPage() {
       {/* ── Courses (In Progress + Grid) ── */}
       {!coursesLoading && !coursesError && courses.length > 0 && (
         <>
+          {/* ── Recommended ── */}
+          {recommendations.length > 0 && (
+            <div>
+              <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                <Target size={16} className="text-emerald-500" />
+                دورات مقترحة بناءً على أهدافك ومهاراتك
+              </h3>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {courses.filter(c => recommendations.includes(c.id)).map(course => (
+                  <div key={course.id} className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-4 hover:shadow-lg transition-all">
+                    <span className="text-[10px] font-bold text-emerald-700 bg-white border border-emerald-100 rounded-full px-2 py-1">مقترح لك</span>
+                    <h3 className="font-bold text-slate-800 text-sm mt-3 mb-1">{course.title}</h3>
+                    <p className="text-xs text-slate-500 line-clamp-2">{course.description}</p>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-xs text-emerald-700 font-bold">{course.level}</span>
+                      {course.mandatory && <span className="text-xs text-amber-700 font-bold">إلزامية</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ── In Progress ── */}
           {courses.filter(c => c.status === 'in_progress').length > 0 && (
             <div>

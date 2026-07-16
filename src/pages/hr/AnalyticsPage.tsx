@@ -20,6 +20,8 @@ import { useState, useEffect } from 'react';
 import { userService } from '../../services/sdk/UserService';
 import { incidentService } from '../../services/sdk/IncidentService';
 import { wellnessEntryService } from '../../services/sdk/WellnessService';
+import { workforceAnalyticsService } from '../../services/sdk/WorkforceAnalyticsService';
+import type { WorkforceSummary } from '../../services/sdk/WorkforceAnalyticsService';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Badge from '../../shared/components/ui/Badge';
 import {
@@ -134,6 +136,7 @@ export default function AnalyticsPage() {
   const [selectedAnalysisType, setSelectedAnalysisType] = useState('predictive');
   const [advancedLoading, setAdvancedLoading] = useState(false);
   const [advancedResults, setAdvancedResults] = useState<AdvancedResult | null>(null);
+  const [workforceSummary, setWorkforceSummary] = useState<WorkforceSummary | null>(null);
 
   const [stats, setStats] = useState<AnalyticsStats>({
     totalEmployees: 0,
@@ -148,11 +151,13 @@ export default function AnalyticsPage() {
     const fetchAnalytics = async () => {
       setLoading(true);
       try {
-      const [profiles, incidents, wellness] = await Promise.all([
+      const [profiles, incidents, wellness, workforce] = await Promise.all([
           userService.findAllUsers({ role: 'employee' }),
           incidentService.findAll(),
           wellnessEntryService.findAllEntries(),
+          workforceAnalyticsService.getSummary(),
         ]);
+        setWorkforceSummary(workforce);
 
         const profileList = (profiles || []) as ProfileRecord[];
         const incidentList = (incidents || []) as IncidentRecord[];
@@ -337,6 +342,23 @@ export default function AnalyticsPage() {
         <h2 className="text-xl font-extrabold text-slate-800">📊 التحليلات والإحصاءات</h2>
         <p className="text-sm text-slate-500 mt-1">نظرة تفصيلية على أداء المؤسسة وصحة الموظفين</p>
       </div>
+
+      {workforceSummary && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'معدل الحضور', value: `${workforceSummary.attendanceRate}%`, hint: `غياب ${workforceSummary.absenteeismRate}%`, color: 'bg-emerald-50 text-emerald-700' },
+            { label: 'التأخير', value: `${workforceSummary.lateRate}%`, hint: 'من سجلات الحضور', color: 'bg-amber-50 text-amber-700' },
+            { label: 'عقود قريبة الانتهاء', value: workforceSummary.contractsExpiring30Days, hint: 'حسب فترة التنبيه', color: 'bg-blue-50 text-blue-700' },
+            { label: 'تغطية التعاقب', value: `${workforceSummary.successionCoverageRate}%`, hint: `${workforceSummary.criticalPositions} منصب عالي/حرج`, color: 'bg-purple-50 text-purple-700' },
+          ].map((item) => (
+            <Card key={item.label} className={`${item.color} border-0`}>
+              <p className="text-2xl font-extrabold">{item.value}</p>
+              <p className="text-xs font-bold mt-1">{item.label}</p>
+              <p className="text-[11px] opacity-70 mt-1">{item.hint}</p>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <div className="flex gap-2 bg-slate-50 border border-slate-100 rounded-2xl p-1.5 overflow-x-auto">
         <button onClick={() => setActiveTab('overview')} className={`flex-1 min-w-[150px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'overview' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>

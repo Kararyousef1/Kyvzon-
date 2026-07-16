@@ -5,10 +5,13 @@
 import { useEffect, useState } from 'react';
 import {
   ArrowRight,
+  Download,
   Hash,
   Link2,
   MessageCircle,
   Pin,
+  PinOff,
+  Archive,
   Search,
   Users,
   VolumeX,
@@ -41,6 +44,7 @@ export default function ChatPanel({ conversation, onBack }: Props) {
   const [searchHits, setSearchHits] = useState<TawathulMessage[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const [members, setMembers] = useState<TawathulMember[]>([]);
+  const [myMembership, setMyMembership] = useState<TawathulMember | null>(null);
   const [showMembers, setShowMembers] = useState(false);
 
   useEffect(() => {
@@ -55,6 +59,7 @@ export default function ChatPanel({ conversation, onBack }: Props) {
       setTitle('محادثة');
       setPinned([]);
       setMembers([]);
+      setMyMembership(null);
       return;
     }
 
@@ -83,6 +88,13 @@ export default function ChatPanel({ conversation, onBack }: Props) {
         if (!cancelled) setMembers(mem);
       } catch {
         if (!cancelled) setMembers([]);
+      }
+
+      try {
+        const mine = await tawathulConversationService.getMyMembership(conversation.id);
+        if (!cancelled) setMyMembership(mine);
+      } catch {
+        if (!cancelled) setMyMembership(null);
       }
 
       if (conversation.type === 'entity') {
@@ -131,6 +143,66 @@ export default function ChatPanel({ conversation, onBack }: Props) {
     } catch {
       setSearchHits([]);
     }
+  };
+
+  const toggleConversationPin = async () => {
+    if (!conversation?.id) return;
+    try {
+      const next = !myMembership?.is_pinned;
+      await tawathulConversationService.updateMyMembershipPreferences(conversation.id, { is_pinned: next });
+      setMyMembership((prev) => prev ? { ...prev, is_pinned: next } : prev);
+      addToast(next ? 'تم تثبيت المحادثة' : 'تم إلغاء تثبيت المحادثة', 'success');
+    } catch (e: any) {
+      addToast(e?.message || 'تعذر تحديث التثبيت', 'error');
+    }
+  };
+
+  const toggleConversationMute = async () => {
+    if (!conversation?.id) return;
+    try {
+      const next = !myMembership?.is_muted;
+      await tawathulConversationService.updateMyMembershipPreferences(conversation.id, { is_muted: next });
+      setMyMembership((prev) => prev ? { ...prev, is_muted: next } : prev);
+      addToast(next ? 'تم كتم المحادثة' : 'تم إلغاء كتم المحادثة', 'success');
+    } catch (e: any) {
+      addToast(e?.message || 'تعذر تحديث الكتم', 'error');
+    }
+  };
+
+  const archiveConversation = async () => {
+    if (!conversation?.id) return;
+    if (!confirm('هل تريد أرشفة هذه المحادثة؟ ستختفي من القائمة الرئيسية.')) return;
+    try {
+      await tawathulConversationService.archiveConversation(conversation.id);
+      addToast('تمت أرشفة المحادثة', 'success');
+      onBack?.();
+    } catch (e: any) {
+      addToast(e?.message || 'تعذر أرشفة المحادثة', 'error');
+    }
+  };
+
+  const exportConversation = () => {
+    const headers = ['المرسل', 'الرسالة', 'النوع', 'التاريخ', 'معدلة', 'مثبتة'];
+    const escape = (value: string) => `"${String(value || '').replace(/"/g, '""')}"`;
+    const rows = messages.map((m) => [
+      m.sender_name || 'النظام',
+      m.body || '',
+      m.message_type || 'text',
+      m.created_at || '',
+      m.edited_at ? 'نعم' : 'لا',
+      m.is_pinned ? 'نعم' : 'لا',
+    ]);
+    const csv = [headers.join(','), ...rows.map((r) => r.map(escape).join(','))].join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tawathul_conversation_${conversation.id}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    addToast('تم تصدير المحادثة', 'success');
   };
 
   const addMember = async () => {
@@ -197,6 +269,40 @@ export default function ChatPanel({ conversation, onBack }: Props) {
         >
           <Users size={16} />
         </button>
+        <button
+          type="button"
+          className="p-2 rounded-xl hover:bg-slate-100 text-slate-500"
+          title={myMembership?.is_pinned ? 'إلغاء تثبيت المحادثة' : 'تثبيت المحادثة'}
+          onClick={() => void toggleConversationPin()}
+        >
+          {myMembership?.is_pinned ? <PinOff size={16} /> : <Pin size={16} />}
+        </button>
+        <button
+          type="button"
+          className="p-2 rounded-xl hover:bg-slate-100 text-slate-500"
+          title={myMembership?.is_muted ? 'إلغاء كتم المحادثة' : 'كتم المحادثة'}
+          onClick={() => void toggleConversationMute()}
+        >
+          <VolumeX size={16} className={myMembership?.is_muted ? 'text-amber-600' : ''} />
+        </button>
+        <button
+          type="button"
+          className="p-2 rounded-xl hover:bg-slate-100 text-slate-500"
+          title="تصدير المحادثة"
+          onClick={exportConversation}
+        >
+          <Download size={16} />
+        </button>
+        {conversation.type !== 'dm' && (
+          <button
+            type="button"
+            className="p-2 rounded-xl hover:bg-red-50 text-slate-500 hover:text-red-600"
+            title="أرشفة المحادثة"
+            onClick={() => void archiveConversation()}
+          >
+            <Archive size={16} />
+          </button>
+        )}
         {conversation.type !== 'dm' && (
           <button
             type="button"

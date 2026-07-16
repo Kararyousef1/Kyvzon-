@@ -5,6 +5,7 @@
 import { useRef, useState, KeyboardEvent } from 'react';
 import { Paperclip, Send, Loader2, X, CornerUpLeft } from 'lucide-react';
 import Button from '../../../shared/components/ui/Button';
+import { useUIStore } from '../../../core/stores';
 import type { TawathulMessage } from '../types';
 
 interface Props {
@@ -29,6 +30,9 @@ export default function MessageComposer({
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const addToast = useUIStore((s) => s.addToast);
+  const maxFiles = 5;
+  const maxFileSize = 25 * 1024 * 1024;
 
   const submit = async () => {
     const value = text.trim();
@@ -90,7 +94,20 @@ export default function MessageComposer({
               className="hidden"
               onChange={(e) => {
                 const list = Array.from(e.target.files || []);
-                if (list.length) setFiles((prev) => [...prev, ...list].slice(0, 5));
+                if (!list.length) return;
+                const oversized = list.find((file) => file.size > maxFileSize);
+                if (oversized) {
+                  addToast(`الملف ${oversized.name} أكبر من 25MB`, 'warning');
+                  e.target.value = '';
+                  return;
+                }
+                setFiles((prev) => {
+                  const merged = [...prev, ...list];
+                  if (merged.length > maxFiles) {
+                    addToast(`يمكن إرفاق ${maxFiles} ملفات كحد أقصى`, 'warning');
+                  }
+                  return merged.slice(0, maxFiles);
+                });
                 e.target.value = '';
               }}
             />

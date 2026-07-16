@@ -17,11 +17,12 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Clock, Loader,
   Sun, Moon, Sunrise, ChevronRight, ChevronLeft,
-  AlertTriangle,
+  AlertTriangle, CalendarX, Send, X,
 } from 'lucide-react';
-import { useAuthStore } from '../../core/stores';
+import { useAuthStore, useUIStore } from '../../core/stores';
 import { employeeService } from '../../services/sdk/EmployeeService';
 import { attendanceService, attendanceSummaryService } from '../../services/sdk/AttendanceService';
+import { hrCaseService } from '../../services/sdk';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
@@ -110,13 +111,23 @@ const isCheckOut = (type?: string): boolean =>
 
 export default function MyAttendancePage() {
   const { user } = useAuthStore();
+  const { addToast } = useUIStore();
   const [loading, setLoading] = useState(true);
   const [employeeId, setEmployeeId] = useState<string>('');
+  const [employeeLinkMissing, setEmployeeLinkMissing] = useState(false);
   const [logs, setLogs] = useState<AttendanceLogRecord[]>([]);
   const [summary, setSummary] = useState<AttendanceSummaryRecord[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [todayStatus, setTodayStatus] = useState<TodayStatus>({ checked: false });
+  const [showCorrectionModal, setShowCorrectionModal] = useState(false);
+  const [submittingCorrection, setSubmittingCorrection] = useState(false);
+  const [correctionForm, setCorrectionForm] = useState({
+    date: format(new Date(), 'yyyy-MM-dd'),
+    type: 'missing_punch',
+    expected_time: '',
+    reason: '',
+  });
   const [stats, setStats] = useState<MonthStats>({
     total: 0, present: 0, late: 0, absent: 0,
     totalHours: 0, avgHours: 0, weeklyStreak: 0,
@@ -126,20 +137,39 @@ export default function MyAttendancePage() {
   useEffect(() => {
     if (!user?.id) return;
     const getEmployeeId = async () => {
-      const employees = await employeeService.findAll({
-        filters: { user_id: user.id },
-        limit: 1,
-      });
-      if (employees.length > 0) {
-        setEmployeeId(employees[0].id);
+      setLoading(true);
+      setEmployeeLinkMissing(false);
+      try {
+        if (user.employee_id) {
+          setEmployeeId(user.employee_id);
+          return;
+        }
+        const employees = await employeeService.findAll({
+          filters: { user_id: user.id },
+          limit: 1,
+        });
+        if (employees.length > 0) {
+          setEmployeeId(employees[0].id);
+          return;
+        }
+        setEmployeeId('');
+        setEmployeeLinkMissing(true);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error resolving employee id:', getErrorMessage(err));
+        setEmployeeLinkMissing(true);
+        setLoading(false);
       }
     };
     getEmployeeId();
-  }, [user]);
+  }, [user?.id, user?.employee_id]);
 
   // ── جلب بيانات الحضور ─────────────────────────────────────────
   const fetchAttendance = useCallback(async () => {
-    if (!employeeId) return;
+    if (!employeeId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const startDate = format(new Date(currentYear, currentMonth, 1), 'yyyy-MM-dd');
@@ -244,6 +274,32 @@ export default function MyAttendancePage() {
     setCurrentYear(newDate.getFullYear());
   };
 
+  const submitCorrectionRequest = async () => {
+    if (!employeeId) return;
+    if (!correctionForm.reason.trim()) {
+      addToast('يرجى كتابة سبب طلب التصحيح', 'warning');
+      return;
+    }
+    setSubmittingCorrection(true);
+    try {
+      await hrCaseService.createCase({
+        employee_id: employeeId,
+        case_type: 'attendance_correction',
+        subject: `طلب تصحيح حضور - ${correctionForm.date}`,
+        description: `نوع التصحيح: ${correctionForm.type}\nالوقت المتوقع: ${correctionForm.expected_time || 'غير محدد'}\nالسبب: ${correctionForm.reason}`,
+        priority: 'normal',
+        status: 'open',
+      });
+      addToast('تم إرسال طلب تصحيح الحضور إلى الموارد البشرية', 'success');
+      setShowCorrectionModal(false);
+      setCorrectionForm({ date: format(new Date(), 'yyyy-MM-dd'), type: 'missing_punch', expected_time: '', reason: '' });
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+    } finally {
+      setSubmittingCorrection(false);
+    }
+  };
+
   const monthName = format(new Date(currentYear, currentMonth), 'MMMM yyyy', { locale: ar });
 
   const shiftIcon = (type?: ShiftType) => {
@@ -263,15 +319,35 @@ export default function MyAttendancePage() {
     <div className="space-y-6 animate-fade-in" dir="rtl">
       {/* Header */}
       <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-2xl font-extrabold flex items-center gap-2"><Clock size={24} /> حضوري</h2>
             <p className="text-white/70 mt-1">سجل الحضور والانصراف مع تحليل ذكي</p>
           </div>
+          <button onClick={() => setShowCorrectionModal(true)} className="flex items-center gap-2 bg-white/15 hover:bg-white/25 rounded-xl px-4 py-2 text-sm font-bold transition-colors">
+            <CalendarX size={16} /> طلب تصحيح حضور
+          </button>
         </div>
       </div>
 
-      {loading ? (
+      {employeeLinkMissing && !loading ? (
+        <Card>
+          <div className="py-14 px-6 text-center">
+            <AlertTriangle size={42} className="mx-auto mb-4 text-amber-500" />
+            <h3 className="text-lg font-extrabold text-slate-800 mb-2">لا يوجد سجل موظف مرتبط بحسابك</h3>
+            <p className="text-sm text-slate-500 max-w-xl mx-auto leading-7">
+              لا يمكن عرض سجل الحضور لأن حسابك غير مربوط بسجل موظف داخل الشركة. يرجى التواصل مع إدارة الموارد البشرية أو مسؤول النظام لربط الحساب بسجل موظف.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
+            >
+              تحديث الصفحة
+            </button>
+          </div>
+        </Card>
+      ) : loading ? (
         <div className="flex justify-center py-20"><Loader className="animate-spin" size={32} /></div>
       ) : (
         <>
@@ -431,6 +507,43 @@ export default function MyAttendancePage() {
             </div>
           </Card>
         </>
+      )}
+
+      {showCorrectionModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCorrectionModal(false)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><CalendarX size={18} className="text-indigo-600" /> طلب تصحيح حضور</h3>
+              <button onClick={() => setShowCorrectionModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">التاريخ</label>
+                <input type="date" value={correctionForm.date} onChange={e => setCorrectionForm(p => ({ ...p, date: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">نوع التصحيح</label>
+                <select value={correctionForm.type} onChange={e => setCorrectionForm(p => ({ ...p, type: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400">
+                  <option value="missing_punch">بصمة مفقودة</option>
+                  <option value="wrong_time">وقت غير صحيح</option>
+                  <option value="forgot_checkout">نسيان بصمة خروج</option>
+                  <option value="device_issue">مشكلة جهاز</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">الوقت المتوقع</label>
+                <input type="time" value={correctionForm.expected_time} onChange={e => setCorrectionForm(p => ({ ...p, expected_time: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">السبب <span className="text-red-500">*</span></label>
+                <textarea value={correctionForm.reason} onChange={e => setCorrectionForm(p => ({ ...p, reason: e.target.value }))} rows={4} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none resize-none focus:border-indigo-400" placeholder="اشرح سبب التصحيح..." />
+              </div>
+              <button onClick={submitCorrectionRequest} disabled={submittingCorrection} className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-xl py-2.5 font-bold transition-colors">
+                <Send size={15} /> {submittingCorrection ? 'جاري الإرسال...' : 'إرسال الطلب'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

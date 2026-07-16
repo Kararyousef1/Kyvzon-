@@ -1,0 +1,14 @@
+{
+  "name": "kyvzon-biometric-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "On-premise biometric sync agent for Kyvzon platform",
+  "scripts": {
+    "start": "node src/agent.mjs",
+    "check": "node --check src/agent.mjs && node --check src/config.mjs && node --check src/hmac.mjs && node --check src/queue.mjs && node --check src/zktecoAdapter.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

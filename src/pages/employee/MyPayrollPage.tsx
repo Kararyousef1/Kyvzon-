@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { DollarSign, FileText, Loader2, Eye, X, TrendingUp, TrendingDown } from 'lucide-react';
+import { DollarSign, FileText, Loader2, Eye, X, TrendingUp, TrendingDown, Printer, CalendarDays } from 'lucide-react';
 import { useAuthStore } from '../../core/stores';
 import { employeeService, payrollRecordService, payrollPeriodService } from '../../services/sdk';
 import { getErrorMessage } from '../../services/errors';
@@ -124,6 +124,11 @@ export default function MyPayrollPage() {
 
   const totalEarned = records.reduce((s, r) => s + (r.net_salary || 0), 0);
   const totalDeductions = records.reduce((s, r) => s + (r.total_deductions || 0), 0);
+  const latestPayroll = records[0];
+  const previousPayroll = records[1];
+  const payrollDelta = latestPayroll && previousPayroll ? (latestPayroll.net_salary || 0) - (previousPayroll.net_salary || 0) : 0;
+  const payrollDeltaPercent = previousPayroll?.net_salary ? Math.round((payrollDelta / previousPayroll.net_salary) * 100) : 0;
+  const averageNet = records.length ? Math.round(totalEarned / records.length) : 0;
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
@@ -139,7 +144,7 @@ export default function MyPayrollPage() {
       </div>
 
       {/* ملخص */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
         <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 text-white">
           <TrendingUp size={20} className="mb-2 opacity-80" />
           <p className="text-2xl font-bold">{formatCurrency(totalEarned)}</p>
@@ -155,7 +160,25 @@ export default function MyPayrollPage() {
           <p className="text-2xl font-bold text-slate-900">{formatCurrency(totalDeductions)}</p>
           <p className="text-sm text-slate-500">إجمالي الاستقطاعات</p>
         </div>
+        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <CalendarDays size={20} className="mb-2 text-indigo-500" />
+          <p className="text-2xl font-bold text-slate-900">{formatCurrency(averageNet)}</p>
+          <p className="text-sm text-slate-500">متوسط الصافي</p>
+        </div>
       </div>
+
+      {latestPayroll && previousPayroll && (
+        <div className={`mb-6 rounded-2xl border p-4 flex items-center justify-between gap-3 ${payrollDelta >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+          <div>
+            <p className="text-sm font-bold text-slate-800">مقارنة بآخر قسيمة سابقة</p>
+            <p className="text-xs text-slate-500 mt-1">تساعدك على فهم تغير صافي الراتب بين الفترات.</p>
+          </div>
+          <div className={`text-left font-extrabold ${payrollDelta >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+            <p>{payrollDelta >= 0 ? '+' : ''}{formatCurrency(payrollDelta)}</p>
+            <p className="text-xs">{payrollDeltaPercent >= 0 ? '+' : ''}{payrollDeltaPercent}%</p>
+          </div>
+        </div>
+      )}
 
       {/* القائمة */}
       {records.length === 0 ? (
@@ -229,9 +252,14 @@ export default function MyPayrollPage() {
                   {(selectedRecord as any).payroll_periods?.name || ''}
                 </p>
               </div>
-              <button onClick={() => setSelectedRecord(null)} className="text-slate-400 hover:text-slate-600">
-                <X size={22} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => window.print()} className="p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100" title="طباعة">
+                  <Printer size={18} />
+                </button>
+                <button onClick={() => setSelectedRecord(null)} className="text-slate-400 hover:text-slate-600">
+                  <X size={22} />
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">

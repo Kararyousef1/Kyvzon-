@@ -11,6 +11,11 @@ import {
   Search,
   Settings2,
   ShieldAlert,
+  Users,
+  Hash,
+  Paperclip,
+  Pin,
+  Archive,
 } from 'lucide-react';
 import ConversationList from '../components/ConversationList';
 import ChatPanel from '../components/ChatPanel';
@@ -308,13 +313,24 @@ export default function TawathulPortalPage() {
             mobileShowChat ? 'flex' : 'hidden lg:flex',
           )}
         >
-          <ChatPanel
-            conversation={activeConversation}
-            onBack={() => {
-              setMobileShowChat(false);
-              setActiveConversationId(null);
-            }}
-          />
+          {activeConversation ? (
+            <ChatPanel
+              conversation={activeConversation}
+              onBack={() => {
+                setMobileShowChat(false);
+                setActiveConversationId(null);
+              }}
+            />
+          ) : (
+            <TawathulWelcome
+              loading={loadingList}
+              conversationsCount={conversations.length}
+              isAdmin={isAdmin}
+              onNewConversation={() => setModalOpen(true)}
+              onRefresh={() => void loadConversations()}
+              onAdmin={() => navigate('/app/tawathul/admin')}
+            />
+          )}
         </section>
       </div>
 
@@ -326,6 +342,70 @@ export default function TawathulPortalPage() {
           setActiveConversationId(c.id);
         }}
       />
+    </div>
+  );
+}
+
+
+function TawathulWelcome({
+  loading,
+  conversationsCount,
+  isAdmin,
+  onNewConversation,
+  onRefresh,
+  onAdmin,
+}: {
+  loading: boolean;
+  conversationsCount: number;
+  isAdmin: boolean;
+  onNewConversation: () => void;
+  onRefresh: () => void;
+  onAdmin: () => void;
+}) {
+  const capabilities = [
+    { icon: MessagesSquare, title: 'محادثات فردية', desc: 'ابدأ حواراً مباشراً مع أي زميل داخل الشركة.' },
+    { icon: Users, title: 'مجموعات الفرق', desc: 'أنشئ مجموعات للفرق أو الأقسام أو المشاريع.' },
+    { icon: Hash, title: 'قنوات مؤسسية', desc: 'قنوات عامة أو خاصة للإعلانات والنقاشات.' },
+    { icon: Paperclip, title: 'مرفقات وتعاون', desc: 'إرسال ملفات وصور ومناقشة سجلات العمل.' },
+    { icon: Pin, title: 'تثبيت وكتم', desc: 'ثبّت المهم وكتم المحادثات كثيرة التنبيهات.' },
+    { icon: Archive, title: 'أرشفة وتصدير', desc: 'أرشفة المحادثات وتصديرها عند الحاجة.' },
+  ];
+
+  return (
+    <div className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 to-indigo-50/40">
+      <div className="max-w-4xl mx-auto px-6 py-10">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/25 mb-4">
+            <MessagesSquare size={30} />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900">مرحباً بك في بوابة التواصل Tawathul</h2>
+          <p className="text-sm text-slate-500 mt-2 leading-7 max-w-2xl mx-auto">
+            هذه بوابة التعاون المؤسسي داخل KYVZON. ابدأ محادثة فردية، أنشئ مجموعة لفريقك، أو قناة عامة للشركة حسب صلاحياتك.
+          </p>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          {capabilities.map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3"><Icon size={18} /></div>
+              <h3 className="font-extrabold text-slate-800 text-sm">{title}</h3>
+              <p className="text-xs text-slate-500 leading-6 mt-1">{desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="text-center md:text-right">
+            <div className="text-sm font-black text-slate-800">{conversationsCount > 0 ? 'اختر محادثة من القائمة للبدء' : 'لا توجد محادثات بعد'}</div>
+            <div className="text-xs text-slate-500 mt-1">{conversationsCount > 0 ? 'يمكنك أيضاً إنشاء محادثة جديدة.' : 'ابدأ أول محادثة أو أنشئ قناة لفريقك.'}</div>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button type="button" onClick={onNewConversation}><Plus size={14} className="ml-1" /> محادثة جديدة</Button>
+            {isAdmin && <Button type="button" variant="secondary" onClick={onAdmin}><Settings2 size={14} className="ml-1" /> إدارة التواصل</Button>}
+            <Button type="button" variant="secondary" onClick={onRefresh} loading={loading}><RefreshCw size={14} className="ml-1" /> تحديث</Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

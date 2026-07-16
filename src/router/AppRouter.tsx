@@ -30,6 +30,7 @@ import { DevLayout } from './layouts/DevLayout';
 // حراس
 import { RequireAuth } from './guards/RequireAuth';
 import { RequireRole } from './guards/RequireRole';
+import { RequireModule } from './guards/RequireModule';
 import { RoleRedirect } from './guards/RoleRedirect';
 
 // legacy
@@ -42,6 +43,11 @@ import DisclaimerPage from '../pages/public/DisclaimerPage';
 import SystemGuide from '../pages/public/SystemGuide';
 import NotificationsPage from '../pages/public/NotificationsPage';
 import MyNotificationsPage from '../pages/public/MyNotificationsPage';
+import SignupPage from '../pages/public/signup/SignupPage';
+import PublicAccountPage from '../pages/public/account/PublicAccountPage';
+import PublicPortalsPage from '../pages/public/portals/PublicPortalsPage';
+import PublicPortalDetailPage from '../pages/public/portals/PublicPortalDetailPage';
+import PublicInfoPage from '../pages/public/static/PublicInfoPage';
 
 // ─── Lazy: Employee ─────────────────────────────────────────────────────
 const EmployeeDashboard    = lazy(() => import('../pages/employee/EmployeeDashboard'));
@@ -62,6 +68,7 @@ const AIInsightsDashboard  = lazy(() => import('../pages/employee/AIInsightsDash
 const MyPayrollPage        = lazy(() => import('../pages/employee/MyPayrollPage'));
 const MyLoansPage          = lazy(() => import('../pages/employee/MyLoansPage'));
 const MyExpensesPage       = lazy(() => import('../pages/employee/MyExpensesPage'));
+const MyGoalsPage          = lazy(() => import('../pages/employee/MyGoalsPage'));
 
 // ─── Lazy: HR ─────────────────────────────────────────────────────────
 const HRDashboard              = lazy(() => import('../pages/hr/HRDashboard'));
@@ -85,6 +92,10 @@ const PerformancePage          = lazy(() => import('../pages/hr/PerformancePage'
 const DisciplinaryPage         = lazy(() => import('../pages/hr/DisciplinaryPage'));
 const ShiftSchedulingPage      = lazy(() => import('../pages/hr/ShiftSchedulingPage'));
 const HRCommunicationPage      = lazy(() => import('../pages/hr/HRCommunicationPage'));
+const EmployeeContractsPage    = lazy(() => import('../pages/hr/EmployeeContractsPage'));
+const SuccessionPlanningPage   = lazy(() => import('../pages/hr/SuccessionPlanningPage'));
+const HRServiceCenterPage      = lazy(() => import('../pages/hr/HRServiceCenterPage'));
+const HealthSafetyPage         = lazy(() => import('../pages/hr/HealthSafetyPage'));
 
 // ─── Lazy: Admin ────────────────────────────────────────────────────
 const AdminDashboard             = lazy(() => import('../pages/admin/AdminDashboard'));
@@ -97,11 +108,24 @@ const AdminLandingPageCMS        = lazy(() => import('../pages/admin/AdminLandin
 const AdminGatekeeperPermissions = lazy(() => import('../pages/admin/AdminGatekeeperPermissions'));
 const AdminSOPsPage              = lazy(() => import('../pages/admin/AdminSOPsPage'));
 const AdminSOPsReport            = lazy(() => import('../pages/admin/AdminSOPsReport'));
+const OrgStructurePage           = lazy(() => import('../pages/admin/OrgStructurePage'));
+const CompanyProfilePage         = lazy(() => import('../pages/admin/CompanyProfilePage'));
+const BranchesPage               = lazy(() => import('../pages/admin/BranchesPage'));
+const CompliancePage             = lazy(() => import('../pages/admin/CompliancePage'));
 
 // ─── Lazy: Other roles ──────────────────────────────────────────────
 const GatekeeperPage        = lazy(() => import('../pages/gatekeeper/GatekeeperPage'));
+const MovementControlPage   = lazy(() => import('../pages/gatekeeper/MovementControlPage'));
+const SupervisorDashboard   = lazy(() => import('../pages/supervisor/SupervisorDashboard'));
 const SupervisorBreaksPage  = lazy(() => import('../pages/supervisor/SupervisorBreaksPage'));
+const SupervisorShiftPage   = lazy(() => import('../pages/supervisor/SupervisorShiftPage'));
+const SupervisorTasksPage   = lazy(() => import('../pages/supervisor/SupervisorTasksPage'));
+const SupervisorChecklistsPage = lazy(() => import('../pages/supervisor/SupervisorChecklistsPage'));
+const ManagerDashboard      = lazy(() => import('../pages/manager/ManagerDashboard'));
 const ManagerAttendancePage = lazy(() => import('../pages/manager/ManagerAttendancePage'));
+const ManagerApprovalsPage  = lazy(() => import('../pages/manager/ManagerApprovalsPage'));
+const ManagerTeamPerformancePage = lazy(() => import('../pages/manager/ManagerTeamPerformancePage'));
+const ManagerWorkloadPage   = lazy(() => import('../pages/manager/ManagerWorkloadPage'));
 const TechPortal            = lazy(() => import('../pages/techportal/TechPortal'));
 const TawathulPortalPage    = lazy(() => import('../modules/tawathul/pages/TawathulPortalPage'));
 const TawathulAdminPage     = lazy(() => import('../modules/tawathul/pages/TawathulAdminPage'));
@@ -135,6 +159,19 @@ export function AppRoutes() {
       {/* المسارات العامة */}
       <Route path="/" element={<LandingPage onLoginClick={() => window.location.assign('/login')} />} />
       <Route path="/login" element={<LoginPage onNavigate={() => {}} onBack={() => window.history.back()} />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route path="/account" element={<PublicAccountPage />} />
+      <Route path="/portals" element={<PublicPortalsPage />} />
+      <Route path="/portals/:portalId" element={<PublicPortalDetailPage />} />
+      <Route path="/about" element={<PublicInfoPage kind="about" />} />
+      <Route path="/careers" element={<PublicInfoPage kind="careers" />} />
+      <Route path="/blog" element={<PublicInfoPage kind="blog" />} />
+      <Route path="/support" element={<PublicInfoPage kind="support" />} />
+      <Route path="/status" element={<PublicInfoPage kind="status" />} />
+      <Route path="/privacy" element={<PublicInfoPage kind="privacy" />} />
+      <Route path="/terms" element={<PublicInfoPage kind="terms" />} />
+      <Route path="/security" element={<PublicInfoPage kind="security" />} />
+      <Route path="/contact" element={<PublicInfoPage kind="contact" />} />
       <Route path="/disclaimer" element={<DisclaimerPage onAccess={() => {
         localStorage.setItem('disclaimer_passed', 'true');
         window.location.assign('/');
@@ -155,6 +192,7 @@ export function AppRoutes() {
 
         {/* App: كل باقي الصفحات */}
         <Route path="/app" element={<AppLayout />}>
+          <Route element={<RequireModule />}>
           {/* Root: تحويل حسب الدور */}
           <Route index element={<RoleRedirect />} />
 
@@ -175,6 +213,7 @@ export function AppRoutes() {
             <Route path="ai-chat" element={<AIChatPage />} />
             <Route path="survey" element={<SurveyPage />} />
             <Route path="training" element={<TrainingPage />} />
+            <Route path="goals" element={<MyGoalsPage />} />
             <Route path="sops" element={<SOPsPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="contact" element={<ContactPage />} />
@@ -189,13 +228,20 @@ export function AppRoutes() {
 
           {/* Manager */}
           <Route path="manager" element={<RequireRole roles={['manager', 'hr', 'admin']} />}>
-            <Route index element={<HRDashboard />} />
+            <Route index element={<ManagerDashboard />} />
             <Route path="attendance" element={<ManagerAttendancePage />} />
+            <Route path="approvals" element={<ManagerApprovalsPage />} />
+            <Route path="performance" element={<ManagerTeamPerformancePage />} />
+            <Route path="workload" element={<ManagerWorkloadPage />} />
           </Route>
 
           {/* Supervisor */}
           <Route path="supervisor" element={<RequireRole roles={['supervisor', 'manager', 'hr', 'admin']} />}>
+            <Route index element={<SupervisorDashboard />} />
             <Route path="breaks" element={<SupervisorBreaksPage />} />
+            <Route path="shift" element={<SupervisorShiftPage />} />
+            <Route path="tasks" element={<SupervisorTasksPage />} />
+            <Route path="checklists" element={<SupervisorChecklistsPage />} />
           </Route>
 
           {/* HR */}
@@ -218,10 +264,14 @@ export function AppRoutes() {
             <Route path="recruitment" element={<RecruitmentPage />} />
             <Route path="onboarding" element={<OnboardingPage />} />
             <Route path="documents" element={<DocumentsPage />} />
+            <Route path="contracts" element={<EmployeeContractsPage />} />
+            <Route path="succession" element={<SuccessionPlanningPage />} />
             <Route path="performance" element={<PerformancePage />} />
             <Route path="disciplinary" element={<DisciplinaryPage />} />
             <Route path="shifts" element={<ShiftSchedulingPage />} />
             <Route path="communication" element={<HRCommunicationPage />} />
+            <Route path="service-center" element={<HRServiceCenterPage />} />
+            <Route path="health-safety" element={<HealthSafetyPage />} />
             <Route path="leave-requests" element={<LeaveRequestPage />} />
             <Route path="sops" element={<AdminSOPsPage />} />
           </Route>
@@ -234,6 +284,10 @@ export function AppRoutes() {
             <Route path="permissions-management" element={<PermissionsPage />} />
             <Route path="audit-log" element={<AuditLogPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="company-profile" element={<CompanyProfilePage />} />
+            <Route path="branches" element={<BranchesPage />} />
+            <Route path="org-structure" element={<OrgStructurePage />} />
+            <Route path="compliance" element={<CompliancePage />} />
             <Route path="ai-config" element={<AIConfigPage />} />
             <Route path="cms" element={<AdminLandingPageCMS />} />
             <Route path="gatekeeper-permissions" element={<AdminGatekeeperPermissions />} />
@@ -241,9 +295,10 @@ export function AppRoutes() {
             <Route path="sops-reports" element={<AdminSOPsReport />} />
           </Route>
 
-          {/* Gatekeeper */}
+          {/* Gatekeeper / Movement */}
           <Route path="gatekeeper" element={<RequireRole roles={['gatekeeper', 'admin', 'hr']} />}>
             <Route index element={<GatekeeperPage />} />
+            <Route path="movements" element={<MovementControlPage />} />
           </Route>
 
           {/* IT / Tech Portal */}
@@ -258,6 +313,7 @@ export function AppRoutes() {
           <Route path="tawathul">
             <Route index element={<TawathulPortalPage />} />
             <Route path="admin" element={<RequireRole roles={['admin', 'hr']}><TawathulAdminPage /></RequireRole>} />
+          </Route>
           </Route>
         </Route>
 

@@ -1,0 +1,26 @@
+{
+  "agentId": "client-site-001",
+  "tenantId": "00000000-0000-0000-0000-000000000001",
+  "edgeFunctionUrl": "https://YOUR_PROJECT_REF.supabase.co/functions/v1/zkteco-sync/api/punch/bulk",
+  "admsSecret": "CHANGE_ME_TO_THE_SAME_ADMS_SECRET_IN_SUPABASE",
+  "pollIntervalSeconds": 60,
+  "batchSize": 100,
+  "localApi": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 7755,
+    "token": "CHANGE_ME_LOCAL_ADMIN_TOKEN"
+  },
+  "devices": [
+    {
+      "id": "main-gate-zk-01",
+      "name": "Main Gate ZKTeco",
+      "type": "mock",
+      "enabled": true,
+      "ip": "192.168.1.201",
+      "port": 4370,
+      "employeeCodePrefix": "EMP",
+      "mockEmployees": ["EMP001", "EMP002"]
+    }
+  ]
+}

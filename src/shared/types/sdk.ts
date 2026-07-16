@@ -277,13 +277,21 @@ export interface GatekeeperVisitorLogRecord {
 export interface MovementLogRecord {
   id: string;
   employee_id: string;
+  employee_name?: string;
+  department?: string;
   movement_type?: string;
   departure_at: string;
   returned_at?: string;
+  expected_return_at?: string;
   destination?: string;
+  actual_location?: string;
   purpose?: string;
   notes?: string;
+  return_notes?: string;
+  route_violation?: boolean;
+  logged_by_id?: string;
   created_at: string;
+  updated_at?: string;
   tenant_id: string;
 }
 
@@ -291,11 +299,19 @@ export interface EmployeeBreakRecord {
   id: string;
   employee_id: string;
   break_type?: string;
-  started_at: string;
+  started_at?: string;
   ended_at?: string;
   status: string;
+  supervisor_id?: string;
+  supervisor_name?: string;
+  employee_name?: string;
+  destination?: string;
+  duration_minutes?: number;
   out_time?: string;
+  return_time?: string;
+  notes?: string;
   created_at: string;
+  updated_at?: string;
   tenant_id: string;
 }
 
@@ -324,7 +340,17 @@ export interface ExpenseRequestRecord {
 export interface EmployeeLoanRecord {
   id: string;
   employee_id: string;
-  loan_amount: number;
+  // الحقول الحالية في قاعدة البيانات
+  amount?: number;
+  remaining_amount?: number;
+  monthly_installment?: number;
+  months_count?: number;
+  months_paid?: number;
+  start_date?: string;
+  end_date?: string;
+  rejection_reason?: string;
+  // أسماء قديمة/بديلة للتوافق مع كود سابق
+  loan_amount?: number;
   currency?: string;
   total_installments?: number;
   installment_amount?: number;
@@ -828,5 +854,379 @@ export interface SubscriptionRecord {
   start_date: string;
   end_date?: string;
   created_at: string;
+  tenant_id: string;
+}
+
+// ═══════════════════════════════════════════════
+//  Employee Self-Service: Goals, Skills, HR Cases
+// ═══════════════════════════════════════════════
+
+export type EmployeeGoalStatus = 'draft' | 'active' | 'completed' | 'cancelled';
+export type EmployeeGoalCategory = 'performance' | 'learning' | 'wellbeing' | 'career' | 'compliance' | 'other';
+
+export interface EmployeeGoalRecord {
+  id: string;
+  employee_id: string;
+  title: string;
+  description?: string;
+  category: EmployeeGoalCategory;
+  metric?: string;
+  target_value?: string;
+  current_value?: string;
+  progress_percent: number;
+  status: EmployeeGoalStatus;
+  due_date?: string;
+  last_update_note?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+export interface GoalUpdateRecord {
+  id: string;
+  goal_id: string;
+  employee_id: string;
+  progress_percent: number;
+  note?: string;
+  created_by?: string;
+  created_at: string;
+  tenant_id: string;
+}
+
+export type EmployeeSkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
+
+export interface EmployeeSkillRecord {
+  id: string;
+  employee_id: string;
+  skill_name: string;
+  category?: string;
+  level: EmployeeSkillLevel;
+  evidence?: string;
+  source: 'employee_self_assessment' | 'manager_review' | 'training' | 'hr';
+  status: 'active' | 'archived';
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+export type HRCaseStatus = 'open' | 'in_review' | 'waiting_employee' | 'resolved' | 'closed';
+export type HRCasePriority = 'low' | 'normal' | 'urgent';
+
+export interface HRCaseRecord {
+  id: string;
+  employee_id: string;
+  case_type: string;
+  subject: string;
+  description: string;
+  priority: HRCasePriority;
+  status: HRCaseStatus;
+  channel: 'employee_portal' | 'tawathul' | 'email' | 'phone';
+  assigned_to?: string;
+  resolution_summary?: string;
+  sla_due_at?: string;
+  resolved_at?: string;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+export interface HRCaseCommentRecord {
+  id: string;
+  case_id: string;
+  employee_id?: string;
+  author_id: string;
+  author_role?: string;
+  message: string;
+  is_internal: boolean;
+  created_at: string;
+  tenant_id: string;
+}
+
+export type EmployeeLetterRequestStatus = 'submitted' | 'in_review' | 'ready' | 'delivered' | 'rejected';
+
+export interface EmployeeLetterRequestRecord {
+  id: string;
+  employee_id: string;
+  letter_type: 'employment_verification' | 'salary_certificate' | 'experience_letter' | 'other';
+  purpose?: string;
+  language: 'ar' | 'en' | 'both';
+  delivery_method: 'portal' | 'email' | 'printed';
+  status: EmployeeLetterRequestStatus;
+  document_url?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+// ═══════════════════════════════════════════════
+//  HR Maturity: Contracts & Succession Planning
+// ═══════════════════════════════════════════════
+
+export type EmployeeContractStatus = 'draft' | 'active' | 'expired' | 'terminated' | 'renewed';
+
+export interface EmployeeContractRecord {
+  id: string;
+  employee_id: string;
+  contract_number?: string;
+  contract_type: 'permanent' | 'fixed_term' | 'probation' | 'part_time' | 'consultant' | 'other';
+  title?: string;
+  start_date: string;
+  end_date?: string;
+  renewal_notice_days: number;
+  status: EmployeeContractStatus;
+  salary_amount?: number;
+  salary_currency?: string;
+  document_url?: string;
+  notes?: string;
+  created_by?: string;
+  updated_by?: string;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+export type CriticalPositionRiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+export interface CriticalPositionRecord {
+  id: string;
+  title: string;
+  department_id?: string;
+  incumbent_employee_id?: string;
+  risk_level: CriticalPositionRiskLevel;
+  business_impact?: string;
+  required_skills?: string[];
+  status: 'active' | 'closed';
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+export type SuccessionReadinessLevel = 'ready_now' | 'ready_6_months' | 'ready_12_months' | 'future_potential';
+
+export interface SuccessionCandidateRecord {
+  id: string;
+  critical_position_id: string;
+  employee_id: string;
+  readiness_level: SuccessionReadinessLevel;
+  readiness_score?: number;
+  strengths?: string;
+  gaps?: string;
+  manager_notes?: string;
+  status: 'active' | 'inactive';
+  nominated_by?: string;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+export interface SuccessionDevelopmentPlanRecord {
+  id: string;
+  candidate_id: string;
+  action_type: 'training' | 'mentoring' | 'assignment' | 'certification' | 'other';
+  title: string;
+  description?: string;
+  target_date?: string;
+  status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+// ═══════════════════════════════════════════════
+//  HR Health & Safety / CAPA
+// ═══════════════════════════════════════════════
+
+export interface CorrectiveActionRecord {
+  id: string;
+  incident_id?: string;
+  title: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  status: 'open' | 'in_progress' | 'completed' | 'cancelled';
+  owner_id?: string;
+  due_date?: string;
+  completed_by?: string;
+  completed_at?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+// ═══════════════════════════════════════════════
+//  Admin Governance: Branches & Compliance
+// ═══════════════════════════════════════════════
+
+export interface BranchRecord {
+  id: string;
+  name_ar: string;
+  name_en?: string;
+  code?: string;
+  city?: string;
+  country?: string;
+  address?: string;
+  manager_id?: string;
+  phone?: string;
+  email?: string;
+  status: 'active' | 'inactive';
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+export interface ComplianceCheckRecord {
+  id: string;
+  title: string;
+  category: 'security' | 'hr' | 'documents' | 'permissions' | 'data_protection' | 'operations' | 'other';
+  description?: string;
+  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  status: 'open' | 'in_progress' | 'closed' | 'waived';
+  owner_id?: string;
+  due_date?: string;
+  evidence_url?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+export interface PolicyAcknowledgementRecord {
+  id: string;
+  policy_id?: string;
+  employee_id: string;
+  policy_title: string;
+  policy_version?: string;
+  acknowledged_at: string;
+  ip_address?: string;
+  created_at: string;
+  tenant_id: string;
+}
+
+// ═══════════════════════════════════════════════
+//  Movement Portal: Pre-approved Movement Permits
+// ═══════════════════════════════════════════════
+
+export interface MovementPermitRecord {
+  id: string;
+  employee_id: string;
+  employee_name?: string;
+  department?: string;
+  destination: string;
+  purpose?: string;
+  valid_from: string;
+  valid_until: string;
+  max_duration_minutes: number;
+  status: 'approved' | 'used' | 'expired' | 'cancelled';
+  approved_by?: string;
+  created_by?: string;
+  movement_id?: string;
+  used_at?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+// ═══════════════════════════════════════════════
+//  Supervisor Portal: Tasks, Shift Notes, Checklists
+// ═══════════════════════════════════════════════
+
+export interface TeamTaskRecord {
+  id: string;
+  supervisor_id: string;
+  employee_id?: string;
+  title: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  status: 'open' | 'in_progress' | 'completed' | 'cancelled';
+  due_at?: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+export interface ShiftNoteRecord {
+  id: string;
+  supervisor_id: string;
+  shift_date: string;
+  shift_type?: string;
+  note_type: 'handover' | 'issue' | 'safety' | 'quality' | 'general';
+  title: string;
+  content?: string;
+  severity: 'info' | 'warning' | 'critical';
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+export interface OperationalChecklistRecord {
+  id: string;
+  supervisor_id: string;
+  checklist_type: 'safety' | 'quality' | 'opening' | 'closing' | 'equipment' | 'other';
+  title: string;
+  items: Record<string, unknown>[];
+  score?: number;
+  status: 'submitted' | 'reviewed' | 'rejected';
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+// ═══════════════════════════════════════════════
+//  Manager Portal: Approvals & Workload
+// ═══════════════════════════════════════════════
+
+export interface ApprovalRequestRecord {
+  id: string;
+  requester_id?: string;
+  requester_name?: string;
+  current_approver_id?: string;
+  request_type: 'leave' | 'expense' | 'loan' | 'attendance_correction' | 'movement_permit' | 'goal' | 'other';
+  title: string;
+  description?: string;
+  related_table?: string;
+  related_id?: string;
+  priority: 'low' | 'normal' | 'urgent';
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  decided_by?: string;
+  decided_at?: string;
+  decision_note?: string;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+}
+
+export interface ApprovalActionRecord {
+  id: string;
+  approval_request_id: string;
+  actor_id?: string;
+  action: 'created' | 'approved' | 'rejected' | 'commented' | 'reassigned';
+  note?: string;
+  created_at: string;
+  tenant_id: string;
+}
+
+export interface ManagerWorkloadItemRecord {
+  id: string;
+  manager_id: string;
+  employee_id?: string;
+  title: string;
+  description?: string;
+  workload_type: 'task' | 'project' | 'support' | 'training' | 'other';
+  estimated_hours?: number;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  status: 'open' | 'in_progress' | 'completed' | 'cancelled';
+  due_at?: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
   tenant_id: string;
 }

@@ -1,10 +1,13 @@
 import React from 'react';
 import { Rocket } from 'lucide-react';
 import { useLang } from '../LangContext';
+import { useNavigate } from 'react-router-dom';
+import type { PublicSiteConfig } from '../../../../services/sdk';
 import { Reveal } from '../ui/Reveal';
 
-export function CTABanner({ onLoginClick }: { onLoginClick: () => void }) {
+export function CTABanner({ onLoginClick, publicConfig }: { onLoginClick: () => void; publicConfig?: PublicSiteConfig }) {
   const { t } = useLang();
+  const navigate = useNavigate();
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
@@ -21,11 +24,11 @@ export function CTABanner({ onLoginClick }: { onLoginClick: () => void }) {
               <h2 className="text-3xl md:text-4xl font-black text-white mb-4">{t('cta_title')}</h2>
               <p style={{ color: 'rgba(180,195,255,0.78)', marginBottom: '28px', maxWidth: '32rem', margin: '0 auto 28px' }}>{t('cta_sub')}</p>
               <div className="flex flex-wrap justify-center gap-3">
-                <button onClick={onLoginClick} className="btn-primary">
+                <button onClick={() => navigate(publicConfig?.primaryCtaHref || '/signup?intent=demo')} className="btn-primary">
                   <Rocket size={15} />
-                  {t('cta_start_now')}
+                  {publicConfig?.primaryCtaLabel || t('cta_start_now')}
                 </button>
-                <button onClick={() => scrollTo('contact')} className="btn-outline">
+                <button onClick={() => navigate('/signup?intent=demo&label=Talk%20to%20expert')} className="btn-outline">
                   {t('cta_talk_expert')}
                 </button>
               </div>

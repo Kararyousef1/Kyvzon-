@@ -18,6 +18,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase/supabase';
 import { userService } from '../../services/sdk/UserService';
 import { gatekeeperSessionService, gatekeeperVisitorLogService, movementLogService } from '../../services/sdk/GatekeeperService';
+import { movementPermitService } from '../../services/sdk/MovementPermitService';
 import { reviewService } from '../../services/sdk/ReviewService';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
@@ -62,6 +63,22 @@ interface VisitorLogRecord {
   check_in_time: string;
   check_out_time?: string | null;
   visitor?: VisitorInfo;
+}
+
+/** سجل تصريح حركة من movement_permits */
+interface MovementPermitRecord {
+  id: string | number;
+  employee_id: string;
+  employee_name?: string;
+  department?: string;
+  destination: string;
+  purpose?: string;
+  valid_from: string;
+  valid_until: string;
+  max_duration_minutes: number;
+  status: 'approved' | 'used' | 'expired' | 'cancelled';
+  used_at?: string;
+  notes?: string;
 }
 
 /** سجل من gatekeeper_sessions */
@@ -112,13 +129,14 @@ const ALERT_SOUND_URL = 'https://actions.google.com/sounds/v1/alarms/beep_short.
 
 export default function HRMovementAnalyticsPage() {
   const { addToast } = useUIStore();
-  const [activeTab, setActiveTab] = useState<'movements' | 'visitors' | 'archive_visitors' | 'archive_movements' | 'reviews'>('movements');
+  const [activeTab, setActiveTab] = useState<'movements' | 'visitors' | 'permits' | 'archive_visitors' | 'archive_movements' | 'reviews'>('movements');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
   const [loading, setLoading] = useState(true);
   const [archiveSearch, setArchiveSearch] = useState('');
 
   const [movementsData, setMovementsData] = useState<MovementRecord[]>([]);
   const [visitorsData, setVisitorsData] = useState<VisitorLogRecord[]>([]);
+  const [permitsData, setPermitsData] = useState<MovementPermitRecord[]>([]);
   const [reviewsData, setReviewsData] = useState<CustomerReview[]>([]);
   const [employees, setEmployees] = useState<EmployeeBasic[]>([]);
   const [archivedSessions, setArchivedSessions] = useState<GatekeeperSession[]>([]);
@@ -141,10 +159,11 @@ export default function HRMovementAnalyticsPage() {
         }
         const dateStr = startDate.toISOString();
 
-        const [emps, movs, vis, arch, handovers, endRequests, reviews] = await Promise.all([
+        const [emps, movs, vis, permits, arch, handovers, endRequests, reviews] = await Promise.all([
           userService.findAllUsers(),
           movementLogService.findMovements({ fromDate: dateStr }),
           gatekeeperVisitorLogService.findVisitorLogs({ fromDate: dateStr }),
+          movementPermitService.findAll({ orderBy: 'created_at', ascending: false, limit: 500 }),
           gatekeeperSessionService.findEndedSessions(),
           gatekeeperSessionService.findAll({ filters: { is_active: true, handover_status: 'pending' } }),
           gatekeeperSessionService.findAll({ filters: { is_active: true, handover_status: 'pending_end' } }),
@@ -154,6 +173,7 @@ export default function HRMovementAnalyticsPage() {
         setEmployees((emps || []) as EmployeeBasic[]);
         setMovementsData((movs || []) as MovementRecord[]);
         setVisitorsData((vis || []) as VisitorLogRecord[]);
+        setPermitsData((permits || []) as unknown as MovementPermitRecord[]);
         setArchivedSessions((arch || []) as unknown as GatekeeperSession[]);
         setPendingHandovers((handovers || []) as unknown as GatekeeperSession[]);
         setPendingEndRequests((endRequests || []) as unknown as GatekeeperSession[]);
@@ -340,6 +360,14 @@ export default function HRMovementAnalyticsPage() {
         v.check_out_time ? format(new Date(v.check_out_time), 'yyyy/MM/dd hh:mm:ss a') : 'لم يخرج',
       ]);
       exportToStyledExcel(`تحليل_سجل_الزوار_${timeFilter}`, headers, data);
+    } else if (activeTab === 'permits') {
+      const headers = ['#', 'الموظف', 'القسم', 'الوجهة', 'الغرض', 'من', 'إلى', 'المدة المسموحة', 'الحالة', 'استخدم في'];
+      const data: (string | number)[][] = permitsData.map((p, i) => [
+        String(i + 1), employees.find(e => e.id === p.employee_id)?.full_name || p.employee_name || '', p.department || '', p.destination,
+        p.purpose || '', format(new Date(p.valid_from), 'yyyy/MM/dd hh:mm:ss a'), format(new Date(p.valid_until), 'yyyy/MM/dd hh:mm:ss a'),
+        `${p.max_duration_minutes} دقيقة`, p.status, p.used_at ? format(new Date(p.used_at), 'yyyy/MM/dd hh:mm:ss a') : '',
+      ]);
+      exportToStyledExcel(`تصاريح_الحركة_${timeFilter}`, headers, data);
     } else if (activeTab === 'reviews') {
       const headers = ['#', 'العميل', 'البريد الإلكتروني', 'المنتج', 'التقييم', 'نص المراجعة', 'التاريخ'];
       const data: (string | number)[][] = reviewsData.map((r, i) => [
@@ -474,6 +502,7 @@ export default function HRMovementAnalyticsPage() {
       <div className="flex gap-3 border-b border-slate-200 pb-4 flex-wrap">
         <button onClick={() => setActiveTab('movements')} className={tabButtonClass(activeTab === 'movements')}><ArrowRightLeft size={16} /> حركة الموظفين</button>
         <button onClick={() => setActiveTab('visitors')} className={tabButtonClass(activeTab === 'visitors')}><Users size={16} /> سجل الزوار</button>
+        <button onClick={() => setActiveTab('permits')} className={tabButtonClass(activeTab === 'permits')}><Key size={16} /> تصاريح الحركة</button>
         <button onClick={() => setActiveTab('archive_movements')} className={tabButtonClass(activeTab === 'archive_movements', true)}><Archive size={16} /> أرشيف الموظفين</button>
         <button onClick={() => setActiveTab('archive_visitors')} className={tabButtonClass(activeTab === 'archive_visitors', true)}><Archive size={16} /> أرشيف الزوار</button>
         <button onClick={() => setActiveTab('reviews')} className={tabButtonClass(activeTab === 'reviews')}><Star size={16} /> مراجعات العملاء</button>
@@ -512,6 +541,35 @@ export default function HRMovementAnalyticsPage() {
                   </tr>
                 ))}
                 {archivedSessions.length === 0 && <tr><td colSpan={activeTab === 'archive_visitors' ? 5 : 4} className="p-8 text-center text-slate-400">لا يوجد ورديات مغلقة في الأرشيف</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : activeTab === 'permits' ? (
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><Key size={18} className="text-indigo-600" /> تصاريح الحركة</CardTitle></CardHeader>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <div className="bg-emerald-50 rounded-xl p-3"><p className="text-2xl font-extrabold text-emerald-700">{permitsData.filter(p => p.status === 'approved').length}</p><p className="text-xs text-emerald-600">نشطة</p></div>
+            <div className="bg-blue-50 rounded-xl p-3"><p className="text-2xl font-extrabold text-blue-700">{permitsData.filter(p => p.status === 'used').length}</p><p className="text-xs text-blue-600">مستخدمة</p></div>
+            <div className="bg-red-50 rounded-xl p-3"><p className="text-2xl font-extrabold text-red-700">{permitsData.filter(p => p.status === 'cancelled').length}</p><p className="text-xs text-red-600">ملغاة</p></div>
+            <div className="bg-slate-50 rounded-xl p-3"><p className="text-2xl font-extrabold text-slate-700">{permitsData.length}</p><p className="text-xs text-slate-500">الإجمالي</p></div>
+          </div>
+          <div className="overflow-x-auto mt-4">
+            <table className="w-full text-sm text-right whitespace-nowrap">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr><th className="p-3 font-bold">الموظف</th><th className="p-3 font-bold">الوجهة</th><th className="p-3 font-bold">الصلاحية</th><th className="p-3 font-bold">المدة</th><th className="p-3 font-bold">الحالة</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {permitsData.map((permit) => (
+                  <tr key={permit.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-3 font-semibold text-slate-700">{employees.find(e => e.id === permit.employee_id)?.full_name || permit.employee_name || 'موظف'}</td>
+                    <td className="p-3 text-slate-600">{permit.destination}</td>
+                    <td className="p-3 text-slate-500 font-mono text-xs">{format(new Date(permit.valid_until), 'yyyy/MM/dd hh:mm a')}</td>
+                    <td className="p-3 text-slate-600">{permit.max_duration_minutes} دقيقة</td>
+                    <td className="p-3"><span className={`text-xs font-bold px-2 py-1 rounded-full ${permit.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : permit.status === 'used' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>{permit.status}</span></td>
+                  </tr>
+                ))}
+                {permitsData.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-400">لا توجد تصاريح حركة</td></tr>}
               </tbody>
             </table>
           </div>

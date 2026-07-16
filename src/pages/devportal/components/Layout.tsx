@@ -7,9 +7,9 @@
 
 import { type FC, useState, useEffect } from 'react';
 import {
-  LayoutDashboard, Building2, CreditCard, ScrollText,
+  LayoutDashboard, Building2, CreditCard, ScrollText, SlidersHorizontal,
   Settings, Shield, ChevronLeft, LogOut, Bell,
-  Globe, Palette, ShieldCheck,
+  Globe, Palette, ShieldCheck, Activity, Terminal, UserPlus, FileText,
 } from 'lucide-react';
 import type { DevPortalPage, IconType } from '../types';
 import { PAGE_META } from '../types';
@@ -50,10 +50,40 @@ const NAV_ITEMS: NavItem[] = [
     description: 'خطط الأسعار والمدفوعات',
   },
   {
+    id: 'modules',
+    icon: SlidersHorizontal,
+    label: 'البوابات',
+    description: 'تفعيل بوابات الشركات',
+  },
+  {
+    id: 'platform-health',
+    icon: Activity,
+    label: 'صحة المنصة',
+    description: 'فحوصات هندسية وتشغيلية',
+  },
+  {
+    id: 'engineering-console',
+    icon: Terminal,
+    label: 'الهندسة',
+    description: 'جاهزية الإطلاق والفحوصات',
+  },
+  {
     id: 'landing-cms',
     icon: Palette,
     label: 'صفحة الزوار',
     description: 'تخصيص الصفحة الرئيسية',
+  },
+  {
+    id: 'public-site',
+    icon: FileText,
+    label: 'الموقع العام',
+    description: 'صفحات الفوتر وCTA',
+  },
+  {
+    id: 'visitor-leads',
+    icon: UserPlus,
+    label: 'طلبات الزوار',
+    description: 'طلبات التسجيل والتقييمات',
   },
   {
     id: 'permissions',

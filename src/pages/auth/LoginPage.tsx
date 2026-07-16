@@ -36,7 +36,7 @@ interface LoginPageProps {
   onBack?: () => void;
 }
 
-export default function LoginPage({ onBack }: LoginPageProps) {
+export default function LoginPage({ onBack: _onBack }: LoginPageProps) {
   const { login: storeLogin, isAuthenticated, user } = useAuthStore();
   const security = useLoginSecurity();
   const navigate = useNavigate();
@@ -81,6 +81,10 @@ export default function LoginPage({ onBack }: LoginPageProps) {
     setPassword(value);
     setError('');
   }, []);
+
+  const handleBackToLanding = useCallback(() => {
+    navigate('/', { replace: true });
+  }, [navigate]);
 
   const handleLogin = useCallback(
     async (e: React.FormEvent) => {
@@ -160,15 +164,15 @@ export default function LoginPage({ onBack }: LoginPageProps) {
 
       {/* البطاقة الزجاجية */}
       <div className="login-glass-card relative w-full max-w-md z-10">
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="group absolute -top-14 right-0 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 text-white/70 hover:text-white hover:bg-white/10 text-sm font-semibold transition-all"
-          >
-            <ArrowLeft size={16} className="group-hover:translate-x-0.5 transition-transform" />
-            العودة للرئيسية
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleBackToLanding}
+          className="group absolute -top-16 right-0 sm:-right-2 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-white/80 hover:text-white hover:bg-white/15 text-sm font-bold transition-all shadow-lg"
+          aria-label="العودة إلى صفحة الشركة الرسمية"
+        >
+          <ArrowLeft size={16} className="group-hover:translate-x-0.5 transition-transform" />
+          العودة إلى صفحة الشركة
+        </button>
 
         <div className="relative bg-white/10 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />

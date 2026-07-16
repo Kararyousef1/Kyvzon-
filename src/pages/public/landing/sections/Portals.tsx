@@ -4,16 +4,22 @@ import { useLang } from '../LangContext';
 import { Reveal } from '../ui/Reveal';
 import { useAutoRotate } from '../hooks';
 import { PORTALS } from '../data';
+import { useNavigate } from 'react-router-dom';
+import type { PublicSiteConfig } from '../../../../services/sdk';
 
 interface PortalsProps {
   onLoginClick: () => void;
   previewMode?: boolean;
+  portalVisibility?: Record<string, boolean>;
+  publicConfig?: PublicSiteConfig;
 }
 
-export function Portals({ onLoginClick, previewMode }: PortalsProps) {
+export function Portals({ onLoginClick, previewMode, portalVisibility, publicConfig }: PortalsProps) {
   const { lang, isRTL, t } = useLang();
-  const [activePortal, setActivePortal] = useAutoRotate(PORTALS.length, 5000, !previewMode);
-  const portal = PORTALS[activePortal];
+  const navigate = useNavigate();
+  const visiblePortals = (publicConfig?.portals?.length ? publicConfig.portals.filter(p => p.enabled !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(p => ({ ...p, icon: Layers, gradient: p.gradient || 'from-indigo-500 to-violet-600' })) : PORTALS.filter(p => portalVisibility ? portalVisibility[p.id] !== false : true));
+  const [activePortal, setActivePortal] = useAutoRotate(visiblePortals.length || 1, 5000, !previewMode);
+  const portal = visiblePortals[activePortal] || visiblePortals[0] || PORTALS[0];
 
   return (
     <section id="portals" className="py-24 md:py-32" style={{ backgroundColor: 'var(--kv-bg-void)' }}>
@@ -26,7 +32,7 @@ export function Portals({ onLoginClick, previewMode }: PortalsProps) {
 
         {/* Portal tabs */}
         <div className="flex flex-wrap justify-center gap-2 mb-12">
-          {PORTALS.map((p, i) => {
+          {visiblePortals.map((p, i) => {
             const Icon = p.icon;
             return (
               <button
@@ -75,7 +81,7 @@ export function Portals({ onLoginClick, previewMode }: PortalsProps) {
                 ))}
               </ul>
               <button
-                onClick={onLoginClick}
+                onClick={() => navigate(`/portals/${portal.id}`)}
                 className="mt-8 btn-primary"
                 style={{ background: `linear-gradient(135deg, ${portal.color}, ${portal.color}bb)`, boxShadow: `0 4px 20px ${portal.color}44` }}
               >
@@ -86,7 +92,7 @@ export function Portals({ onLoginClick, previewMode }: PortalsProps) {
           </div>
           {/* Progress dots */}
           <div className="flex justify-center gap-2 mt-8">
-            {PORTALS.map((_, i) => (
+            {visiblePortals.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setActivePortal(i)}
@@ -100,7 +106,7 @@ export function Portals({ onLoginClick, previewMode }: PortalsProps) {
 
         {/* Portal grid mini cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-8">
-          {PORTALS.map((p, i) => {
+          {visiblePortals.map((p, i) => {
             const Icon = p.icon;
             return (
               <Reveal key={p.id} delay={i * 0.07}>

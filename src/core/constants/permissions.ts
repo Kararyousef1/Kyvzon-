@@ -29,6 +29,7 @@ export const PERMISSION_KEYS = [
   
   // ═══════════════ التدريب والتطوير ═══════════════
   'training',
+  'employee-goals',     // أهداف ومهارات الموظف
   'manage-training',    // إدارة الدورات (HR/Admin)
   'training-reports',   // تقارير التدريب
   'sops',              // إجراءات العمل للموظفين
@@ -61,15 +62,27 @@ export const PERMISSION_KEYS = [
   'hr-reports',           // تقارير HR
   'hr-movement-analysis', // تحليل حركة HR
   'hr-ai-insights',       // رؤى الذكاء الاصطناعي
+  'hr-contracts',         // عقود الموظفين
+  'hr-succession',        // تخطيط التعاقب
+  'hr-service-center',    // مركز خدمات HR
+  'hr-health-safety',     // الصحة والسلامة المهنية
   
   // ═══════════════ الإشراف ═══════════════
+  'supervisor-dashboard',
   'supervisor-breaks',    // إدارة استراحات الفريق
+  'supervisor-shift',
+  'supervisor-tasks',
+  'supervisor-checklists',
   
   // ═══════════════ الإدارة ═══════════════
   'manager-dashboard',    // لوحة تحكم المدير
+  'manager-approvals',
+  'manager-performance',
+  'manager-workload',
   
   // ═══════════════ الحراسة ═══════════════
   'gatekeeper-portal',    // بوابة الحراسة الرئيسية
+  'gatekeeper-movements', // بوابة الحركة
   'kiosk-mode',          // وضع الكشك
   'movements',           // حركة الزوار والموظفين
   'hr-movements',        // إدارة الحركة من HR
@@ -89,6 +102,10 @@ export const PERMISSION_KEYS = [
   'admin-ai-config',       // إدارة إعدادات AI
   'settings',              // إعدادات النظام
   'admin-settings',        // إعدادات إدارية
+  'admin-company-profile', // ملف الشركة
+  'admin-branches',        // الفروع
+  'admin-org-structure',   // الهيكل التنظيمي
+  'admin-compliance',      // مركز الامتثال
   'audit-log',             // سجل العمليات
   'admin-audit-log',       // سجل العمليات المتقدم
   'ai-insights-dashboard', // لوحة رؤى AI
@@ -126,6 +143,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'wellness',
     'survey',
     'training',
+    'employee-goals',
     'sops',
     'ai-chat',
     'contact',
@@ -149,6 +167,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'wellness',
     'survey',
     'training',
+    'employee-goals',
     'sops',
     'ai-chat',
     'contact',
@@ -161,7 +180,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'employee-leaves',
     
     // صلاحيات إضافية للمشرف
+    'supervisor-dashboard',
     'supervisor-breaks',
+    'supervisor-shift',
+    'supervisor-tasks',
+    'supervisor-checklists',
     'team',
     'reports',
     'attendance',
@@ -177,6 +200,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'wellness',
     'survey',
     'training',
+    'employee-goals',
     'sops',
     'ai-chat',
     'contact',
@@ -187,7 +211,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'my-leave-requests',
     'employee-permissions',
     'employee-leaves',
+    'supervisor-dashboard',
     'supervisor-breaks',
+    'supervisor-shift',
+    'supervisor-tasks',
+    'supervisor-checklists',
     'team',
     'reports',
     'attendance',
@@ -195,6 +223,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     
     // صلاحيات إضافية للمدير
     'manager-dashboard',
+    'manager-approvals',
+    'manager-performance',
+    'manager-workload',
     'analytics',
     'manager-attendance',
   ],
@@ -228,6 +259,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'employee-permissions',
     'employee-leaves',
     'hr-ai-insights',
+    'hr-contracts',
+    'hr-succession',
+    'hr-service-center',
+    'hr-health-safety',
     'movements',
     'hr-movements',
     'profile',
@@ -238,6 +273,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
   // ═══════════════ الحارس ═══════════════
   gatekeeper: [
     'gatekeeper-portal',
+    'gatekeeper-movements',
     'gatekeeper-page',
     'kiosk-mode',
     'movements',
@@ -278,6 +314,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'employee-permissions',
     'employee-leaves',
     'hr-ai-insights',
+    'hr-contracts',
+    'hr-succession',
+    'hr-service-center',
+    'hr-health-safety',
     'movements',
     'hr-movements',
     
@@ -294,6 +334,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'admin-gatekeeper-permissions',
     'settings',
     'admin-settings',
+    'admin-company-profile',
+    'admin-branches',
+    'admin-org-structure',
+    'admin-compliance',
     'audit-log',
     'admin-audit-log',
     'sops',
@@ -476,6 +520,7 @@ export function getPermissionLabel(permissionKey: string): string {
     'ai-chat': 'محادثة الذكاء الاصطناعي',
     'survey': 'الاستبيانات',
     'training': 'التدريب',
+    'employee-goals': 'أهدافي ومهاراتي',
     'sops': 'إجراءات العمل',
     'contact': 'التواصل',
     'profile': 'الملف الشخصي',
@@ -484,9 +529,27 @@ export function getPermissionLabel(permissionKey: string): string {
     'analytics': 'التحليلات',
     'team': 'الفريق',
     'reports': 'التقارير',
+    'hr-contracts': 'عقود الموظفين',
+    'hr-succession': 'تخطيط التعاقب',
+    'hr-service-center': 'مركز خدمات HR',
+    'hr-health-safety': 'الصحة والسلامة المهنية',
+    'manager-dashboard': 'لوحة المدير',
+    'manager-approvals': 'مركز موافقات المدير',
+    'manager-performance': 'أداء الفريق',
+    'manager-workload': 'عبء العمل',
+    'supervisor-dashboard': 'لوحة المشرف',
+    'supervisor-breaks': 'تصاريح الاستراحة',
+    'supervisor-shift': 'إدارة الوردية',
+    'supervisor-tasks': 'مهام الفريق',
+    'supervisor-checklists': 'قوائم الفحص',
     'gatekeeper-portal': 'بوابة الحراسة',
+    'gatekeeper-movements': 'بوابة الحركة',
     'admin-employees': 'إدارة الموظفين',
     'settings': 'الإعدادات',
+    'admin-company-profile': 'ملف الشركة',
+    'admin-branches': 'الفروع',
+    'admin-org-structure': 'الهيكل التنظيمي',
+    'admin-compliance': 'مركز الامتثال',
     // يمكن إضافة المزيد حسب الحاجة
   };
   

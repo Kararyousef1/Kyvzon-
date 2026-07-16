@@ -50,16 +50,35 @@ class EmployeeLoanService extends BaseService<EmployeeLoanRecord> {
   }
 
   async createLoan(data: Partial<EmployeeLoanRecord>): Promise<EmployeeLoanRecord> {
-    return this.create(data);
+    const amount = Number((data as any).amount ?? data.loan_amount ?? 0);
+    const months = Number((data as any).months_count ?? data.total_installments ?? 1) || 1;
+    const installment = Number((data as any).monthly_installment ?? data.installment_amount ?? (amount / months));
+
+    // توحيد عقد الخدمة مع جدول employee_loans الحالي: amount/months_count/monthly_installment.
+    // نقبل كذلك أسماء الحقول القديمة loan_amount/total_installments/installment_amount للتوافق العكسي.
+    return this.create({
+      employee_id: data.employee_id,
+      amount,
+      remaining_amount: (data as any).remaining_amount ?? amount,
+      monthly_installment: installment,
+      months_count: months,
+      months_paid: (data as any).months_paid ?? 0,
+      start_date: (data as any).start_date ?? new Date().toISOString().slice(0, 10),
+      end_date: (data as any).end_date,
+      purpose: data.purpose,
+      status: data.status ?? 'pending',
+      approved_by: data.approved_by,
+      rejection_reason: (data as any).rejection_reason,
+    } as unknown as Partial<EmployeeLoanRecord>);
   }
 
   async approveLoan(id: string, approvedBy: string): Promise<EmployeeLoanRecord> {
-    return this.update(id, { status: 'موافق', approved_by: approvedBy } as unknown as Partial<EmployeeLoanRecord>);
+    return this.update(id, { status: 'approved', approved_by: approvedBy } as unknown as Partial<EmployeeLoanRecord>);
   }
 
   /** @deprecated استخدم approveLoan */
-  async rejectLoan(id: string, approvedBy: string): Promise<EmployeeLoanRecord> {
-    return this.update(id, { status: 'مرفوض', approved_by: approvedBy } as unknown as Partial<EmployeeLoanRecord>);
+  async rejectLoan(id: string, reasonOrApprovedBy: string): Promise<EmployeeLoanRecord> {
+    return this.update(id, { status: 'rejected', rejection_reason: reasonOrApprovedBy } as unknown as Partial<EmployeeLoanRecord>);
   }
 
   async getTotalOutstanding(): Promise<number> {

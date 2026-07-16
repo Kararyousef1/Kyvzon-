@@ -3,9 +3,11 @@ import { Star, Quote, MessageSquare } from 'lucide-react';
 import { useLang } from '../LangContext';
 import { Reveal } from '../ui/Reveal';
 import { TESTIMONIALS } from '../data';
+import { useNavigate } from 'react-router-dom';
 
 export function Testimonials() {
   const { lang, t } = useLang();
+  const navigate = useNavigate();
 
   return (
     <section id="testimonials" className="py-24 md:py-32" style={{ backgroundColor: 'var(--kv-bg-void)' }}>
@@ -14,6 +16,13 @@ export function Testimonials() {
           <div className="section-label"><MessageSquare size={12} /> {t('testi_label')}</div>
           <h2 className="section-title text-3xl md:text-4xl font-black text-white mt-2">{t('testi_title')}</h2>
           <p style={{ marginTop: '16px', color: 'rgba(180,190,255,0.75)', maxWidth: '36rem', margin: '16px auto 0' }}>{t('testi_sub')}</p>
+          <button
+            type="button"
+            onClick={() => navigate('/signup?intent=review&label=review')}
+            className="btn-primary mt-6 inline-flex"
+          >
+            {lang === 'en' ? 'Add your review' : lang === 'ku' ? 'هەڵسەنگاندنت زیاد بکە' : 'أضف تقييمك'}
+          </button>
         </Reveal>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">

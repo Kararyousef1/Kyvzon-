@@ -18,6 +18,10 @@ import { getErrorMessage } from '../errors';
 //  الأنواع
 // ════════════════════════════════════════════════════════════════
 
+export type BillingCycle = 'monthly' | 'quarterly' | 'semi_annual' | 'annual' | 'one_time' | 'custom';
+export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'overdue' | 'failed' | 'refunded' | 'cancelled';
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'card' | 'zain_cash' | 'asia_hawala' | 'stripe' | 'manual_invoice' | 'other';
+
 export interface TenantCompany {
   id: string;
   slug: string;
@@ -52,9 +56,31 @@ export interface TenantSubscription {
   end_date?: string;
   amount?: number;
   currency?: string;
-  payment_method?: string;
+  payment_method?: PaymentMethod | string;
   payment_reference?: string;
+  billing_cycle?: BillingCycle | string;
+  payment_status?: PaymentStatus | string;
+  payment_due_date?: string;
+  paid_at?: string;
+  base_amount?: number;
+  discount_amount?: number;
+  tax_amount?: number;
+  total_amount?: number;
+  invoice_number?: string;
+  contract_number?: string;
+  sales_owner?: string;
+  gateway_provider?: string;
+  billing_contact_name?: string;
+  billing_email?: string;
+  billing_phone?: string;
+  auto_renew?: boolean;
+  grace_period_days?: number;
   max_employees: number;
+  max_branches?: number;
+  max_biometric_devices?: number;
+  storage_gb?: number;
+  custom_limits?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   features?: string[];
   notes?: string;
   created_at: string;
@@ -100,13 +126,30 @@ export interface CreateTenantInput {
   name_ar: string;
   name_en?: string;
   slug: string;
+  domain?: string;
   contact_name?: string;
   contact_email?: string;
   contact_phone?: string;
   subscription_plan?: string;
   subscription_status?: string;
+  subscription_start_date?: string;
+  subscription_end_date?: string;
   max_employees?: number;
   enabled_modules?: string[];
+  billing_cycle?: BillingCycle | string;
+  billing_amount?: number;
+  currency?: string;
+  payment_method?: PaymentMethod | string;
+  payment_status?: PaymentStatus | string;
+  payment_reference?: string;
+  payment_due_date?: string;
+  contract_number?: string;
+  invoice_number?: string;
+  sales_owner?: string;
+  auto_renew?: boolean;
+  max_branches?: number;
+  max_biometric_devices?: number;
+  storage_gb?: number;
   notes?: string;
 }
 
@@ -168,22 +211,45 @@ export const tenantService = {
     if (checkError) throw new Error(getErrorMessage(checkError));
     if (existing) throw new Error(`المعرف "${input.slug}" مستخدم مسبقاً`);
 
+    const plan = (input.subscription_plan || 'basic') as TenantCompany['subscription_plan'];
+    const startDate = input.subscription_start_date || new Date().toISOString().split('T')[0];
+    const endDate = input.subscription_end_date || new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0];
+    const baseAmount = Number(input.billing_amount ?? PLAN_PRICES[plan] ?? PLAN_PRICES.basic);
+    const billingSettings = {
+      billing_cycle: input.billing_cycle || 'monthly',
+      billing_amount: baseAmount,
+      currency: input.currency || 'IQD',
+      payment_method: input.payment_method || 'manual_invoice',
+      payment_status: input.payment_status || 'unpaid',
+      payment_reference: input.payment_reference || '',
+      payment_due_date: input.payment_due_date || startDate,
+      contract_number: input.contract_number || '',
+      invoice_number: input.invoice_number || '',
+      sales_owner: input.sales_owner || '',
+      auto_renew: input.auto_renew ?? true,
+      max_branches: input.max_branches,
+      max_biometric_devices: input.max_biometric_devices,
+      storage_gb: input.storage_gb,
+    };
+
     const newTenant = {
       name_ar: input.name_ar,
       name_en: input.name_en || '',
       slug: input.slug,
+      domain: input.domain || '',
       status: 'trial' as const,
       contact_name: input.contact_name || '',
       contact_email: input.contact_email || '',
       contact_phone: input.contact_phone || '',
-      subscription_plan: (input.subscription_plan || 'basic') as TenantCompany['subscription_plan'],
-      subscription_status: 'trial' as const,
-      subscription_start_date: new Date().toISOString().split('T')[0],
-      subscription_end_date: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      subscription_plan: plan,
+      subscription_status: (input.subscription_status || 'trial') as TenantCompany['subscription_status'],
+      subscription_start_date: startDate,
+      subscription_end_date: endDate,
       max_employees: input.max_employees || 50,
       enabled_modules: input.enabled_modules || ['employee'],
       notes: input.notes || '',
       features: [] as string[],
+      settings: { billing: billingSettings },
     };
 
     const { data, error } = await supabase
@@ -193,6 +259,36 @@ export const tenantService = {
       .single();
 
     if (error) throw new Error(getErrorMessage(error));
+
+    await this.addSubscription(data.id, {
+      plan,
+      status: input.subscription_status === 'active' ? 'active' : 'trial',
+      start_date: startDate,
+      end_date: endDate,
+      amount: baseAmount,
+      base_amount: baseAmount,
+      total_amount: baseAmount,
+      currency: input.currency || 'IQD',
+      payment_method: input.payment_method || 'manual_invoice',
+      payment_status: input.payment_status || 'unpaid',
+      payment_reference: input.payment_reference,
+      payment_due_date: input.payment_due_date || startDate,
+      billing_cycle: input.billing_cycle || 'monthly',
+      invoice_number: input.invoice_number,
+      contract_number: input.contract_number,
+      sales_owner: input.sales_owner,
+      billing_contact_name: input.contact_name,
+      billing_email: input.contact_email,
+      billing_phone: input.contact_phone,
+      auto_renew: input.auto_renew ?? true,
+      max_employees: input.max_employees || 50,
+      max_branches: input.max_branches,
+      max_biometric_devices: input.max_biometric_devices,
+      storage_gb: input.storage_gb,
+      notes: input.notes,
+      metadata: { source: 'company_create' },
+    });
+
     return data as TenantCompany;
   },
 
@@ -203,6 +299,7 @@ export const tenantService = {
     if (updates.name_ar !== undefined) updateData.name_ar = updates.name_ar;
     if (updates.name_en !== undefined) updateData.name_en = updates.name_en;
     if (updates.slug !== undefined) updateData.slug = updates.slug;
+    if (updates.domain !== undefined) updateData.domain = updates.domain;
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.contact_name !== undefined) updateData.contact_name = updates.contact_name;
     if (updates.contact_email !== undefined) updateData.contact_email = updates.contact_email;
@@ -210,9 +307,27 @@ export const tenantService = {
     if (updates.subscription_plan !== undefined) updateData.subscription_plan = updates.subscription_plan;
     if (updates.subscription_status !== undefined) updateData.subscription_status = updates.subscription_status;
     if (updates.subscription_end_date !== undefined) updateData.subscription_end_date = updates.subscription_end_date;
+    if (updates.subscription_start_date !== undefined) updateData.subscription_start_date = updates.subscription_start_date;
     if (updates.max_employees !== undefined) updateData.max_employees = updates.max_employees;
     if (updates.features !== undefined) updateData.features = updates.features;
     if (updates.notes !== undefined) updateData.notes = updates.notes;
+
+    const billingKeys: Array<keyof CreateTenantInput> = [
+      'billing_cycle', 'billing_amount', 'currency', 'payment_method', 'payment_status',
+      'payment_reference', 'payment_due_date', 'contract_number', 'invoice_number',
+      'sales_owner', 'auto_renew', 'max_branches', 'max_biometric_devices', 'storage_gb',
+    ];
+    const hasBillingUpdate = billingKeys.some((key) => updates[key] !== undefined);
+    if (hasBillingUpdate) {
+      const current = await this.getCompany(id);
+      const currentSettings = (current?.settings || {}) as Record<string, unknown>;
+      const currentBilling = (currentSettings.billing || {}) as Record<string, unknown>;
+      const nextBilling: Record<string, unknown> = { ...currentBilling };
+      for (const key of billingKeys) {
+        if (updates[key] !== undefined) nextBilling[key] = updates[key];
+      }
+      updateData.settings = { ...currentSettings, billing: nextBilling };
+    }
     
     updateData.updated_at = new Date().toISOString();
 
@@ -307,7 +422,29 @@ export const tenantService = {
         currency: subscription.currency || 'IQD',
         payment_method: subscription.payment_method,
         payment_reference: subscription.payment_reference,
+        billing_cycle: subscription.billing_cycle || 'monthly',
+        payment_status: subscription.payment_status || 'unpaid',
+        payment_due_date: subscription.payment_due_date,
+        paid_at: subscription.paid_at,
+        base_amount: subscription.base_amount ?? subscription.amount,
+        discount_amount: subscription.discount_amount ?? 0,
+        tax_amount: subscription.tax_amount ?? 0,
+        total_amount: subscription.total_amount ?? subscription.amount,
+        invoice_number: subscription.invoice_number,
+        contract_number: subscription.contract_number,
+        sales_owner: subscription.sales_owner,
+        gateway_provider: subscription.gateway_provider,
+        billing_contact_name: subscription.billing_contact_name,
+        billing_email: subscription.billing_email,
+        billing_phone: subscription.billing_phone,
+        auto_renew: subscription.auto_renew ?? true,
+        grace_period_days: subscription.grace_period_days ?? 7,
         max_employees: subscription.max_employees || 50,
+        max_branches: subscription.max_branches,
+        max_biometric_devices: subscription.max_biometric_devices,
+        storage_gb: subscription.storage_gb,
+        custom_limits: subscription.custom_limits || {},
+        metadata: subscription.metadata || {},
         features: subscription.features || [],
         notes: subscription.notes,
         created_by: actorId,
@@ -316,6 +453,30 @@ export const tenantService = {
       .single();
 
     if (error) throw new Error(getErrorMessage(error));
+
+    await this.updateCompany(tenantId, {
+      id: tenantId,
+      subscription_plan: subscription.plan,
+      subscription_status: subscription.status,
+      subscription_start_date: subscription.start_date,
+      subscription_end_date: subscription.end_date,
+      max_employees: subscription.max_employees,
+      billing_cycle: subscription.billing_cycle,
+      billing_amount: subscription.amount,
+      currency: subscription.currency,
+      payment_method: subscription.payment_method,
+      payment_status: subscription.payment_status,
+      payment_reference: subscription.payment_reference,
+      payment_due_date: subscription.payment_due_date,
+      contract_number: subscription.contract_number,
+      invoice_number: subscription.invoice_number,
+      sales_owner: subscription.sales_owner,
+      auto_renew: subscription.auto_renew,
+      max_branches: subscription.max_branches,
+      max_biometric_devices: subscription.max_biometric_devices,
+      storage_gb: subscription.storage_gb,
+    } as UpdateTenantInput).catch(() => undefined);
+
     return data as TenantSubscription;
   },
 

@@ -11,7 +11,7 @@ export const ROLE_DEFAULT_PATH: Record<string, string> = {
   admin:      '/app/admin',
   employee:   '/app/employee',
   gatekeeper: '/app/gatekeeper',
-  supervisor: '/app/employee',
+  supervisor: '/app/supervisor',
   manager:    '/app/manager',
   it_admin:   '/app/tech-portal',
 };

@@ -38,6 +38,7 @@ class TawathulAdminService {
           allow_channels: patch.allow_channels ?? true,
           allow_file_upload: patch.allow_file_upload ?? true,
           max_file_size_mb: patch.max_file_size_mb ?? 25,
+          retention_days: patch.retention_days ?? 365,
         })
         .select()
         .single();
@@ -68,9 +69,11 @@ class TawathulAdminService {
     messages: number;
     members: number;
     channels: number;
+    attachments: number;
+    unread_notifications: number;
   }> {
     const tenantId = getTawathulTenantId();
-    const [c, m, mem, ch] = await Promise.all([
+    const [c, m, mem, ch, att, unread] = await Promise.all([
       supabase
         .from('tawathul_conversations')
         .select('*', { count: 'exact', head: true })
@@ -92,12 +95,23 @@ class TawathulAdminService {
         .eq('tenant_id', tenantId)
         .eq('type', 'channel')
         .is('deleted_at', null),
+      supabase
+        .from('tawathul_attachments')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId),
+      supabase
+        .from('tawathul_notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('is_read', false),
     ]);
     return {
       conversations: c.count || 0,
       messages: m.count || 0,
       members: mem.count || 0,
       channels: ch.count || 0,
+      attachments: att.count || 0,
+      unread_notifications: unread.count || 0,
     };
   }
 }

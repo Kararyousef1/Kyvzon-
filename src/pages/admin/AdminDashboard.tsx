@@ -14,9 +14,9 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Users, Shield, Settings, Activity, ArrowUp, Database, Cpu, Loader } from 'lucide-react';
+import { Users, Shield, Settings, Activity, ArrowUp, Database, Cpu, Loader, Building2, CheckCircle2, Layers } from 'lucide-react';
 import { useUIStore } from '../../core/stores';
-import { auditLogService, userService, incidentService, gatekeeperVisitorLogService, movementLogService } from '../../services/sdk';
+import { auditLogService, userService, incidentService, gatekeeperVisitorLogService, movementLogService, branchService, complianceCheckService } from '../../services/sdk';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Badge from '../../shared/components/ui/Badge';
 import Button from '../../shared/components/ui/Button';
@@ -64,6 +64,8 @@ interface DashboardData {
   todayActions: number;
   visitorsToday: number;
   movementsToday: number;
+  branchesCount: number;
+  openComplianceChecks: number;
   recentLogs: RecentLogItem[];
 }
 
@@ -120,6 +122,8 @@ export default function AdminDashboard() {
     todayActions: 0,
     visitorsToday: 0,
     movementsToday: 0,
+    branchesCount: 0,
+    openComplianceChecks: 0,
     recentLogs: [],
   });
 
@@ -136,6 +140,8 @@ export default function AdminDashboard() {
         let logs: AuditLogRow[] = [];
         let visitorsCount = 0;
         let movementsCount = 0;
+        let branchesCount = 0;
+        let openComplianceChecks = 0;
 
         try {
           const profilesData = await userService.findAllUsers();
@@ -160,6 +166,15 @@ export default function AdminDashboard() {
           movementsCount = await movementLogService.countMovementsSince(todayIso);
         } catch (e) { console.warn('Failed to fetch movements:', getErrorMessage(e)); }
 
+        try {
+          branchesCount = await branchService.count({ status: 'active' });
+        } catch (e) { console.warn('Failed to fetch branches:', getErrorMessage(e)); }
+
+        try {
+          const checks = await complianceCheckService.findAll({ limit: 200 });
+          openComplianceChecks = (checks || []).filter((c: any) => ['open', 'in_progress'].includes(c.status)).length;
+        } catch (e) { console.warn('Failed to fetch compliance:', getErrorMessage(e)); }
+
         const todayLogs = logs.filter((l) => new Date(l.timestamp).getTime() >= today.getTime());
 
         const recentLogs: RecentLogItem[] = logs.slice(0, 5).map((l) => ({
@@ -180,6 +195,8 @@ export default function AdminDashboard() {
           todayActions: todayLogs.length,
           visitorsToday: visitorsCount,
           movementsToday: movementsCount,
+          branchesCount,
+          openComplianceChecks,
           recentLogs,
         });
       } catch (err) {
@@ -207,10 +224,16 @@ export default function AdminDashboard() {
     { label: 'إجراءات اليوم', value: data.todayActions, icon: Database, color: 'bg-purple-50 text-purple-600' },
     { label: 'زوار اليوم', value: data.visitorsToday, icon: Users, color: 'bg-emerald-50 text-emerald-600' },
     { label: 'حركة الموظفين', value: data.movementsToday, icon: ArrowUp, color: 'bg-indigo-50 text-indigo-600' },
+    { label: 'الفروع النشطة', value: data.branchesCount, icon: Building2, color: 'bg-emerald-50 text-emerald-600' },
+    { label: 'امتثال مفتوح', value: data.openComplianceChecks, icon: CheckCircle2, color: 'bg-rose-50 text-rose-600' },
   ];
 
   const quickActions: QuickAction[] = [
     { label: 'إدارة الموظفين', icon: Users, color: 'from-blue-500 to-indigo-600', path: '/app/admin/employees' },
+    { label: 'ملف الشركة', icon: Building2, color: 'from-rose-500 to-red-600', path: '/app/admin/company-profile' },
+    { label: 'الفروع', icon: Building2, color: 'from-emerald-500 to-teal-600', path: '/app/admin/branches' },
+    { label: 'الهيكل التنظيمي', icon: Layers, color: 'from-indigo-500 to-purple-600', path: '/app/admin/org-structure' },
+    { label: 'مركز الامتثال', icon: CheckCircle2, color: 'from-slate-700 to-slate-900', path: '/app/admin/compliance' },
     { label: 'صلاحيات المدراء', icon: Shield, color: 'from-amber-500 to-yellow-600', path: '/app/admin/gatekeeper-permissions' },
     { label: 'إعدادات النظام', icon: Settings, color: 'from-slate-600 to-slate-800', path: '/app/admin/settings' },
     { label: 'سجل العمليات', icon: Shield, color: 'from-orange-500 to-red-500', path: '/app/admin/audit-log' },
@@ -248,7 +271,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
         {quickStats.map((stat, i) => {
           const Icon = stat.icon;
           return (

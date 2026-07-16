@@ -1,5 +1,8 @@
 import React from 'react';
 import { useLang } from '../LangContext';
+import { useNavigate } from 'react-router-dom';
+import type { LandingConfig } from '../../../../shared/types/landing';
+import type { PublicSiteConfig } from '../../../../services/sdk';
 import { FacebookIcon, InstagramIcon, LinkedInIcon, XIcon, WhatsAppIcon } from '../ui/SocialIcons';
 
 /**
@@ -8,20 +11,36 @@ import { FacebookIcon, InstagramIcon, LinkedInIcon, XIcon, WhatsAppIcon } from '
  */
 const SOCIAL_LINKS: { Icon: React.ComponentType<{ size?: number }>; href: string; label: string }[] = [];
 
-export function Footer() {
+export function Footer({ landingConfig, publicConfig }: { landingConfig?: Partial<LandingConfig> | null; publicConfig?: PublicSiteConfig }) {
   const { t } = useLang();
+  const navigate = useNavigate();
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const productLinks = [
-    { label: t('nav_portals'), action: () => scrollTo('portals') },
+    { label: t('nav_portals'), action: () => navigate('/portals') },
     { label: t('nav_pricing'), action: () => scrollTo('pricing') },
     { label: t('nav_services'), action: () => scrollTo('services') },
     { label: t('footer_faq'), action: () => scrollTo('faq') },
   ];
 
-  const companyLinks = [t('footer_about'), t('footer_careers'), t('footer_blog'), t('footer_contact')];
-  const resourceLinks = [t('footer_support'), t('footer_pricing'), t('footer_faq'), t('footer_status')];
-  const legalLinks = [t('footer_privacy'), t('footer_terms'), t('footer_security')];
+  const pageMap = Object.fromEntries((publicConfig?.pages || []).filter(p => p.enabled !== false).map(p => [p.kind, p]));
+  const companyLinks = [
+    { label: pageMap.about?.title || t('footer_about'), href: '/about' },
+    { label: pageMap.careers?.title || t('footer_careers'), href: '/careers' },
+    { label: pageMap.blog?.title || t('footer_blog'), href: '/blog' },
+    { label: pageMap.contact?.title || t('footer_contact'), href: '/contact' },
+  ];
+  const resourceLinks = [
+    { label: pageMap.support?.title || t('footer_support'), href: '/support' },
+    { label: t('footer_pricing'), action: () => scrollTo('pricing') },
+    { label: t('footer_faq'), action: () => scrollTo('faq') },
+    { label: pageMap.status?.title || t('footer_status'), href: '/status' },
+  ];
+  const legalLinks = [
+    { label: pageMap.privacy?.title || t('footer_privacy'), href: '/privacy' },
+    { label: pageMap.terms?.title || t('footer_terms'), href: '/terms' },
+    { label: pageMap.security?.title || t('footer_security'), href: '/security' },
+  ];
 
   return (
     <footer style={{ backgroundColor: 'var(--kv-bg-deep)', borderTop: '1px solid var(--kv-border-soft)' }}>
@@ -31,10 +50,10 @@ export function Footer() {
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-sm">K</div>
-              <span className="font-black text-white text-lg">KYV<span style={{ color: '#818cf8' }}>ZON</span></span>
+              <span className="font-black text-white text-lg">{landingConfig?.logoTextEn || 'KYVZON'}</span>
             </div>
             <p style={{ color: 'rgba(180,195,255,0.55)', fontSize: '0.875rem', lineHeight: '1.8', maxWidth: '22rem' }}>
-              {t('footer_tagline')}
+              {(landingConfig?.aboutP1Ar || landingConfig?.aboutP1En) || t('footer_tagline')}
             </p>
             <div className="flex items-center gap-2 mt-5">
               {SOCIAL_LINKS.map(({ Icon, href, label }) => (
@@ -64,8 +83,8 @@ export function Footer() {
             <div className="text-white font-bold text-sm mb-4">{t('footer_col_company')}</div>
             <ul className="flex flex-col gap-3">
               {companyLinks.map((l) => (
-                <li key={l}>
-                  <a href="#" style={{ color: 'rgba(180,195,255,0.6)', fontSize: '0.85rem' }} className="hover:text-white transition-colors">{l}</a>
+                <li key={l.label}>
+                  <button onClick={() => navigate(l.href)} style={{ color: 'rgba(180,195,255,0.6)', fontSize: '0.85rem' }} className="hover:text-white transition-colors text-start">{l.label}</button>
                 </li>
               ))}
             </ul>
@@ -76,8 +95,8 @@ export function Footer() {
             <div className="text-white font-bold text-sm mb-4">{t('footer_col_resources')}</div>
             <ul className="flex flex-col gap-3">
               {resourceLinks.map((l) => (
-                <li key={l}>
-                  <a href="#" style={{ color: 'rgba(180,195,255,0.6)', fontSize: '0.85rem' }} className="hover:text-white transition-colors">{l}</a>
+                <li key={l.label}>
+                  <button onClick={() => ('href' in l && l.href ? navigate(l.href) : l.action?.())} style={{ color: 'rgba(180,195,255,0.6)', fontSize: '0.85rem' }} className="hover:text-white transition-colors text-start">{l.label}</button>
                 </li>
               ))}
             </ul>
@@ -97,9 +116,9 @@ export function Footer() {
           </div>
           <div className="flex items-center gap-5 order-1 md:order-3">
             {legalLinks.map((l) => (
-              <a key={l} href="#" style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.75rem' }} className="hover:text-white/70 transition-colors">
-                {l}
-              </a>
+              <button key={l.label} onClick={() => navigate(l.href)} style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.75rem' }} className="hover:text-white/70 transition-colors">
+                {l.label}
+              </button>
             ))}
           </div>
         </div>

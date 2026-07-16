@@ -3,9 +3,13 @@ import { Settings } from 'lucide-react';
 import { useLang } from '../LangContext';
 import { Reveal } from '../ui/Reveal';
 import { EXTRA_SERVICES } from '../data';
+import { useNavigate } from 'react-router-dom';
+import type { PublicSiteConfig } from '../../../../services/sdk';
 
-export function Services() {
+export function Services({ publicConfig }: { publicConfig?: PublicSiteConfig }) {
   const { lang, t } = useLang();
+  const navigate = useNavigate();
+  const displayServices = (publicConfig?.services?.filter(s => s.enabled !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(s => ({ ...s, icon: Settings })) || EXTRA_SERVICES);
 
   return (
     <section id="services" className="py-24 md:py-32" style={{ backgroundColor: 'var(--kv-bg-void)' }}>
@@ -17,7 +21,7 @@ export function Services() {
         </Reveal>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {EXTRA_SERVICES.map((s, i) => {
+          {displayServices.map((s, i) => {
             const Icon = s.icon;
             return (
               <Reveal key={i} delay={i * 0.08}>
@@ -36,6 +40,13 @@ export function Services() {
                   <div className="mt-4 pt-4 text-xs font-semibold" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', color: s.color }}>
                     {s.promo[lang]}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/signup?intent=service&service=${encodeURIComponent(s.title.en || s.title[lang])}&label=${encodeURIComponent(s.title[lang])}`)}
+                    className="btn-outline w-full justify-center mt-4 py-2 text-xs"
+                  >
+                    {lang === 'en' ? 'Request service' : lang === 'ku' ? 'داوای خزمەتگوزاری بکە' : 'اطلب الخدمة'}
+                  </button>
                 </div>
               </Reveal>
             );

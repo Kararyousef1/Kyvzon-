@@ -19,7 +19,7 @@ export const TEXTS: Record<string, Record<Lang, string>> = {
   hero_badge:   { ar: 'نظام ERP سحابي — صُنع في العراق للعالم', en: 'Cloud ERP System — Made in Iraq for the World', ku: 'سیستەمی ERP ئەبری — لە عێراق دروستکراوە بۆ جیهان' },
   hero_h1_1:    { ar: 'أدر شركتك',  en: 'Run Your',    ku: 'کارگەیت' },
   hero_h1_2:    { ar: 'بذكاء حقيقي', en: 'Business Smarter', ku: 'بە زیرەکی ئەمپڕیز کار بکە' },
-  hero_desc:    { ar: 'KYVZON منصة SaaS متكاملة تجمع 6 بوابات ذكية تُغطي كل احتياجات مؤسستك — من إدارة الموظفين إلى تتبع الحركة ومراقبة الأداء، كل شيء في مكان واحد.', en: 'KYVZON is a complete SaaS platform combining 6 smart portals covering every organizational need — from employee management to movement tracking and performance monitoring, all in one place.', ku: 'KYVZON پلاتفۆرمێکی SaaS یەکگرتوویە کە ٦ دەروازەی زیرەک بەهەم دەگرێتەوە کە هەموو پێداویستییەکانی دامەزراوەکەت دەپۆشێت.' },
+  hero_desc:    { ar: 'KYVZON منصة SaaS متكاملة لإدارة المؤسسات: بوابات الموظف وHR والإدارة والمدير والمشرف والحركة والتواصل والتقنية، مع تحكم مركزي بالاشتراكات وتفعيل البوابات لكل شركة.', en: 'KYVZON is a complete SaaS platform for organizations: employee, HR, admin, manager, supervisor, movement, communication and tech portals, with centralized subscription and portal activation control.', ku: 'KYVZON پلاتفۆرمێکی SaaS ـی تەواوە بۆ دامەزراوەکان: کارمەند، HR، بەڕێوەبەرایەتی، جووڵە، پەیوەندی و تەکنیک، لەگەڵ کۆنترۆڵی ئەبۆنمەنت.' },
   hero_cta1:    { ar: 'ابدأ مجاناً', en: 'Start Free',  ku: 'بەبێ پارە دەستپێبکە' },
   hero_cta2:    { ar: 'شاهد الديمو', en: 'Watch Demo',  ku: 'دیمۆ ببینە' },
   hero_mockup_live: { ar: 'مباشر', en: 'Live', ku: 'ڕاستەوخۆ' },
@@ -31,8 +31,8 @@ export const TEXTS: Record<string, Record<Lang, string>> = {
 
   // ── Portals ──────────────────────────────────────────────────
   portals_label: { ar: 'البوابات', en: 'Portals', ku: 'دەروازەکان' },
-  portals_title: { ar: '٦ بوابات ذكية لإدارة شاملة', en: '6 Smart Portals for Complete Management', ku: '٦ دەروازەی زیرەک بۆ بەڕێوەبردنی گشتگیر' },
-  portals_sub:  { ar: 'كل بوابة مُصممة لفريق محدد — وكلها تعمل معاً بسلاسة تامة', en: 'Each portal designed for a specific team — all working seamlessly together', ku: 'هەر دەروازەیەک بۆ تیمێکی دیاریکراو دیزاین کراوە — هەموویان بە ئاسانی پێکەوە کار دەکەن' },
+  portals_title: { ar: 'بوابات متكاملة لكل دور داخل مؤسستك', en: 'Integrated portals for every role in your organization', ku: 'دەروازەی یەکگرتوو بۆ هەر ڕۆڵێک' },
+  portals_sub:  { ar: 'فعّل ما تحتاجه شركتك فقط من بوابة المطور حسب الخطة والاشتراك — وكل بوابة تعمل بتكامل مع الأخرى.', en: 'Enable only what your company needs from the developer control plane according to plan and subscription — all portals work together.', ku: 'تەنها ئەوەی پێویستە چالاک بکە بەپێی پلان و ئەبۆنمەنت.' },
   portals_key_features: { ar: 'الميزات الرئيسية', en: 'Key Features', ku: 'تایبەتمەندییەکانی سەرەکی' },
   portals_explore: { ar: 'استكشف البوابة', en: 'Explore Portal', ku: 'دەروازەکە بگەڕێنەوە' },
 
@@ -54,8 +54,8 @@ export const TEXTS: Record<string, Record<Lang, string>> = {
 
   // ── Pricing ──────────────────────────────────────────────────
   pricing_label: { ar: 'الأسعار', en: 'Pricing', ku: 'نرخەکان' },
-  pricing_title: { ar: 'خطة تناسب حجم مؤسستك بالضبط', en: 'A Plan That Fits Your Organization\u2019s Size', ku: 'پلانێک گونجاو لەگەڵ قەبارەی دامەزراوەکەت' },
-  pricing_sub:  { ar: 'اختر الخطة حسب عدد موظفيك، وسنصمم لك عرض سعر خاص يناسب احتياجاتك', en: 'Choose your plan by employee count, and we\u2019ll tailor a private quote to your needs', ku: 'پلانەکەت هەڵبژێرە بەپێی ژمارەی کارمەندان، ئێمە نرخێکی تایبەتت بۆ ئامادە دەکەین' },
+  pricing_title: { ar: 'خطط SaaS واضحة حسب البوابات والحدود', en: 'Clear SaaS plans by portals and limits', ku: 'پلانی SaaS بەپێی دەروازە و سنوورەکان' },
+  pricing_sub:  { ar: 'ابدأ بـ Basic ثم توسّع إلى Professional أو Enterprise حسب عدد الموظفين والفروع وأجهزة البصمة والبوابات المطلوبة.', en: 'Start with Basic and scale to Professional or Enterprise by employees, branches, biometric devices and required portals.', ku: 'بە Basic دەستپێبکە و بەپێی کارمەند، لق، ئامێر و دەروازەکان فراوانی بکە.' },
   pricing_custom: { ar: 'السعر عند الطلب', en: 'Custom pricing', ku: 'نرخ بەپێی داواکاری' },
   pricing_cta_default: { ar: 'اطلب السعر', en: 'Request Pricing', ku: 'داوای نرخ بکە' },
   pricing_cta_extra: { ar: 'تواصل معنا', en: 'Contact Us', ku: 'پەیوەندیمان پێوە بکە' },

@@ -22,10 +22,10 @@ import {
   ChevronRight, CheckCircle2, Star, Users, BarChart2, Award,
   FileBarChart, Settings, ShieldCheck, Globe, Database,
   Terminal, AlertOctagon, Layers, BarChart3, Radio,
-  ArrowRightLeft, TrendingUp, Fingerprint, ScrollText,
+  ArrowRightLeft, TrendingUp, Fingerprint, ScrollText, HeartPulse,
   FolderKanban, CalendarClock, Megaphone, ClipboardCheck,
   Receipt, CreditCard, DollarSign, ShieldAlert, FileText,
-  Briefcase, UserPlus, Plus, Cpu,
+  Briefcase, UserPlus, Plus, Cpu, Target,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../../core/stores';
 import { VIEW_TO_PATH } from '../../../router/legacyRedirect';
@@ -42,6 +42,7 @@ import { getUserDisplayName } from '../../../utils/userUtils';
 // ─── نظام الإشعارات الجديد (Supabase = مصدر الحقيقة) ────────────
 // ✅ إصلاح: عداد الإشعارات يُقرأ عبر Hook الموحد بدل فتح channel جديد هنا
 import { useNotificationSubscription } from '../../hooks/useNotificationSubscription';
+import { useTenantModules } from '../../hooks/useTenantModules';
 
 // ════════════════════════════════════════════════════════════════
 //  Types
@@ -71,11 +72,11 @@ interface NavSection {
 const NAV_SECTIONS: NavSection[] = [
   // ─── 👤 EMPLOYEE PORTAL ───
   {
-    key: 'main', label: 'الرئيسية', roles: ['employee', 'supervisor', 'manager'],
+    key: 'main', label: 'الرئيسية', roles: ['employee'],
     items: [{ id: 'employee-dashboard', label: 'الرئيسية', icon: LayoutDashboard, roles: ['employee', 'supervisor', 'manager'], section: 'main', permKey: 'dashboard' }],
   },
   {
-    key: 'work', label: 'العمل', roles: ['employee', 'supervisor', 'manager'],
+    key: 'work', label: 'العمل', roles: ['employee'],
     items: [
       { id: 'employee-problems', label: 'البلاغات', icon: FolderKanban, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'problems' },
       { id: 'new-problem', label: 'بلاغ جديد', icon: Plus, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'new-problem' },
@@ -84,24 +85,25 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    key: 'growth', label: 'التطوير', roles: ['employee', 'supervisor', 'manager'],
+    key: 'growth', label: 'التطوير', roles: ['employee'],
     items: [
       { id: 'employee-training', label: 'التدريب', icon: BookOpen, roles: ['employee', 'supervisor', 'manager'], section: 'growth', permKey: 'training' },
+      { id: 'employee-goals', label: 'أهدافي ومهاراتي', icon: Target, roles: ['employee', 'supervisor', 'manager'], section: 'growth', permKey: 'employee-goals' },
       { id: 'employee-sops', label: 'دليل الإجراءات', icon: ScrollText, roles: ['employee', 'supervisor', 'manager'], section: 'growth', permKey: 'sops' },
       { id: 'employee-ai-chat', label: 'المساعد الذكي', icon: Bot, roles: ['employee', 'supervisor', 'manager'], section: 'growth', permKey: 'ai-chat' },
     ],
   },
   {
-    key: 'personal', label: 'الشخصي', roles: ['employee', 'supervisor', 'manager'],
+    key: 'personal', label: 'الشخصي', roles: ['employee'],
     items: [
       { id: 'employee-wellness', label: 'الصحة النفسية', icon: Heart, roles: ['employee', 'supervisor', 'manager'], section: 'personal', permKey: 'wellness' },
       { id: 'employee-survey', label: 'الاستبيانات', icon: ClipboardList, roles: ['employee', 'supervisor', 'manager'], section: 'personal', permKey: 'survey' },
-      { id: 'employee-contact', label: 'اتصل بـ HR', icon: MessageSquare, roles: ['employee', 'supervisor', 'manager'], section: 'personal', permKey: 'contact' },
+      { id: 'employee-contact', label: 'مركز خدمات HR', icon: MessageSquare, roles: ['employee', 'supervisor', 'manager'], section: 'personal', permKey: 'contact' },
       { id: 'employee-profile', label: 'حسابي', icon: User, roles: ['employee', 'supervisor', 'manager'], section: 'personal', permKey: 'profile' },
     ],
   },
   {
-    key: 'employee-finance', label: 'المالية والرواتب', roles: ['employee', 'supervisor', 'manager'],
+    key: 'employee-finance', label: 'المالية والرواتب', roles: ['employee'],
     items: [
       { id: 'employee-payroll', label: 'رواتبي', icon: TrendingUp, roles: ['employee', 'supervisor', 'manager'], section: 'employee-finance' },
       { id: 'employee-loans', label: 'سلفي', icon: ArrowRightLeft, roles: ['employee', 'supervisor', 'manager'], section: 'employee-finance' },
@@ -113,7 +115,15 @@ const NAV_SECTIONS: NavSection[] = [
   {
     key: 'supervisor', label: 'إدارة الفريق', roles: ['supervisor', 'manager'],
     items: [
-      { id: 'supervisor-breaks', label: 'تسجيل الخروج', icon: ArrowRightLeft, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-breaks' },
+      { id: 'supervisor-dashboard', label: 'لوحة المشرف', icon: LayoutDashboard, roles: ['supervisor'], section: 'supervisor', permKey: 'supervisor-dashboard' },
+      { id: 'supervisor-shift', label: 'إدارة الوردية', icon: CalendarClock, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-shift' },
+      { id: 'supervisor-tasks', label: 'مهام الفريق', icon: ClipboardList, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-tasks' },
+      { id: 'supervisor-checklists', label: 'قوائم الفحص', icon: ClipboardCheck, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-checklists' },
+      { id: 'supervisor-breaks', label: 'تصاريح الاستراحة', icon: ArrowRightLeft, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-breaks' },
+      { id: 'manager-dashboard', label: 'لوحة المدير', icon: LayoutDashboard, roles: ['manager'], section: 'supervisor', permKey: 'manager-dashboard' },
+      { id: 'manager-approvals', label: 'مركز الموافقات', icon: ClipboardCheck, roles: ['manager'], section: 'supervisor', permKey: 'manager-approvals' },
+      { id: 'manager-performance', label: 'أداء الفريق', icon: TrendingUp, roles: ['manager'], section: 'supervisor', permKey: 'manager-performance' },
+      { id: 'manager-workload', label: 'عبء العمل', icon: BarChart3, roles: ['manager'], section: 'supervisor', permKey: 'manager-workload' },
       { id: 'manager-attendance', label: 'حضور الفريق', icon: Users, roles: ['manager'], section: 'supervisor', permKey: 'manager-attendance' },
     ],
   },
@@ -140,7 +150,9 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'hr-recruitment', label: 'التوظيف', icon: Briefcase, roles: ['hr'], section: 'hr-people' },
       { id: 'hr-onboarding', label: 'التعريف وإنهاء الخدمة', icon: UserPlus, roles: ['hr'], section: 'hr-people' },
       { id: 'hr-documents', label: 'مستندات الموظفين', icon: FileText, roles: ['hr'], section: 'hr-people' },
+      { id: 'hr-contracts', label: 'عقود الموظفين', icon: FileText, roles: ['hr'], section: 'hr-people', permKey: 'hr-contracts' },
       { id: 'hr-communication', label: 'صندوق الرسائل', icon: MessageSquare, roles: ['hr'], section: 'hr-people', permKey: 'communication', badge: 0 },
+      { id: 'hr-service-center', label: 'مركز خدمات HR', icon: ClipboardCheck, roles: ['hr'], section: 'hr-people', permKey: 'hr-service-center' },
     ],
   },
   {
@@ -156,8 +168,10 @@ const NAV_SECTIONS: NavSection[] = [
     key: 'hr-performance', label: 'الأداء والتأديب', roles: ['hr'],
     items: [
       { id: 'hr-performance', label: 'تقييم الأداء', icon: TrendingUp, roles: ['hr'], section: 'hr-performance' },
+      { id: 'hr-succession', label: 'تخطيط التعاقب', icon: Award, roles: ['hr'], section: 'hr-performance', permKey: 'hr-succession' },
       { id: 'hr-disciplinary', label: 'الإجراءات التأديبية', icon: ShieldAlert, roles: ['hr'], section: 'hr-performance' },
       { id: 'hr-shifts', label: 'جدولة الورديات', icon: CalendarClock, roles: ['hr'], section: 'hr-performance' },
+      { id: 'hr-health-safety', label: 'الصحة والسلامة', icon: HeartPulse, roles: ['hr'], section: 'hr-performance', permKey: 'hr-health-safety' },
     ],
   },
   {
@@ -187,6 +201,10 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { id: 'admin-employees', label: 'إدارة الموظفين', icon: Users, roles: ['admin'], section: 'admin-management', permKey: 'employees' },
       { id: 'admin-settings', label: 'إعدادات النظام', icon: Settings, roles: ['admin'], section: 'admin-management', permKey: 'settings' },
+      { id: 'admin-company-profile', label: 'ملف الشركة', icon: Building2, roles: ['admin'], section: 'admin-management', permKey: 'admin-company-profile' },
+      { id: 'admin-branches', label: 'الفروع', icon: Building2, roles: ['admin'], section: 'admin-management', permKey: 'admin-branches' },
+      { id: 'admin-org-structure', label: 'الهيكل التنظيمي', icon: Layers, roles: ['admin'], section: 'admin-management', permKey: 'admin-org-structure' },
+      { id: 'admin-compliance', label: 'مركز الامتثال', icon: ShieldCheck, roles: ['admin'], section: 'admin-management', permKey: 'admin-compliance' },
       { id: 'admin-ai-config', label: 'إعدادات AI', icon: Bot, roles: ['admin'], section: 'admin-management', permKey: 'ai-config' },
     ],
   },
@@ -205,6 +223,7 @@ const NAV_SECTIONS: NavSection[] = [
     key: 'gatekeeper-main', label: 'لوحة التحكم', roles: ['gatekeeper'],
     items: [
       { id: 'gatekeeper-portal', label: 'تسجيل الدخول والخروج', icon: Fingerprint, roles: ['gatekeeper'], section: 'gatekeeper-main', permKey: 'gatekeeper-portal' },
+      { id: 'gatekeeper-movements', label: 'بوابة الحركة', icon: ArrowRightLeft, roles: ['gatekeeper'], section: 'gatekeeper-main', permKey: 'gatekeeper-movements' },
       { id: 'kiosk-mode', label: 'محطة التسجيل الذاتي', icon: Radio, roles: ['gatekeeper'], section: 'gatekeeper-main', permKey: 'kiosk-mode' },
     ],
   },
@@ -242,13 +261,98 @@ const NAV_SECTIONS: NavSection[] = [
   // ─── 🔔 NOTIFICATIONS (للجميع) ───
   {
     key: 'notifications', label: 'الإشعارات',
-    roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager'],
+    roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'it_admin'],
     items: [
-      { id: 'my-notifications', label: 'الإشعارات', icon: Bell, roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager'], section: 'notifications', permKey: 'notifications' },
-      { id: 'notifications', label: 'التبليغات', icon: Megaphone, roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager'], section: 'notifications', permKey: 'notifications' },
+      { id: 'my-notifications', label: 'الإشعارات', icon: Bell, roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'it_admin'], section: 'notifications', permKey: 'notifications' },
+      { id: 'notifications', label: 'التبليغات', icon: Megaphone, roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'it_admin'], section: 'notifications', permKey: 'notifications' },
     ],
   },
 ];
+
+// ════════════════════════════════════════════════════════════════
+//  Module Gate Mapping
+// ════════════════════════════════════════════════════════════════
+
+const ITEM_MODULE_MAP: Record<string, string> = {
+  'employee-dashboard': 'employee',
+  'employee-problems': 'employee',
+  'new-problem': 'employee',
+  'employee-attendance': 'employee',
+  'employee-requests': 'employee',
+  'employee-training': 'employee',
+  'employee-goals': 'employee',
+  'employee-sops': 'employee',
+  'employee-wellness': 'employee',
+  'employee-survey': 'employee',
+  'employee-contact': 'employee',
+  'employee-profile': 'employee',
+  'employee-payroll': 'employee',
+  'employee-loans': 'employee',
+  'employee-expenses': 'employee',
+
+  'manager-dashboard': 'manager',
+  'manager-approvals': 'manager',
+  'manager-performance': 'manager',
+  'manager-workload': 'manager',
+  'manager-attendance': 'manager',
+
+  'supervisor-dashboard': 'supervisor',
+  'supervisor-shift': 'supervisor',
+  'supervisor-tasks': 'supervisor',
+  'supervisor-checklists': 'supervisor',
+  'supervisor-breaks': 'supervisor',
+
+  'hr-dashboard': 'hr',
+  'hr-problems': 'hr',
+  'hr-analytics': 'hr',
+  'hr-team': 'hr',
+  'hr-reports': 'reports',
+  'hr-attendance': 'hr',
+  'hr-talent-market': 'hr',
+  'hr-movement-analysis': 'movement',
+  'hr-manage-training': 'hr',
+  'hr-training-reports': 'reports',
+  'hr-payroll': 'hr',
+  'hr-loans': 'hr',
+  'hr-bonuses': 'hr',
+  'hr-expenses': 'hr',
+  'hr-recruitment': 'hr',
+  'hr-onboarding': 'hr',
+  'hr-documents': 'hr',
+  'hr-contracts': 'contracts',
+  'hr-succession': 'succession',
+  'hr-performance': 'hr',
+  'hr-disciplinary': 'hr',
+  'hr-shifts': 'hr',
+  'hr-health-safety': 'health_safety',
+  'hr-communication': 'hr',
+  'hr-service-center': 'hr',
+  'hr-sops': 'hr',
+
+  'admin-dashboard': 'admin',
+  'admin-employees': 'admin',
+  'admin-settings': 'admin',
+  'admin-company-profile': 'admin',
+  'admin-branches': 'admin',
+  'admin-org-structure': 'admin',
+  'admin-compliance': 'admin',
+  'admin-ai-config': 'ai',
+  'admin-reports': 'reports',
+  'admin-audit-log': 'admin',
+  'admin-cms': 'admin',
+  'admin-sops': 'admin',
+  'admin-sops-reports': 'reports',
+
+  'gatekeeper-portal': 'gatekeeper',
+  'gatekeeper-movements': 'movement',
+  'kiosk-mode': 'gatekeeper',
+
+  'tech-portal': 'tech_portal',
+  'tawathul-portal': 'tawathul',
+  'tawathul-admin': 'tawathul',
+  'admin-ai-insights': 'ai',
+  'employee-ai-chat': 'ai',
+};
 
 // ════════════════════════════════════════════════════════════════
 //  Role Config
@@ -286,6 +390,7 @@ export default function Sidebar() {
     realtime: true,
     refetchOnFocus: false,
   });
+  const { isEnabled: isModuleEnabled } = useTenantModules();
 
   const role = (user?.role as UserRole) || 'employee';
   const config = ROLE_CONFIG[role];
@@ -337,6 +442,8 @@ export default function Sidebar() {
   // ─── تصفية الأقسام والعناصر ──────────────────────────────────
   const canView = (item: NavItem): boolean => {
     if (!item.roles.includes(role)) return false;
+    const moduleKey = ITEM_MODULE_MAP[item.id];
+    if (moduleKey && !isModuleEnabled(moduleKey)) return false;
     if (item.permKey) {
       const effective = getEffectivePermissions(role, user.permissions);
       return hasPermission(effective, item.permKey);

@@ -21,12 +21,15 @@ import {
   Star, TrendingUp,
   Heart, Award, Activity, Calendar,
   FileText, Zap, Flame, BookOpen, Brain,
-  BarChart3, Target,
+  BarChart3, Target, Wallet, Receipt, CreditCard,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { incidentService } from '../../services/sdk/IncidentService';
 import { wellnessService, wellnessEntryService } from '../../services/sdk/WellnessService';
 import { attendanceSummaryService } from '../../services/sdk/AttendanceService';
+import { employeeLoanService, expenseRequestService } from '../../services/sdk/FinanceService';
+import { payrollRecordService } from '../../services/sdk/PayrollService';
+import { employeeGoalService } from '../../services/sdk/EmployeeDevelopmentService';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Badge from '../../shared/components/ui/Badge';
 import Button from '../../shared/components/ui/Button';
@@ -130,11 +133,18 @@ export default function EmployeeDashboard() {
   const [recentProblems, setRecentProblems] = useState<Problem[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<TrendPeriod>('week');
   const [problemTrend, setProblemTrend] = useState<TrendDataPoint[]>([]);
+  const [financialSummary, setFinancialSummary] = useState({
+    latestNetSalary: 0,
+    pendingExpenses: 0,
+    outstandingLoans: 0,
+    currency: 'IQD',
+  });
+  const [developmentSummary, setDevelopmentSummary] = useState({ activeGoals: 0, averageGoalProgress: 0 });
 
   const fetchDashboardData = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const [problems, wellness, attendance] = await Promise.all([
+      const [problems, wellness, attendance, payrollRows, expenses, loans, goals] = await Promise.all([
         incidentService.findByEmployee(user.id) as unknown as Problem[],
         wellnessEntryService.findByUser(user.id, 30) as unknown as WellnessEntry[],
         attendanceSummaryService.findAll({
@@ -143,6 +153,10 @@ export default function EmployeeDashboard() {
           ascending: false,
           limit: 30,
         }) as unknown as AttendanceRecord[],
+        payrollRecordService.findAll({ filters: { employee_id: user.id }, orderBy: 'created_at', ascending: false, limit: 3 }) as Promise<any[]>,
+        expenseRequestService.findByEmployee(user.id) as Promise<any[]>,
+        employeeLoanService.findByEmployee(user.id) as Promise<any[]>,
+        employeeGoalService.findByEmployee(user.id) as Promise<any[]>,
       ]);
 
       const problemsList = problems || [];
@@ -158,6 +172,28 @@ export default function EmployeeDashboard() {
         wellnessScore: wellnessList.length > 0 ? (wellnessList[0] as any).score || (wellnessList[0] as any).mood_score || 0 : 0,
         streak: calculateStreakFromAttendance(attendanceList),
         attendanceRate: attendanceList.length > 0 ? Math.round((attendanceList.filter((a) => (a as any).status !== 'غائب').length / attendanceList.length) * 100) : 0,
+      });
+
+      const latestPayroll = (payrollRows || [])[0] || {};
+      const pendingExpenses = (expenses || [])
+        .filter((expense: any) => ['pending', 'submitted', 'in_review', 'new', 'قيد الانتظار'].includes(String(expense.status || '').toLowerCase()) || expense.status === 'قيد المراجعة')
+        .reduce((sum: number, expense: any) => sum + Number(expense.amount || 0), 0);
+      const outstandingLoans = (loans || [])
+        .filter((loan: any) => !['rejected', 'closed', 'paid', 'مرفوض', 'مغلق', 'مسدد'].includes(String(loan.status || '').toLowerCase()))
+        .reduce((sum: number, loan: any) => sum + Number(loan.remaining_amount ?? loan.loan_amount ?? loan.amount ?? 0), 0);
+      setFinancialSummary({
+        latestNetSalary: Number(latestPayroll.net_salary ?? latestPayroll.total_salary ?? latestPayroll.basic_salary ?? 0),
+        pendingExpenses,
+        outstandingLoans,
+        currency: latestPayroll.currency || 'IQD',
+      });
+
+      const activeGoals = (goals || []).filter((goal: any) => goal.status === 'active');
+      setDevelopmentSummary({
+        activeGoals: activeGoals.length,
+        averageGoalProgress: activeGoals.length
+          ? Math.round(activeGoals.reduce((sum: number, goal: any) => sum + Number(goal.progress_percent || 0), 0) / activeGoals.length)
+          : 0,
       });
 
       const trend: TrendDataPoint[] = Array.from({ length: 7 }, (_, i) => {
@@ -183,6 +219,7 @@ export default function EmployeeDashboard() {
     { label: 'طلب إجازة', icon: Calendar, action: () => navigate('/app/employee/leave-requests'), color: 'bg-gradient-to-br from-emerald-500 to-teal-600' },
     { label: 'تسجيل مزاج', icon: Heart, action: () => navigate('/app/employee/wellness'), color: 'bg-gradient-to-br from-violet-500 to-purple-600' },
     { label: 'تدريب', icon: BookOpen, action: () => navigate('/app/employee/training'), color: 'bg-gradient-to-br from-amber-500 to-orange-600' },
+    { label: 'أهدافي', icon: Target, action: () => navigate('/app/employee/goals'), color: 'bg-gradient-to-br from-blue-500 to-indigo-600' },
   ];
 
   const greeting = () => {
@@ -203,6 +240,8 @@ export default function EmployeeDashboard() {
   const severityBadge = (severity: Problem['severity']): 'danger' | 'warning' | 'info' =>
     severity === 'critical' || severity === 'high' ? 'danger' : severity === 'medium' ? 'warning' : 'info';
 
+  const formatMoney = (amount: number) => `${Number(amount || 0).toLocaleString('ar-IQ')} ${financialSummary.currency}`;
+
   return (
     <div className="space-y-6 animate-fade-in" dir="rtl">
       {/* Welcome + Quick Actions */}
@@ -217,7 +256,7 @@ export default function EmployeeDashboard() {
             <span className="font-bold">{user?.wellnessScore || stats.wellnessScore}%</span>
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {quickActions.map((action, idx) => {
             const ActionIcon = action.icon;
             return (
@@ -285,6 +324,46 @@ export default function EmployeeDashboard() {
               <div className="flex items-center gap-2 mt-1"><Award size={14} className="text-amber-500" /><span className="text-xs text-slate-500">أيام متتالية</span></div>
             </CardTitle>
           </CardHeader>
+        </Card>
+      </div>
+
+      {/* Financial + Development Self-Service Summary */}
+      <div className="grid lg:grid-cols-4 gap-4">
+        <Card hover onClick={() => navigate('/app/employee/payroll')}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">آخر صافي راتب</p>
+              <p className="text-xl font-extrabold text-slate-800 mt-1">{formatMoney(financialSummary.latestNetSalary)}</p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><Wallet size={20} /></div>
+          </div>
+        </Card>
+        <Card hover onClick={() => navigate('/app/employee/expenses')}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">نفقات معلقة</p>
+              <p className="text-xl font-extrabold text-slate-800 mt-1">{formatMoney(financialSummary.pendingExpenses)}</p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center"><Receipt size={20} /></div>
+          </div>
+        </Card>
+        <Card hover onClick={() => navigate('/app/employee/loans')}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">سلف/قروض متبقية</p>
+              <p className="text-xl font-extrabold text-slate-800 mt-1">{formatMoney(financialSummary.outstandingLoans)}</p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center"><CreditCard size={20} /></div>
+          </div>
+        </Card>
+        <Card hover onClick={() => navigate('/app/employee/goals')}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">الأهداف النشطة</p>
+              <p className="text-xl font-extrabold text-slate-800 mt-1">{developmentSummary.activeGoals} • {developmentSummary.averageGoalProgress}%</p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><Target size={20} /></div>
+          </div>
         </Card>
       </div>
 

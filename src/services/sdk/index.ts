@@ -13,6 +13,12 @@
 export { BaseService } from './BaseService';
 export { SdkError, SdkErrorCode, getCurrentTenantId, requireTenantId } from './BaseService';
 export { authService } from './AuthService';
+export { publicSignupService } from './PublicSignupService';
+export { publicSignupAdminService } from './PublicSignupAdminService';
+export { publicSiteConfigService, DEFAULT_PUBLIC_SITE_CONFIG } from './PublicSiteConfigService';
+export type { PublicSiteConfig, PublicInfoPageConfig } from './PublicSiteConfigService';
+export type { PublicSignupRequestRecord, PublicSignupStatus } from './PublicSignupAdminService';
+export type { PublicSignupIntentType, PublicSignupRequestInput } from './PublicSignupService';
 export type { LoginResult, SessionResult } from './AuthService';
 export { userService } from './UserService';
 export type { UserProfile, UserUpdateInput } from './UserService';
@@ -57,6 +63,23 @@ export { incidentCommentService } from './IncidentCommentService';
 export { timeLogService } from './TimeLogService';
 export { syncLogService } from './SyncLogService';
 export { errorLogService } from './ErrorLogService';
+export { employeeGoalService, goalUpdateService, employeeSkillService } from './EmployeeDevelopmentService';
+export { hrCaseService, hrCaseCommentService, employeeLetterRequestService } from './EmployeeSelfServiceService';
+export { employeeContractService } from './ContractService';
+export { criticalPositionService, successionCandidateService, successionDevelopmentPlanService } from './SuccessionService';
+export { workforceAnalyticsService } from './WorkforceAnalyticsService';
+export type { WorkforceSummary } from './WorkforceAnalyticsService';
+export { correctiveActionService } from './HealthSafetyService';
+export { branchService } from './BranchService';
+export { complianceCheckService, policyAcknowledgementService } from './ComplianceService';
+export { movementPermitService } from './MovementPermitService';
+export { teamTaskService, shiftNoteService, operationalChecklistService } from './SupervisorService';
+export { approvalRequestService, approvalActionService } from './ApprovalService';
+export { managerWorkloadItemService } from './ManagerService';
+export { tenantModuleService, MODULE_CATALOG, PLAN_ALLOWED_MODULES, PLAN_LIMITS, modulesForPlan, isModuleAllowedForPlan, planLimitsForPlan } from './TenantModuleService';
+export type { TenantModuleRecord, ModuleCatalogItem, ModuleKey, PlanLimits } from './TenantModuleService';
+export { entitlementService } from './EntitlementService';
+export type { TenantUsageSnapshot } from './EntitlementService';
 
 // Tenant / Platform Management
 export { tenantService } from './TenantService';

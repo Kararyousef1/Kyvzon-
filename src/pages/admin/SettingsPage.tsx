@@ -43,7 +43,8 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await settingsService.updateGeneralSettings(settings as unknown as Record<string, unknown>);
+      const current = await settingsService.findGeneralSettings();
+      await settingsService.updateGeneralSettings({ ...(current || {}), ...settings } as unknown as Record<string, unknown>);
       addToast('تم حفظ الإعدادات بنجاح ✅', 'success');
     } catch (err) {
       console.error(err);
@@ -120,6 +121,7 @@ export default function SettingsPage() {
                 onChange={e => setSettings(p => ({ ...p, timezone: e.target.value }))}
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-indigo-400 cursor-pointer"
               >
+                <option value="Asia/Baghdad">بغداد (GMT+3)</option>
                 <option value="Asia/Riyadh">الرياض (GMT+3)</option>
                 <option value="Asia/Dubai">دبي (GMT+4)</option>
               </select>

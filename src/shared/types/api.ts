@@ -194,10 +194,17 @@ export interface LeaveRequestDB {
 /** جدول employee_breaks */
 export interface EmployeeBreakDB {
   id: string;
+  tenant_id: string;
   employee_id: string;
-  break_type: string;
-  status: 'pending' | 'approved' | 'rejected' | 'out' | 'completed';
+  break_type: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  status: 'active' | 'pending' | 'approved' | 'rejected' | 'out' | 'completed' | string;
+  supervisor_id: string | null;
   supervisor_name: string | null;
+  employee_name: string | null;
+  destination: string | null;
+  duration_minutes: number;
   out_time: string | null;
   return_time: string | null;
   notes: string | null;

@@ -13,6 +13,13 @@ export type LocalizedText = Record<Lang, string>;
 /** قائمة نصوص مترجمة (تُستخدم لعناصر Bullet / Features) */
 export type LocalizedList = Record<Lang, string[]>;
 
+export interface LandingSignupIntent {
+  type: 'plan' | 'service' | 'review' | 'demo' | 'general';
+  label?: string;
+  planId?: string;
+  serviceId?: string;
+}
+
 export interface LandingPageProps {
   onLoginClick: () => void;
   /** يُستخدم عند عرض الصفحة كمعاينة مصغّرة (يوقف التشغيل التلقائي للحركات الدورية) */

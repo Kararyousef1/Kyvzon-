@@ -18,6 +18,7 @@ import Badge from '../../shared/components/ui/Badge';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { userService } from '../../services/sdk/UserService';
 import { adminUserService } from '../../services/sdk/AdminUserService';
+import { entitlementService } from '../../services/sdk/EntitlementService';
 import { exportToStyledExcel } from '../../utils/exportToExcel';
 import { getErrorMessage } from '../../services/errors';
 import type { UserRole } from '../../shared/types';
@@ -230,6 +231,7 @@ export default function AdminEmployeesPage() {
         });
         addToast(`تم تحديث "${form.full_name}"`, 'success');
       } else {
+        await entitlementService.assertCanAddEmployee();
         const result = await adminUserService.createUser({
           email: finalEmail,
           password: form.passcode,

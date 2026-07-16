@@ -53,6 +53,12 @@ class AttendanceService extends BaseService<AttendanceLogRecord> {
     });
     return this.create(data);
   }
+
+  async countPunchesSince(fromIso: string): Promise<number> {
+    return this.findWhere([
+      { column: 'punch_time', operator: 'gte', value: fromIso },
+    ], { limit: 1000 }).then(rows => rows.length);
+  }
 }
 
 // ─── Attendance Summary ──────────────────────────

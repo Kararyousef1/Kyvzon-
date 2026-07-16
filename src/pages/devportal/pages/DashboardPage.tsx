@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, type FC } from 'react';
 import {
   Building2, Users, TrendingUp, AlertTriangle,
   Globe, CreditCard, Sparkles, Clock,
-  ChevronLeft, RefreshCw, Activity, ScrollText,
+  ChevronLeft, RefreshCw, Activity, ScrollText, Code2, SlidersHorizontal,
 } from 'lucide-react';
 import { StatCard, PageHeader } from '../components/shared';
 import { statsApi } from '../services/api';
@@ -197,18 +197,32 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
               onClick={() => onNavigate('subscriptions')}
             />
             <QuickAction
+              icon={SlidersHorizontal}
+              label="تفعيل البوابات"
+              desc="Modules per tenant"
+              gradient="from-cyan-500 to-blue-600"
+              onClick={() => onNavigate('modules')}
+            />
+            <QuickAction
+              icon={Activity}
+              label="صحة المنصة"
+              desc="فحوصات هندسية"
+              gradient="from-emerald-500 to-teal-600"
+              onClick={() => onNavigate('platform-health')}
+            />
+            <QuickAction
+              icon={Code2}
+              label="الهندسة"
+              desc="جاهزية الإطلاق"
+              gradient="from-slate-700 to-slate-900"
+              onClick={() => onNavigate('engineering-console')}
+            />
+            <QuickAction
               icon={ScrollText}
               label="سجل العمليات"
               desc="مراقبة النشاط"
               gradient="from-amber-500 to-orange-600"
               onClick={() => onNavigate('audit-log')}
-            />
-            <QuickAction
-              icon={RefreshCw}
-              label="تحديث البيانات"
-              desc="جلب أحدث الإحصاءات"
-              gradient="from-emerald-500 to-teal-600"
-              onClick={fetchStats}
             />
           </div>
         </div>

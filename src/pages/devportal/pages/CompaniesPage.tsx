@@ -9,13 +9,62 @@ import { useState, useEffect, useCallback, type FC } from 'react';
 import {
   Building2, Plus, Search, Edit3, Trash2, Eye,
   RefreshCw, Ban, Unlock, Mail, Phone, Globe,
-  Calendar, Activity, X, Save, CheckCircle,
-  LayoutDashboard, Users, Shield, MessageSquare, Fingerprint, Cpu,
+  Calendar, Activity, X, Save, CheckCircle, CreditCard, Receipt,
+  LayoutDashboard, Users, Shield, MessageSquare, Fingerprint, Cpu, SlidersHorizontal,
+  ArrowRightLeft, Bot, FileBarChart, HeartPulse, Award, FileText,
 } from 'lucide-react';
 import { PageHeader, Badge, EmptyState, ConfirmDialog } from '../components/shared';
 import { companiesApi } from '../services/api';
 import type { Company, DevPortalPage, IconType } from '../types';
 import { useUIStore } from '../../../core/stores';
+import { MODULE_CATALOG, modulesForPlan } from '../../../services/sdk/TenantModuleService';
+
+
+const PLAN_PRICE: Record<string, number> = { basic: 250, professional: 750, enterprise: 2000, custom: 5000 };
+const PLAN_LABEL: Record<string, string> = { basic: 'أساسي', professional: 'احترافي', enterprise: 'مؤسسي', custom: 'مخصص' };
+const BILLING_CYCLE_LABEL: Record<string, string> = { monthly: 'شهري', quarterly: 'ربع سنوي', semi_annual: 'نصف سنوي', annual: 'سنوي', one_time: 'دفعة واحدة', custom: 'مخصص' };
+const PAYMENT_METHOD_LABEL: Record<string, string> = { cash: 'نقدي', bank_transfer: 'تحويل مصرفي', card: 'بطاقة', zain_cash: 'زين كاش', asia_hawala: 'آسيا حوالة', stripe: 'Stripe', manual_invoice: 'فاتورة يدوية', other: 'أخرى' };
+const PAYMENT_STATUS_LABEL: Record<string, string> = { unpaid: 'غير مدفوع', pending: 'قيد المعالجة', paid: 'مدفوع', overdue: 'متأخر', failed: 'فشل الدفع', refunded: 'مسترجع', cancelled: 'ملغي' };
+
+function getCompanyBilling(company: Partial<Company> | null | undefined): Record<string, unknown> {
+  return ((company?.settings as Record<string, unknown> | undefined)?.billing as Record<string, unknown> | undefined) || {};
+}
+
+function formatMoney(value: unknown, currency: unknown = 'IQD') {
+  const amount = Number(value ?? 0);
+  return `${amount.toLocaleString('en-US')} ${String(currency || 'IQD')}`;
+}
+
+
+const MODULE_ICON_MAP: Record<string, IconType> = {
+  employee: LayoutDashboard,
+  hr: Users,
+  admin: Shield,
+  manager: Users,
+  supervisor: CheckCircle,
+  gatekeeper: Fingerprint,
+  movement: ArrowRightLeft,
+  tawathul: MessageSquare,
+  tech_portal: Cpu,
+  ai: Bot,
+  reports: FileBarChart,
+  health_safety: HeartPulse,
+  succession: Award,
+  contracts: FileText,
+};
+
+const MODULE_CATEGORY_LABEL: Record<string, string> = {
+  core: 'أساسية',
+  people: 'الأفراد',
+  operations: 'تشغيلية',
+  platform: 'منصة',
+  advanced: 'متقدمة',
+};
+
+function buildModuleState(enabled?: string[]): Record<string, boolean> {
+  const defaults = enabled ?? ['employee', 'hr'];
+  return Object.fromEntries(MODULE_CATALOG.map((module) => [module.key, defaults.includes(module.key)]));
+}
 
 // ════════════════════════════════════════════════════════════════
 //  Company Row
@@ -26,9 +75,11 @@ const CompanyRow: FC<{
   onView: (c: Company) => void;
   onEdit: (c: Company) => void;
   onToggleStatus: (c: Company) => void;
-}> = ({ company: c, onView, onEdit, onToggleStatus }) => {
+  onManageModules: (c: Company) => void;
+}> = ({ company: c, onView, onEdit, onToggleStatus, onManageModules }) => {
   const isActive = c.status === 'active';
   const isTrial  = c.status === 'trial';
+  const billing = getCompanyBilling(c);
 
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors group">
@@ -61,6 +112,7 @@ const CompanyRow: FC<{
            c.subscription_plan === 'professional' ? 'احترافي' :
            c.subscription_plan === 'enterprise' ? 'مؤسسي' : 'مخصص'}
         </Badge>
+        <p className="text-[10px] text-gray-400 mt-1">{formatMoney(billing.billing_amount ?? PLAN_PRICE[c.subscription_plan], billing.currency || 'IQD')}</p>
       </td>
       <td className="py-4 px-5 text-sm text-gray-600 truncate max-w-[160px]">
         <span className="flex items-center gap-1">
@@ -78,6 +130,9 @@ const CompanyRow: FC<{
           </button>
           <button onClick={() => onEdit(c)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-amber-600 transition-colors" title="تعديل">
             <Edit3 size={16} />
+          </button>
+          <button onClick={() => onManageModules(c)} className="p-2 rounded-lg hover:bg-cyan-50 text-gray-400 hover:text-cyan-600 transition-colors" title="إدارة البوابات">
+            <SlidersHorizontal size={16} />
           </button>
           <button
             onClick={() => onToggleStatus(c)}
@@ -111,47 +166,74 @@ const CompanyFormModal: FC<{
     name_ar: '',
     name_en: '',
     slug: '',
+    domain: '',
     contact_name: '',
     contact_email: '',
     contact_phone: '',
     subscription_plan: 'basic',
+    subscription_status: 'trial',
+    subscription_start_date: new Date().toISOString().split('T')[0],
+    subscription_end_date: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
     max_employees: 50,
+    max_branches: 1,
+    max_biometric_devices: 1,
+    storage_gb: 5,
+    billing_amount: 250,
+    currency: 'IQD',
+    billing_cycle: 'monthly',
+    payment_method: 'manual_invoice',
+    payment_status: 'unpaid',
+    payment_reference: '',
+    payment_due_date: new Date().toISOString().split('T')[0],
+    contract_number: '',
+    invoice_number: '',
+    sales_owner: '',
+    auto_renew: true,
     notes: '',
   });
 
-  const [modules, setModules] = useState({
-    employee: true,
-    hr: false,
-    admin: false,
-    gatekeeper: false,
-    tawathul: false,
-    tech_portal: false,
-  });
+  const [modules, setModules] = useState<Record<string, boolean>>(() => buildModuleState());
 
   const isEdit = !!company?.id;
 
   useEffect(() => {
     if (company) {
+      const billing = getCompanyBilling(company);
+      const plan = company.subscription_plan || 'basic';
       setForm({
         name_ar: company.name_ar || '',
         name_en: company.name_en || '',
         slug: company.slug || '',
+        domain: company.domain || '',
         contact_name: company.contact_name || '',
         contact_email: company.contact_email || '',
         contact_phone: company.contact_phone || '',
-        subscription_plan: company.subscription_plan || 'basic',
+        subscription_plan: plan,
+        subscription_status: company.subscription_status || 'trial',
+        subscription_start_date: company.subscription_start_date || new Date().toISOString().split('T')[0],
+        subscription_end_date: company.subscription_end_date || new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
         max_employees: company.max_employees || 50,
+        max_branches: Number(billing.max_branches ?? 1),
+        max_biometric_devices: Number(billing.max_biometric_devices ?? 1),
+        storage_gb: Number(billing.storage_gb ?? 5),
+        billing_amount: Number(billing.billing_amount ?? PLAN_PRICE[plan] ?? 250),
+        currency: String(billing.currency || 'IQD'),
+        billing_cycle: String(billing.billing_cycle || 'monthly'),
+        payment_method: String(billing.payment_method || 'manual_invoice'),
+        payment_status: String(billing.payment_status || 'unpaid'),
+        payment_reference: String(billing.payment_reference || ''),
+        payment_due_date: String(billing.payment_due_date || company.subscription_start_date || new Date().toISOString().split('T')[0]),
+        contract_number: String(billing.contract_number || ''),
+        invoice_number: String(billing.invoice_number || ''),
+        sales_owner: String(billing.sales_owner || ''),
+        auto_renew: Boolean(billing.auto_renew ?? true),
         notes: company.notes || '',
       });
-      const enabled = company.enabled_modules || ['employee'];
-      setModules({
-        employee: enabled.includes('employee'),
-        hr: enabled.includes('hr'),
-        admin: enabled.includes('admin'),
-        gatekeeper: enabled.includes('gatekeeper'),
-        tawathul: enabled.includes('tawathul'),
-        tech_portal: enabled.includes('tech_portal'),
-      });
+      const enabled = company.enabled_modules || modulesForPlan(company.subscription_plan || 'basic');
+      setModules(buildModuleState(enabled));
+    } else {
+      setForm((f) => ({ ...f, subscription_plan: 'basic', billing_amount: PLAN_PRICE.basic, max_employees: 50, max_branches: 1, max_biometric_devices: 1, storage_gb: 5 }));
+      setModules(buildModuleState(modulesForPlan('basic')));
     }
   }, [company]);
 
@@ -166,12 +248,12 @@ const CompanyFormModal: FC<{
     await onSave({ ...form, enabled_modules: enabledModules });
   };
 
-  const update = (key: string, value: string | number) =>
+  const update = (key: string, value: string | number | boolean) =>
     setForm((f) => ({ ...f, [key]: value }));
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-gray-200 flex-shrink-0">
           <h3 className="text-lg font-bold text-gray-900">
             {isEdit ? 'تعديل بيانات الشركة' : 'إضافة شركة جديدة'}
@@ -254,13 +336,13 @@ const CompanyFormModal: FC<{
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-gray-500 mb-1 block">الحد الأقصى للموظفين</label>
+              <label className="text-xs font-bold text-gray-500 mb-1 block">النطاق / Domain</label>
               <input
-                type="number"
-                value={form.max_employees}
-                onChange={(e) => update('max_employees', parseInt(e.target.value) || 0)}
-                min={1}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 transition-all"
+                type="text"
+                value={form.domain}
+                onChange={(e) => update('domain', e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 transition-all text-left"
+                dir="ltr"
               />
             </div>
           </div>
@@ -269,7 +351,7 @@ const CompanyFormModal: FC<{
             <label className="text-xs font-bold text-gray-500 mb-1 block">خطة الاشتراك</label>
             <select
               value={form.subscription_plan}
-              onChange={(e) => update('subscription_plan', e.target.value)}
+              onChange={(e) => { const plan = e.target.value; setForm((f) => ({ ...f, subscription_plan: plan, billing_amount: plan === 'custom' ? f.billing_amount : (PLAN_PRICE[plan] ?? f.billing_amount) })); }}
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 transition-all"
             >
               <option value="basic">أساسي (Basic) — 250$/شهر</option>
@@ -279,34 +361,119 @@ const CompanyFormModal: FC<{
             </select>
           </div>
 
+          <div className="rounded-2xl border border-cyan-100 bg-cyan-50/40 p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <CreditCard size={18} className="text-cyan-700" />
+              <h4 className="text-sm font-black text-gray-900">تفاصيل الاشتراك والفوترة</h4>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">حالة الاشتراك</label>
+                <select value={form.subscription_status} onChange={(e) => update('subscription_status', e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+                  <option value="trial">تجريبي</option><option value="active">نشط</option><option value="grace_period">فترة سماح</option><option value="expired">منتهي</option><option value="cancelled">ملغي</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">دورة الفوترة</label>
+                <select value={form.billing_cycle} onChange={(e) => update('billing_cycle', e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+                  <option value="monthly">شهري</option><option value="quarterly">ربع سنوي</option><option value="semi_annual">نصف سنوي</option><option value="annual">سنوي</option><option value="one_time">دفعة واحدة</option><option value="custom">مخصص</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">سعر الاشتراك</label>
+                <input type="number" min={0} value={form.billing_amount} onChange={(e) => update('billing_amount', Number(e.target.value) || 0)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">العملة</label>
+                <select value={form.currency} onChange={(e) => update('currency', e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+                  <option value="IQD">IQD</option><option value="USD">USD</option><option value="SAR">SAR</option><option value="AED">AED</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">طريقة الدفع</label>
+                <select value={form.payment_method} onChange={(e) => update('payment_method', e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+                  <option value="cash">نقدي</option><option value="bank_transfer">تحويل مصرفي</option><option value="card">بطاقة</option><option value="zain_cash">زين كاش</option><option value="asia_hawala">آسيا حوالة</option><option value="stripe">Stripe</option><option value="manual_invoice">فاتورة يدوية</option><option value="other">أخرى</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">حالة الدفع</label>
+                <select value={form.payment_status} onChange={(e) => update('payment_status', e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+                  <option value="unpaid">غير مدفوع</option><option value="pending">قيد المعالجة</option><option value="paid">مدفوع</option><option value="overdue">متأخر</option><option value="failed">فشل الدفع</option><option value="refunded">مسترجع</option><option value="cancelled">ملغي</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">بداية الاشتراك</label>
+                <input type="date" value={form.subscription_start_date} onChange={(e) => update('subscription_start_date', e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">نهاية الاشتراك</label>
+                <input type="date" value={form.subscription_end_date} onChange={(e) => update('subscription_end_date', e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">تاريخ الاستحقاق</label>
+                <input type="date" value={form.payment_due_date} onChange={(e) => update('payment_due_date', e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">رقم الفاتورة</label>
+                <input value={form.invoice_number} onChange={(e) => update('invoice_number', e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-left" dir="ltr" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">رقم العقد</label>
+                <input value={form.contract_number} onChange={(e) => update('contract_number', e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-left" dir="ltr" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">مسؤول المبيعات</label>
+                <input value={form.sales_owner} onChange={(e) => update('sales_owner', e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs font-bold text-gray-500 mb-1 block">مرجع الدفع / رقم العملية</label>
+                <input value={form.payment_reference} onChange={(e) => update('payment_reference', e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-left" dir="ltr" />
+              </div>
+              <label className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-700">
+                <input type="checkbox" checked={form.auto_renew} onChange={(e) => update('auto_renew', e.target.checked)} /> تجديد تلقائي
+              </label>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4 space-y-4">
+            <div className="flex items-center gap-2"><Receipt size={18} className="text-violet-700" /><h4 className="text-sm font-black text-gray-900">حدود الخطة التجارية</h4></div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div><label className="text-xs font-bold text-gray-500 mb-1 block">الفروع</label><input type="number" min={1} value={form.max_branches} onChange={(e) => update('max_branches', Number(e.target.value) || 1)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-500 mb-1 block">أجهزة البصمة</label><input type="number" min={0} value={form.max_biometric_devices} onChange={(e) => update('max_biometric_devices', Number(e.target.value) || 0)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-500 mb-1 block">التخزين GB</label><input type="number" min={1} value={form.storage_gb} onChange={(e) => update('storage_gb', Number(e.target.value) || 1)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm" /></div>
+              <div><label className="text-xs font-bold text-gray-500 mb-1 block">الموظفون</label><input type="number" min={1} value={form.max_employees} onChange={(e) => update('max_employees', Number(e.target.value) || 1)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm" /></div>
+            </div>
+          </div>
+
           {/* تفعيل الوحدات */}
           <div>
             <label className="text-xs font-bold text-gray-500 mb-1 block">الوحدات المفعلة للشركة</label>
             <p className="text-[10px] text-gray-400 mb-2">اختر البوابات التي ستحصل عليها هذه الشركة</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {([
-                { key: 'employee', icon: LayoutDashboard, label: 'بوابة الموظف', desc: 'البلاغات، الحضور، التدريب' },
-                { key: 'hr', icon: Users, label: 'الموارد البشرية', desc: 'إدارة الموظفين، الرواتب' },
-                { key: 'admin', icon: Shield, label: 'الإدارة', desc: 'إعدادات وصلاحيات متقدمة' },
-                { key: 'gatekeeper', icon: Fingerprint, label: 'الحركة', desc: 'بوابة الدخول والخروج' },
-                { key: 'tawathul', icon: MessageSquare, label: 'التواصل', desc: 'نظام المحادثات الداخلية' },
-                { key: 'tech_portal', icon: Cpu, label: 'البوابة التقنية', desc: 'أجهزة البصمة، تقنية المعلومات' },
-              ] as const).map(({ key, icon: Icon, label, desc }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setModules(m => ({ ...m, [key]: !m[key as keyof typeof modules] }))}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-center ${
-                    modules[key as keyof typeof modules]
-                      ? 'border-cyan-500 bg-cyan-50 text-cyan-700 shadow-sm'
-                      : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
-                  }`}
-                >
-                  <Icon size={20} />
-                  <span className="text-xs font-bold">{label}</span>
-                  <span className="text-[9px] opacity-60 leading-tight">{desc}</span>
-                </button>
-              ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              {MODULE_CATALOG.map((module) => {
+                const Icon = MODULE_ICON_MAP[module.key] || LayoutDashboard;
+                const enabled = Boolean(modules[module.key]);
+                const allowedByPlan = modulesForPlan(form.subscription_plan).includes(module.key);
+                return (
+                  <button
+                    key={module.key}
+                    type="button"
+                    onClick={() => setModules((m) => ({ ...m, [module.key]: !m[module.key] }))}
+                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-center relative ${
+                      enabled
+                        ? 'border-cyan-500 bg-cyan-50 text-cyan-700 shadow-sm'
+                        : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
+                    }`}
+                  >
+                    <Icon size={20} />
+                    <span className="text-xs font-bold">{module.label}</span>
+                    <span className="text-[9px] opacity-60 leading-tight">{module.description}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full mt-1 ${allowedByPlan ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {allowedByPlan ? MODULE_CATEGORY_LABEL[module.category] : `خارج ${PLAN_LABEL[form.subscription_plan] || form.subscription_plan}`}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -346,6 +513,7 @@ const CompanyDetailModal: FC<{
   onEdit: (c: Company) => void;
 }> = ({ company: c, onClose, onEdit }) => {
   if (!c) return null;
+  const billing = getCompanyBilling(c);
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -369,13 +537,19 @@ const CompanyDetailModal: FC<{
 
           <div className="grid grid-cols-2 gap-3">
             <Detail label="الحالة"         value={<Badge variant={c.status}>{c.status}</Badge>} />
-            <Detail label="الخطة"          value={<Badge variant={c.subscription_plan}>{c.subscription_plan}</Badge>} />
+            <Detail label="الخطة"          value={<Badge variant={c.subscription_plan}>{PLAN_LABEL[c.subscription_plan] || c.subscription_plan}</Badge>} />
+            <Detail label="السعر"          value={formatMoney(billing.billing_amount ?? PLAN_PRICE[c.subscription_plan], billing.currency || 'IQD')} />
+            <Detail label="دورة الفوترة"   value={BILLING_CYCLE_LABEL[String(billing.billing_cycle || 'monthly')] || String(billing.billing_cycle || 'monthly')} />
+            <Detail label="طريقة الدفع"    value={PAYMENT_METHOD_LABEL[String(billing.payment_method || 'manual_invoice')] || String(billing.payment_method || '—')} />
+            <Detail label="حالة الدفع"     value={PAYMENT_STATUS_LABEL[String(billing.payment_status || 'unpaid')] || String(billing.payment_status || '—')} />
             <Detail label="البريد"         value={c.contact_email || '—'} />
             <Detail label="الهاتف"         value={c.contact_phone || '—'} />
             <Detail label="جهة الاتصال"    value={c.contact_name || '—'} />
             <Detail label="الحد الأقصى"    value={`${c.max_employees} موظف`} />
             <Detail label="تاريخ الإنشاء"  value={c.created_at ? new Date(c.created_at).toLocaleDateString('ar-SA') : '—'} />
             <Detail label="انتهاء الاشتراك" value={c.subscription_end_date ? new Date(c.subscription_end_date).toLocaleDateString('ar-SA') : '—'} />
+            <Detail label="رقم الفاتورة" value={String(billing.invoice_number || '—')} />
+            <Detail label="رقم العقد" value={String(billing.contract_number || '—')} />
           </div>
 
           {c.notes && (
@@ -405,7 +579,7 @@ const Detail: FC<{ label: string; value: React.ReactNode }> = ({ label, value })
 //  Companies Page
 // ════════════════════════════════════════════════════════════════
 
-export default function CompaniesPage() {
+export default function CompaniesPage({ onNavigate }: { onNavigate?: (page: DevPortalPage) => void }) {
   const { addToast } = useUIStore();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -443,6 +617,10 @@ export default function CompaniesPage() {
   const handleCreate = () => { setEditing(null); setFormOpen(true); };
   const handleEdit   = (c: Company) => { setEditing(c); setFormOpen(true); };
   const handleView   = (c: Company) => { setViewing(c); };
+  const handleManageModules = (c: Company) => {
+    sessionStorage.setItem('devportal_selected_tenant', c.id);
+    onNavigate?.('modules');
+  };
 
   const handleSave = async (data: Record<string, unknown>) => {
     setSaving(true);
@@ -556,6 +734,7 @@ export default function CompaniesPage() {
                     onView={handleView}
                     onEdit={handleEdit}
                     onToggleStatus={handleToggleStatus}
+                    onManageModules={handleManageModules}
                   />
                 ))}
               </tbody>

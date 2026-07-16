@@ -3,9 +3,11 @@ import { HelpCircle, ChevronDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useLang } from '../LangContext';
 import { Reveal } from '../ui/Reveal';
 import { FAQS } from '../data';
+import { useNavigate } from 'react-router-dom';
 
 export function FAQSection({ onLoginClick }: { onLoginClick: () => void }) {
   const { lang, isRTL, t } = useLang();
+  const navigate = useNavigate();
   const [openId, setOpenId] = useState<string | null>(FAQS[0]?.id ?? null);
 
   return (
@@ -48,7 +50,7 @@ export function FAQSection({ onLoginClick }: { onLoginClick: () => void }) {
         <Reveal delay={0.1}>
           <div className="mt-12 text-center rounded-2xl p-8" style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.18)' }}>
             <div className="text-white font-bold mb-4">{t('faq_still_question')}</div>
-            <button onClick={onLoginClick} className="btn-primary inline-flex">
+            <button onClick={() => navigate('/signup?intent=demo&label=FAQ')} className="btn-primary inline-flex">
               {t('faq_talk_to_us')}
               {isRTL ? <ArrowLeft size={15} /> : <ArrowRight size={15} />}
             </button>

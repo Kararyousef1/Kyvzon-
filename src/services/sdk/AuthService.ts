@@ -239,6 +239,96 @@ class AuthService {
     }
   }
 
+
+
+  /** الحصول على مستخدم Auth الحالي مع metadata العامة. */
+  async getCurrentUserDetails(): Promise<{
+    id: string;
+    email: string;
+    metadata: Record<string, unknown>;
+    emailConfirmedAt?: string;
+  } | null> {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw SdkError.fromSupabaseError(error);
+      if (!user) return null;
+      return {
+        id: user.id,
+        email: user.email || '',
+        metadata: (user.user_metadata || {}) as Record<string, unknown>,
+        emailConfirmedAt: user.email_confirmed_at || undefined,
+      };
+    } catch (error) {
+      if (error instanceof SdkError) throw error;
+      throw SdkError.fromSupabaseError(error as any);
+    }
+  }
+
+  /**
+   * إرسال رمز OTP للبريد من صفحة الهبوط العامة.
+   * يستخدم Supabase Auth لإنشاء المستخدم إن لم يكن موجوداً.
+   */
+  async sendEmailOtp(email: string): Promise<void> {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        },
+      });
+      if (error) throw SdkError.fromSupabaseError(error);
+    } catch (error) {
+      if (error instanceof SdkError) throw error;
+      throw SdkError.fromSupabaseError(error as any);
+    }
+  }
+
+  /** التحقق من رمز OTP المرسل للبريد. */
+  async verifyEmailOtp(email: string, token: string): Promise<LoginResult> {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      });
+      if (error) throw SdkError.fromSupabaseError(error);
+      return {
+        user: data.user ? { id: data.user.id, email: data.user.email || email } : null,
+        session: data.session,
+      };
+    } catch (error) {
+      if (error instanceof SdkError) throw error;
+      throw SdkError.fromSupabaseError(error as any);
+    }
+  }
+
+  /** إكمال حساب عميل صفحة الهبوط بعد OTP: كلمة مرور + بيانات metadata. */
+  async completePublicAccount(input: {
+    fullName: string;
+    password: string;
+    phone?: string;
+    country?: string;
+    governorate?: string;
+  }): Promise<void> {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: input.password,
+        data: {
+          full_name: input.fullName,
+          phone: input.phone,
+          country: input.country,
+          governorate: input.governorate,
+          signup_source: 'landing_page',
+        },
+      });
+      if (error) throw SdkError.fromSupabaseError(error);
+    } catch (error) {
+      if (error instanceof SdkError) throw error;
+      throw SdkError.fromSupabaseError(error as any);
+    }
+  }
+
   /**
    * التحقق من صحة الجلسة
    */

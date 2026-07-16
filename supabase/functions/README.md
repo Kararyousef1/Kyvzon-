@@ -25,6 +25,7 @@ supabase functions deploy admin-update-role
 supabase functions deploy admin-reset-password
 supabase functions deploy admin-toggle-status
 supabase functions deploy zkteco-sync
+supabase functions deploy biometric-device-action
 ```
 
 4. Test with staging JWTs and a staging device signature before production.

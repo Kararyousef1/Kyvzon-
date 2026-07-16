@@ -162,24 +162,50 @@ class MovementLogService extends BaseService<MovementLogRecord> {
     fromDate?: string;
     employeeId?: string;
   }): Promise<MovementLogRecord[]> {
-    const filters: Record<string, unknown> = {};
-    if (options?.employeeId) filters.employee_id = options.employeeId;
+    const conditions: Array<{ column: string; operator?: 'eq' | 'gte'; value: unknown }> = [];
+    if (options?.employeeId) conditions.push({ column: 'employee_id', value: options.employeeId });
+    if (options?.fromDate) conditions.push({ column: 'departure_at', operator: 'gte', value: options.fromDate });
 
-    return this.findAll({
-      filters: Object.keys(filters).length > 0 ? filters : undefined,
-      orderBy: 'departure_at',
-      ascending: false,
-    });
+    if (conditions.length > 0) {
+      return this.findWhere(conditions, { orderBy: 'departure_at', ascending: false });
+    }
+
+    return this.findAll({ orderBy: 'departure_at', ascending: false });
+  }
+
+  async findActiveMovements(fromDate?: string): Promise<MovementLogRecord[]> {
+    const conditions: Array<{ column: string; operator?: 'eq' | 'gte' | 'is'; value: unknown }> = [
+      { column: 'returned_at', operator: 'is', value: null },
+    ];
+    if (fromDate) conditions.push({ column: 'departure_at', operator: 'gte', value: fromDate });
+    return this.findWhere(conditions, { orderBy: 'departure_at', ascending: false });
+  }
+
+  async findRouteViolations(fromDate?: string): Promise<MovementLogRecord[]> {
+    const conditions: Array<{ column: string; operator?: 'eq' | 'gte'; value: unknown }> = [
+      { column: 'route_violation', value: true },
+    ];
+    if (fromDate) conditions.push({ column: 'departure_at', operator: 'gte', value: fromDate });
+    return this.findWhere(conditions, { orderBy: 'departure_at', ascending: false });
   }
 
   async recordMovement(data: Partial<MovementLogRecord>): Promise<MovementLogRecord> {
-    return this.create(data);
+    return this.create({
+      ...data,
+      departure_at: data.departure_at || new Date().toISOString(),
+      route_violation: data.route_violation ?? false,
+    });
   }
 
-  async recordReturn(id: string | number, notes?: string): Promise<MovementLogRecord> {
+  async recordReturn(id: string | number, notes?: string, actualLocation?: string): Promise<MovementLogRecord> {
+    const routeViolation = Boolean(notes?.includes('مخالفة مسار') || notes?.includes('[مخالفة مسار'));
     return this.update(String(id), {
       returned_at: new Date().toISOString(),
+      return_notes: notes || null,
       notes: notes || null,
+      actual_location: actualLocation,
+      route_violation: routeViolation,
+      updated_at: new Date().toISOString(),
     } as unknown as Partial<MovementLogRecord>);
   }
 

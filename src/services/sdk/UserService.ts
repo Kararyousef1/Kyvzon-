@@ -19,6 +19,7 @@ export interface UserProfile {
   phone?: string;
   location?: string;
   profile_image?: string;
+  employee_id?: string;
   manager_id?: string;
   supervisor_id?: string;
   status?: string;

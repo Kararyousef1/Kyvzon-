@@ -1,21 +1,27 @@
 import React from 'react';
 import { Shield, Zap, Clock, Globe, Rocket, Play, ChevronDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import type { LandingConfig } from '../../../../shared/types/landing';
+import type { PublicSiteConfig } from '../../../../services/sdk';
 import { useLang } from '../LangContext';
 import { HeroMockup } from './HeroMockup';
 
 interface HeroProps {
   onLoginClick: () => void;
+  landingConfig?: Partial<LandingConfig> | null;
+  publicConfig?: PublicSiteConfig;
 }
 
 const QUICK_STATS = [
   { icon: Shield, v: '100%', l: { ar: 'أمان وخصوصية', en: 'Security', ku: 'ئەمنییەت' } },
-  { icon: Zap, v: '6', l: { ar: 'بوابات متكاملة', en: 'Portals', ku: 'دەروازەکان' } },
+  { icon: Zap, v: '8+', l: { ar: 'بوابات متكاملة', en: 'Portals', ku: 'دەروازەکان' } },
   { icon: Clock, v: '24/7', l: { ar: 'دعم فني', en: 'Support', ku: 'پشتگیری' } },
   { icon: Globe, v: '🇮🇶', l: { ar: 'صُنع في العراق', en: 'Made in Iraq', ku: 'لە عێراق' } },
 ];
 
-export function Hero({ onLoginClick }: HeroProps) {
+export function Hero({ onLoginClick, landingConfig, publicConfig }: HeroProps) {
   const { lang, t } = useLang();
+  const navigate = useNavigate();
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -40,20 +46,17 @@ export function Hero({ onLoginClick }: HeroProps) {
             </div>
 
             <h1 className="hero-h1 anim-fade-up-1 mt-6 font-black leading-tight tracking-tight" style={{ fontSize: 'clamp(2.6rem, 4.4vw, 3.75rem)' }}>
-              <span className="text-white">{t('hero_h1_1')}</span><br />
-              <span style={{ background: 'linear-gradient(135deg, #818cf8, #c4b5fd)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                {t('hero_h1_2')}
-              </span>
+              {landingConfig?.heroTitleAr || landingConfig?.heroTitleEn ? (lang === 'en' ? landingConfig?.heroTitleEn : landingConfig?.heroTitleAr) : (<><span className="text-white">{t('hero_h1_1')}</span><br /><span style={{ background: 'linear-gradient(135deg, #818cf8, #c4b5fd)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{t('hero_h1_2')}</span></>)}
             </h1>
 
             <p className="anim-fade-up-2" style={{ marginTop: '24px', fontSize: '1.1rem', color: 'rgba(180,195,255,0.8)', lineHeight: '1.8', maxWidth: '38rem' }}>
-              {t('hero_desc')}
+              {(lang === 'en' ? landingConfig?.heroDescEn : landingConfig?.heroDescAr) || t('hero_desc')}
             </p>
 
             <div className="anim-fade-up-3 mt-8 flex flex-wrap gap-3">
-              <button className="btn-primary" onClick={onLoginClick}>
+              <button className="btn-primary" onClick={() => navigate(publicConfig?.primaryCtaHref || '/signup?intent=demo')}>
                 <Rocket size={16} />
-                {t('hero_cta1')}
+                {publicConfig?.primaryCtaLabel || t('hero_cta1')}
               </button>
               <button className="btn-outline" onClick={() => scrollTo('screenshots')}>
                 <Play size={14} />

@@ -9,7 +9,7 @@
  *  كل قسم بات مكوّناً مستقلاً قابلاً للتطوير والاختبار بمفرده.
  * ════════════════════════════════════════════════════════════════
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import './landing/styles.css';
 
 import { LangProvider, useLang } from './landing/LangContext';
@@ -31,6 +31,8 @@ import { Footer } from './landing/sections/Footer';
 import { ScrollChrome } from './landing/sections/ScrollChrome';
 
 import type { LandingPageProps } from './landing/types';
+import type { LandingConfig } from '../../shared/types/landing';
+import { settingsService, publicSiteConfigService, DEFAULT_PUBLIC_SITE_CONFIG, type PublicSiteConfig } from '../../services/sdk';
 
 const SCROLL_SPY_IDS = ['home', 'portals', 'pricing', 'services', 'faq', 'contact'];
 
@@ -44,9 +46,9 @@ function useDocumentMeta() {
       ku: 'KYVZON — سیستەمی ERP ئەبری بۆ بەڕێوەبردنی دامەزراوەکەت',
     } as const;
     const descriptions = {
-      ar: 'منصة KYVZON تجمع ٦ بوابات ذكية لإدارة الموظفين والموارد البشرية والحركة والتحليلات — صُنعت في العراق بمعايير عالمية.',
-      en: 'KYVZON combines 6 smart portals for employee, HR, movement, and analytics management — built in Iraq to global standards.',
-      ku: 'KYVZON ٦ دەروازەی زیرەک یەکدەخات بۆ بەڕێوەبردنی کارمەند و HR.',
+      ar: 'منصة KYVZON تجمع بوابات الموظف وHR والإدارة والمدير والمشرف والحركة والتواصل والتقنية مع تحكم SaaS مركزي بالاشتراكات والتفعيل.',
+      en: 'KYVZON combines employee, HR, admin, manager, supervisor, movement, communication and tech portals with centralized SaaS subscription control.',
+      ku: 'KYVZON دەروازەکانی کارمەند، HR، بەڕێوەبەرایەتی، جووڵە، پەیوەندی و تەکنیک یەکدەخات.',
     } as const;
 
     document.title = titles[lang];
@@ -61,33 +63,49 @@ function useDocumentMeta() {
 }
 
 function LandingPageContent({ onLoginClick, previewMode }: LandingPageProps) {
+  const [landingConfig, setLandingConfig] = useState<(LandingConfig & { portalVisibility?: Record<string, boolean> }) | null>(null);
+  const [publicConfig, setPublicConfig] = useState<PublicSiteConfig>(DEFAULT_PUBLIC_SITE_CONFIG);
   const { lang, isRTL, t } = useLang();
   const { scrolled, scrollPct, showTop } = useScrollMeta();
   const activeSection = useScrollSpy(SCROLL_SPY_IDS);
   useDocumentMeta();
+
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      settingsService.findLandingConfig().catch(() => null),
+      publicSiteConfigService.getConfig().catch(() => DEFAULT_PUBLIC_SITE_CONFIG),
+    ]).then(([landing, publicSite]) => {
+      if (cancelled) return;
+      setLandingConfig(landing as (LandingConfig & { portalVisibility?: Record<string, boolean> }) | null);
+      setPublicConfig(publicSite);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div dir={isRTL ? 'rtl' : 'ltr'} className="kv-root min-h-screen" lang={lang}>
       <a href="#main-content" className="kv-skip-link">{t('skip_to_content')}</a>
 
       <ScrollChrome scrollPct={scrollPct} showTop={showTop} />
-      <Header onLoginClick={onLoginClick} scrolled={scrolled} activeSection={activeSection} />
+      <Header onLoginClick={onLoginClick} scrolled={scrolled} activeSection={activeSection} landingConfig={landingConfig} />
 
       <main id="main-content">
-        <Hero onLoginClick={onLoginClick} />
+        <Hero onLoginClick={onLoginClick} landingConfig={landingConfig} publicConfig={publicConfig} />
         <SocialProof />
-        <Portals onLoginClick={onLoginClick} previewMode={previewMode} />
+        <Portals onLoginClick={onLoginClick} previewMode={previewMode} portalVisibility={landingConfig?.portalVisibility} publicConfig={publicConfig} />
         <Screenshots />
         <WhyKyvzon />
         <Testimonials />
-        <Pricing onLoginClick={onLoginClick} />
-        <Services />
+        <Pricing onLoginClick={onLoginClick} publicConfig={publicConfig} />
+        <Services publicConfig={publicConfig} />
         <FAQSection onLoginClick={onLoginClick} />
-        <CTABanner onLoginClick={onLoginClick} />
-        <Contact />
+        <CTABanner onLoginClick={onLoginClick} publicConfig={publicConfig} />
+        <Contact landingConfig={landingConfig} publicConfig={publicConfig} />
       </main>
 
-      <Footer />
+      <Footer landingConfig={landingConfig} publicConfig={publicConfig} />
     </div>
   );
 }

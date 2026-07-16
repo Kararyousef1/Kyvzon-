@@ -40,8 +40,8 @@ describe('getDefaultPathForRole()', () => {
   });
 
   it('يتعامل مع supervisor و manager بشكل صحيح', () => {
-    // supervisor يذهب لصفحة الموظف (كما كان في المنطق القديم)
-    expect(getDefaultPathForRole('supervisor')).toBe('/app/employee');
+    // supervisor يذهب الآن إلى بوابة المشرف الخاصة به وليس بوابة الموظف
+    expect(getDefaultPathForRole('supervisor')).toBe('/app/supervisor');
     // manager له dashboard خاص
     expect(getDefaultPathForRole('manager')).toBe('/app/manager');
   });

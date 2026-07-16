@@ -43,7 +43,7 @@ export function AppLayout() {
       <Sidebar />
       <Header />
 
-      <main className="lg:mr-72 pt-16 min-h-screen">
+      <main className={`${sidebarOpen ? 'lg:mr-64' : 'lg:mr-16'} pt-16 min-h-screen transition-all duration-300`}>
         <div className="p-4 sm:p-6">
           <AppErrorBoundary componentName="AppLayout">
             <Suspense fallback={<SplashScreen mini />}>

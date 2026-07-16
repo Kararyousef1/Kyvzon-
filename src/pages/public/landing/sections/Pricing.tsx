@@ -4,6 +4,8 @@ import { useLang } from '../LangContext';
 import { Reveal } from '../ui/Reveal';
 import { PLANS, PLAN_COMPARISON } from '../data';
 import type { CompareValue } from '../data';
+import { useNavigate } from 'react-router-dom';
+import type { PublicSiteConfig } from '../../../../services/sdk';
 
 function CompareCell({ value, lang, highlight }: { value: CompareValue; lang: 'ar' | 'en' | 'ku'; highlight?: boolean }) {
   if (typeof value === 'boolean') {
@@ -22,9 +24,11 @@ const GUARANTEES = [
   { icon: Download, key: 'pricing_guarantee_4' },
 ] as const;
 
-export function Pricing({ onLoginClick }: { onLoginClick: () => void }) {
+export function Pricing({ onLoginClick, publicConfig }: { onLoginClick: () => void; publicConfig?: PublicSiteConfig }) {
   const { lang, t } = useLang();
   const [compareOpen, setCompareOpen] = useState(false);
+  const navigate = useNavigate();
+  const displayPlans = (publicConfig?.plans?.filter(p => p.enabled !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) || PLANS);
 
   return (
     <section id="pricing" className="py-24 md:py-32 relative" style={{ backgroundColor: 'var(--kv-bg-alt)' }}>
@@ -51,7 +55,7 @@ export function Pricing({ onLoginClick }: { onLoginClick: () => void }) {
         </Reveal>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {PLANS.map((plan, i) => (
+          {displayPlans.map((plan, i) => (
             <Reveal key={plan.id} delay={i * 0.1}>
               <div className={`price-card h-full flex flex-col ${plan.highlight ? 'highlight' : ''}`}>
                 {plan.badge && (
@@ -78,7 +82,7 @@ export function Pricing({ onLoginClick }: { onLoginClick: () => void }) {
                     </li>
                   ))}
                 </ul>
-                <button onClick={onLoginClick} className={plan.highlight ? 'btn-primary w-full text-center' : 'btn-outline w-full justify-center'}>
+                <button onClick={() => navigate(`/signup?intent=plan&plan=${plan.id}&label=${encodeURIComponent(plan.name[lang])}`)} className={plan.highlight ? 'btn-primary w-full text-center' : 'btn-outline w-full justify-center'}>
                   {plan.id === 'extra' ? t('pricing_cta_extra') : t('pricing_cta_default')}
                 </button>
               </div>
@@ -108,7 +112,7 @@ export function Pricing({ onLoginClick }: { onLoginClick: () => void }) {
                 <thead>
                   <tr>
                     <th></th>
-                    {PLANS.map((p) => (
+                    {displayPlans.map((p) => (
                       <th key={p.id} className={p.highlight ? 'col-highlight' : ''}>{p.name[lang]}</th>
                     ))}
                   </tr>
@@ -139,7 +143,7 @@ export function Pricing({ onLoginClick }: { onLoginClick: () => void }) {
               <div className="font-black text-white text-lg">🎁 {t('pricing_promo_title')}</div>
               <div style={{ color: 'rgba(180,195,255,0.75)', fontSize: '0.875rem', marginTop: '4px' }}>{t('pricing_promo_sub')}</div>
             </div>
-            <button onClick={onLoginClick} className="btn-primary shrink-0">{t('pricing_promo_cta')}</button>
+            <button onClick={() => navigate(`/signup?intent=plan&plan=promo&label=${encodeURIComponent(t('pricing_promo_title'))}`)} className="btn-primary shrink-0">{t('pricing_promo_cta')}</button>
           </div>
         </Reveal>
       </div>

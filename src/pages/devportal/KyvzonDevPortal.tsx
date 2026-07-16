@@ -26,9 +26,14 @@ import { useAuthStore } from '../../core/stores';
 const DashboardPage     = lazy(() => import('./pages/DashboardPage'));
 const CompaniesPage     = lazy(() => import('./pages/CompaniesPage'));
 const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'));
+const ModulesPage       = lazy(() => import('./pages/ModulesPage'));
+const PlatformHealthPage = lazy(() => import('./pages/PlatformHealthPage'));
+const EngineeringConsolePage = lazy(() => import('./pages/EngineeringConsolePage'));
 const AuditLogPage      = lazy(() => import('./pages/AuditLogPage'));
 const SettingsPage      = lazy(() => import('./pages/SettingsPage'));
 const LandingCMSPage    = lazy(() => import('../../pages/admin/AdminLandingPageCMS'));
+const VisitorLeadsPage  = lazy(() => import('./pages/VisitorLeadsPage'));
+const PublicSiteManagerPage = lazy(() => import('./pages/PublicSiteManagerPage'));
 const PermissionsPage   = lazy(() => import('../../pages/admin/AdminPermissionsTree'));
 
 // ════════════════════════════════════════════════════════════════
@@ -53,15 +58,25 @@ const PageRenderer: FC<{
     case 'dashboard':
       return <DashboardPage onNavigate={(p) => onNavigate(p as DevPortalPage)} />;
     case 'companies':
-      return <CompaniesPage />;
+      return <CompaniesPage onNavigate={(p) => onNavigate(p as DevPortalPage)} />;
     case 'subscriptions':
       return <SubscriptionsPage />;
+    case 'modules':
+      return <ModulesPage />;
+    case 'platform-health':
+      return <PlatformHealthPage />;
+    case 'engineering-console':
+      return <EngineeringConsolePage />;
     case 'audit-log':
       return <AuditLogPage />;
     case 'settings':
       return <SettingsPage />;
     case 'landing-cms':
       return <LandingCMSPage />;
+    case 'visitor-leads':
+      return <VisitorLeadsPage />;
+    case 'public-site':
+      return <PublicSiteManagerPage />;
     case 'permissions':
       return <PermissionsPage />;
     default:

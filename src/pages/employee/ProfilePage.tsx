@@ -18,10 +18,11 @@ import { useState, useEffect, useRef } from 'react';
 import {
   User, Mail, Phone, Building, Calendar, Edit3, Save, X, Star,
   Plus, Trash2, Loader, Camera, LayoutTemplate, Briefcase,
-  GraduationCap, Languages, Smile, FileText,
+  GraduationCap, Languages, Smile, FileText, Target, Award,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { userService } from '../../services/sdk/UserService';
+import { employeeService, certificationService, employeeGoalService, employeeSkillService } from '../../services/sdk';
 import { storageService } from '../../services/sdk/StorageService';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
@@ -119,6 +120,10 @@ export default function ProfilePage() {
   // السيرة الذاتية
   const [cvData, setCvData] = useState<CvFormData>({ ...EMPTY_CV });
   const [showCvBuilder, setShowCvBuilder] = useState(false);
+  const [employeeRecordId, setEmployeeRecordId] = useState('');
+  const [profileSkills, setProfileSkills] = useState<{ id: string; skill_name: string; level: string; category?: string }[]>([]);
+  const [profileGoals, setProfileGoals] = useState<{ id: string; title: string; progress_percent: number; status: string }[]>([]);
+  const [profileCertifications, setProfileCertifications] = useState<{ id: string; certification_name?: string; name?: string; issued_by?: string; issuer?: string; expiry_date?: string }[]>([]);
 
   if (!user) return null;
 
@@ -165,6 +170,21 @@ export default function ProfilePage() {
             setProfileImage(userProfile.profile_image);
             updateUser({ profile_image: userProfile.profile_image });
           }
+          setCvData(normalizeCvData((userProfile as unknown as Record<string, unknown>).cv_data));
+        }
+
+        const employees = await employeeService.findAll({ filters: { user_id: user.id }, limit: 1 });
+        const employeeId = employees[0]?.id;
+        if (employeeId) {
+          setEmployeeRecordId(employeeId);
+          const [skills, goals, certifications] = await Promise.all([
+            employeeSkillService.findByEmployee(employeeId).catch(() => []),
+            employeeGoalService.findByEmployee(employeeId).catch(() => []),
+            certificationService.findByEmployee(employeeId).catch(() => []),
+          ]);
+          setProfileSkills((skills || []) as any);
+          setProfileGoals((goals || []).filter((goal: any) => goal.status !== 'cancelled').slice(0, 5) as any);
+          setProfileCertifications((certifications || []).slice(0, 5) as any);
         }
       } catch (err) {
         console.error('فشل جلب البيانات الإضافية:', getErrorMessage(err));
@@ -375,6 +395,45 @@ export default function ProfilePage() {
             })}
           </div>
         )}
+      </Card>
+
+      {/* Professional Profile */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Award size={16} className="text-amber-500" /> الملف المهني والتطوير</CardTitle>
+        </CardHeader>
+        <div className="grid md:grid-cols-3 gap-4">
+          <div className="rounded-2xl bg-indigo-50 border border-indigo-100 p-4">
+            <div className="flex items-center gap-2 mb-3"><Star size={16} className="text-indigo-600" /><p className="text-sm font-bold text-indigo-800">المهارات</p></div>
+            {profileSkills.length === 0 ? <p className="text-xs text-indigo-500">لم تُسجل مهارات بعد</p> : (
+              <div className="flex flex-wrap gap-2">
+                {profileSkills.slice(0, 6).map(skill => <span key={skill.id} className="text-xs font-bold bg-white text-indigo-700 border border-indigo-100 rounded-full px-2 py-1">{skill.skill_name} • {skill.level}</span>)}
+              </div>
+            )}
+          </div>
+          <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4">
+            <div className="flex items-center gap-2 mb-3"><Target size={16} className="text-emerald-600" /><p className="text-sm font-bold text-emerald-800">الأهداف</p></div>
+            {profileGoals.length === 0 ? <p className="text-xs text-emerald-500">لا توجد أهداف نشطة</p> : (
+              <div className="space-y-2">
+                {profileGoals.slice(0, 3).map(goal => (
+                  <div key={goal.id}>
+                    <div className="flex justify-between text-xs font-bold text-emerald-700 mb-1"><span className="truncate">{goal.title}</span><span>{goal.progress_percent || 0}%</span></div>
+                    <div className="h-1.5 bg-white rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${Math.min(goal.progress_percent || 0, 100)}%` }} /></div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4">
+            <div className="flex items-center gap-2 mb-3"><GraduationCap size={16} className="text-purple-600" /><p className="text-sm font-bold text-purple-800">الشهادات</p></div>
+            {profileCertifications.length === 0 ? <p className="text-xs text-purple-500">لا توجد شهادات مسجلة</p> : (
+              <div className="space-y-2">
+                {profileCertifications.slice(0, 3).map(cert => <p key={cert.id} className="text-xs font-bold text-purple-700 bg-white rounded-lg px-2 py-1">{cert.certification_name || cert.name}</p>)}
+              </div>
+            )}
+          </div>
+        </div>
+        {employeeRecordId && <p className="text-[11px] text-slate-400 mt-3">يتم تحديث هذه البيانات من صفحات الأهداف والمهارات والتدريب والشهادات.</p>}
       </Card>
 
       {/* CV Section */}
