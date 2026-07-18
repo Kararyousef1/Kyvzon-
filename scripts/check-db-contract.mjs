@@ -24,32 +24,47 @@ if (migrationFiles.length === 0) {
   process.exit(1);
 }
 
-const migrationSql = migrationFiles.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+// Order-aware parsing
+const tables = new Set();
+const views = new Set();
 
-// Extract CREATE TABLE names
-const tables = new Set(
-  [...migrationSql.matchAll(/CREATE TABLE(?: IF NOT EXISTS)?\s+(?:public\.)?([a-z_][a-z0-9_]*)/gi)]
-    .map((match) => match[1].toLowerCase()),
-);
+const createTableRegex = /CREATE TABLE(?: IF NOT EXISTS)?\s+(?:public\.)?([a-z_][a-z0-9_]*)/gi;
+const dropTableRegex = /DROP TABLE(?:\s+IF EXISTS)?\s+(?:public\.)?([a-z_][a-z0-9_]*)/gi;
+const createViewRegex = /CREATE(?:\s+OR\s+REPLACE)?(?:\s+MATERIALIZED)?\s+VIEW(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:public\.)?([a-z_][a-z0-9_]*)/gi;
+const dropViewRegex = /DROP VIEW(?:\s+IF EXISTS)?\s+(?:public\.)?([a-z_][a-z0-9_]*)/gi;
 
-// Extract CREATE VIEW / CREATE OR REPLACE VIEW / CREATE MATERIALIZED VIEW names.
-// The frontend accesses views via .from('view_name'), so they must be
-// treated as valid schema objects for the contract check.
-const views = new Set(
-  [...migrationSql.matchAll(
-    /CREATE(?:\s+OR\s+REPLACE)?(?:\s+MATERIALIZED)?\s+VIEW(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:public\.)?([a-z_][a-z0-9_]*)/gi
-  )].map((match) => match[1].toLowerCase()),
-);
+for (const file of migrationFiles) {
+  const sql = fs.readFileSync(file, 'utf8');
+  const ops = [];
 
-// Table-like drops so we don't count objects that a later migration removes.
-// Applied only to tables (not views) — a view can be replaced with CREATE OR REPLACE.
-const droppedTables = new Set(
-  [...migrationSql.matchAll(/DROP TABLE(?:\s+IF EXISTS)?\s+(?:public\.)?([a-z_][a-z0-9_]*)/gi)]
-    .map((match) => match[1].toLowerCase()),
-);
-for (const t of droppedTables) tables.delete(t);
+  let m;
+  while ((m = createTableRegex.exec(sql)) !== null) {
+    ops.push({ idx: m.index, type: 'create_table', name: m[1].toLowerCase() });
+  }
+  createTableRegex.lastIndex = 0;
+  while ((m = dropTableRegex.exec(sql)) !== null) {
+    ops.push({ idx: m.index, type: 'drop_table', name: m[1].toLowerCase() });
+  }
+  dropTableRegex.lastIndex = 0;
+  while ((m = createViewRegex.exec(sql)) !== null) {
+    ops.push({ idx: m.index, type: 'create_view', name: m[1].toLowerCase() });
+  }
+  createViewRegex.lastIndex = 0;
+  while ((m = dropViewRegex.exec(sql)) !== null) {
+    ops.push({ idx: m.index, type: 'drop_view', name: m[1].toLowerCase() });
+  }
+  dropViewRegex.lastIndex = 0;
 
-// Merge: any name that resolves to a table or a view is valid.
+  ops.sort((a,b)=>a.idx-b.idx);
+  for (const op of ops) {
+    if (op.type === 'create_table') tables.add(op.name);
+    else if (op.type === 'drop_table') tables.delete(op.name);
+    else if (op.type === 'create_view') views.add(op.name);
+    else if (op.type === 'drop_view') views.delete(op.name);
+  }
+}
+
+// Merge
 const schemaObjects = new Set([...tables, ...views]);
 
 const references = new Map();
@@ -57,7 +72,7 @@ for (const root of sourceRoots) {
   for (const file of walk(root)) {
     if (!/\.(ts|tsx)$/.test(file)) continue;
     const text = fs.readFileSync(file, 'utf8');
-    for (const match of text.matchAll(/\.from\(['"]([a-z_][a-z0-9_]*)['"]\)/gi)) {
+    for (const match of text.matchAll(/\.from\(['\"]([a-z_][a-z0-9_]*)['\"]\)/gi)) {
       const table = match[1].toLowerCase();
       if (!references.has(table)) references.set(table, []);
       references.get(table).push(path.relative(repoRoot, file));
@@ -91,6 +106,9 @@ console.log(`Canonical migrations: ${migrationNames.length}`);
 console.log(`Literal table references: ${references.size}`);
 console.log(`Canonical tables: ${tables.size}`);
 console.log(`Canonical views:  ${views.size}`);
+console.log(`Final tables sample: ${[...tables].slice(0,10).join(', ')}...`);
+if (tables.has('currencies')) console.log('✅ currencies table exists in final schema');
+else console.log('❌ currencies table NOT in final schema');
 
 let failed = false;
 if (missing.length) {

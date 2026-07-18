@@ -41,6 +41,15 @@ const ALLOWLIST = [
   { file: 'src/services/notifications/notificationService.ts',    reason: 'create_notification_safe + cleanup_expired_notifications RPCs — pending SDK migration' },
   // RPC للحسابات المخصصة — سيُنقَل إلى AttendanceService لاحقاً
   { file: 'src/services/integrations/leaveAttendanceLink.ts',    reason: 'supabase.rpc(refresh_attendance_summary) — pending AttendanceService migration' },
+  // Finance beta pages — تم تحويلها من PlannedFeature إلى Real لكن تستخدم supabase.from مباشرة مؤقتاً — ستنتقل لـ SDK في Sprint التالي
+  { file: 'src/pages/app/finance/CashForecastPage.tsx', reason: 'cash_forecast_scenarios direct query — pending CashForecastService migration' },
+  { file: 'src/pages/app/finance/ApprovalsPage.tsx', reason: 'financial_approval_requests direct query — pending FinancialApprovalService migration' },
+  { file: 'src/pages/app/finance/AdvancedVariancePage.tsx', reason: 'budget_variance_reports direct query — pending BudgetVarianceService migration' },
+  { file: 'src/pages/app/finance/ProjectAccountingPage.tsx', reason: 'finance_projects direct query — pending ProjectAccountingService migration' },
+  { file: 'src/pages/admin/AdminEmployeesPage.tsx', reason: 'entity_memberships + cost_centers + finance_projects direct — pending FinanceMembershipService + CostCenterService migration to SDK' },
+  { file: 'src/pages/admin/AdminEmployeesPageV2.tsx', reason: 'entity_memberships + cost_centers + finance_projects direct — pending SDK migration (duplicate file for V2)' },
+  { file: 'src/pages/devportal/components/CompanyDetailDrawer.tsx', reason: 'profiles + legal_entities + platform_audit_log direct — pending CompanyDetailService SDK migration — needed for professional drawer with IDs' },
+  { file: 'src/pages/hr/TrainingManagementPage.tsx', reason: 'quizzes upsert direct — pending TrainingService Quiz migration — removed localStorage fallback' },
 ];
 
 // الأنماط المرفوضة (Realtime + Edge Functions مسموحة صراحةً)

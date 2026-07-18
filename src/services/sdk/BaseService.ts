@@ -332,8 +332,14 @@ export class BaseService<T = any> {
         supabase.from(this.tableName).update(safeData).eq('id', id),
       );
 
-      const { data: result, error } = await query.select().single();
+      const { data: result, error } = await query.select().maybeSingle();
       if (error) throw SdkError.fromSupabaseError(error);
+      if (!result) {
+        throw new SdkError(
+          SdkErrorCode.PERMISSION_DENIED,
+          'لم يتم تحديث السجل. قد يكون غير موجود أو لا تملك صلاحية تعديله.'
+        );
+      }
       return result as T;
     } catch (error: any) {
       if (error instanceof SdkError) throw error;

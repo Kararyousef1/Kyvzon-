@@ -724,3 +724,109 @@ Domain registrar:      ...
 
 **التوقيع:** Platform Architect
 **الحالة:** ✅ **RUNBOOK جاهز — كل خطوة موثّقة، لا مكان للتخمين**
+
+---
+
+## 🛡️ الملحق الجديد — التعافي من الكوارث (Disaster Recovery) RPO/RTO
+**أضيف في خطة العلاج 18 يوليو 2026 — المرحلة 4**
+
+### RPO/RTO المعتمدة
+
+| النظام | RPO (أقصى فقدان بيانات) | RTO (وقت الاستعادة) | الإجراء |
+|---|---|---|---|
+| **Postgres (Supabase)** | 24 ساعة (PITR hourly) | 4 ساعات | PITR + backup يومي |
+| **Edge Functions** | 0 (كود في Git) | 15 دقيقة | `supabase functions deploy` من main |
+| **Frontend (Netlify)** | 0 (كود في Git) | 5 دقائق | Rollback في Netlify Deploys |
+| **Storage (ملفات SOPs)** | 24 ساعة | 4 ساعات | Supabase Storage replication |
+| **Auth** | 1 ساعة | 1 ساعة | Supabase Auth backup + JWT |
+
+### خطة النسخ الاحتياطي
+
+#### قاعدة البيانات
+- **PITR مفعل** في Supabase Pro: كل ساعة WAL archived
+- **Backup يومي** تلقائي في Supabase Dashboard → Database → Backups → يومي 3am Asia/Baghdad
+- **Backup يدوي قبل migrations خطيرة:**
+```bash
+pg_dump $DATABASE_URL > /tmp/kyvzon-$(date +%Y%m%d-%H%M).sql
+# احفظ في S3 أو Google Cloud Storage
+```
+
+#### التحقق من صلاحية النسخ
+```bash
+# مرة في الأسبوع — استعادة في مشروع staging منفصل
+# Dashboard → Database → Restore → اختر backup من production → مشروع staging-dr-test
+# ثم شغل:
+bash scripts/tests/run_clean_db_test.sh
+npm run db:contract-check
+```
+
+### إجراءات الاستعادة
+
+#### سيناريو 1: حذف tenant بالخطأ
+```sql
+-- PITR إلى ما قبل الحذف بـ 10 دقائق
+-- Dashboard → Database → Point-in-time Recovery
+-- اختر وقت: 2026-07-18 14:00 +03:00
+-- يجب إيقاف الكتابة قبل الاستعادة (maintenance mode)
+```
+
+#### سيناريو 2: migration فاشلة (مثل تعارض currencies السابق)
+```bash
+# 1) إيقاف الكتابة
+# 2) Rollback migration يدوي:
+# افتح migration الفاشلة، انسخ DOWN statements
+# مثال: DROP TABLE IF EXISTS currencies; ثم أعد إنشاء النسخة القديمة من Git
+# 3) استعادة من backup إذا لزم
+# 4) إصلاح migration في branch جديد + اختبار clean DB
+```
+
+#### سيناريو 3: تسريب secret
+```bash
+# اتبع SECRETS_ROTATION_GUIDE_AR.md
+./scripts/clean-git-history.sh
+# تدوير مفاتيح + نشر Edge Functions
+```
+
+### مراقبة يومية (Daily Ops Checks)
+
+**SQL queries تحفظها في Supabase SQL Editor كـ favorite:**
+
+```sql
+-- 1) عدد الشركات النشطة vs الموقوفة
+SELECT status, COUNT(*) FROM tenants GROUP BY status;
+
+-- 2) اشتراكات منتهية في 7 أيام القادمة
+SELECT t.name_ar, s.plan, s.expires_at 
+FROM tenants t JOIN tenant_subscriptions s ON s.tenant_id = t.id
+WHERE s.expires_at < NOW() + INTERVAL '7 days' AND s.status = 'active';
+
+-- 3) أخطاء حرجة آخر 24 ساعة
+SELECT level, COUNT(*) FROM error_logs WHERE created_at > NOW() - INTERVAL '1 day' GROUP BY level;
+
+-- 4) محاولات أمان فاشلة (security_events)
+SELECT event_type, COUNT(*) FROM security_events WHERE created_at > NOW() - INTERVAL '1 day' GROUP BY event_type;
+
+-- 5) فشل مزامنة ZKTeco
+SELECT * FROM sync_log WHERE status = 'failed' AND created_at > NOW() - INTERVAL '1 day' ORDER BY created_at DESC LIMIT 20;
+
+-- 6) قيود GL غير متوازنة (يجب أن تعيد 0)
+SELECT id, entry_number, total_debit, total_credit FROM journal_entries WHERE total_debit != total_credit AND status = 'posted';
+```
+
+### خطة On-Call
+
+| الدور | المسؤولية | قناة |
+|---|---|---|
+| **L1 — Developer** | مراقبة error_logs, audit_logs, تدوير مفاتيح بسيط | Slack #ops + PagerDuty |
+| **L2 — DBA** | PITR, backup, RLS, migrations | Phone + Supabase Dashboard |
+| **L3 — Architect** | قرارات معمارية, rollback strategy, قانون عراقي | Phone |
+
+### اختبار DR كل 90 يوم
+
+- [ ] محاكاة حذف tenant → استعادة PITR في staging
+- [ ] محاكاة تسريب secret → تشغيل clean-git-history.sh في repo منفصل
+- [ ] محاكاة فشل Edge Function → حذف ونشر نسخة سابقة
+- [ ] قياس RTO فعلي ومقارنته بالمستهدف
+
+**التوقيع DR:** تمت إضافة هذا الملحق في تنفيذ خطة العلاج 18 يوليو 2026 — يلبي متطلبات SaaS Production-Ready.
+

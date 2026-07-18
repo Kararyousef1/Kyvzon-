@@ -1,19 +1,13 @@
 /**
- * ════════════════════════════════════════════════════════════════
- *  Kyvzon Dev Portal — API Service Layer
- *  تغليف كامل لخدمات SDK مع معالجة الأخطاء والتخزين المؤقت
- * ════════════════════════════════════════════════════════════════
+ * Kyvzon Dev Portal — API Service Layer
+ * تغليف كامل لخدمات SDK مع معالجة الأخطاء والتخزين المؤقت
  */
 
 import { tenantService } from '../../../services/sdk/TenantService';
 import type { Company, Subscription, AuditEntry, PlatformStats, CompanyStats } from '../types';
 
-// ════════════════════════════════════════════════════════════════
-//  Cache بسيط لتقليل استدعاءات API
-// ════════════════════════════════════════════════════════════════
-
 const cache = new Map<string, { data: unknown; ts: number }>();
-const TTL = 30_000; // 30 ثانية
+const TTL = 30_000;
 
 function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const entry = cache.get(key);
@@ -32,10 +26,6 @@ function invalidate(prefix: string) {
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-//  Companies API
-// ════════════════════════════════════════════════════════════════
-
 export const companiesApi = {
   getAll: () =>
     cached<Company[]>('companies:all', () =>
@@ -49,6 +39,13 @@ export const companiesApi = {
       invalidate('companies:');
       invalidate('stats:');
       return c as Company;
+    }),
+
+  createWithInitialAdmin: (input: any) =>
+    (tenantService as any).createCompanyWithInitialAdmin(input).then((r: any) => {
+      invalidate('companies:');
+      invalidate('stats:');
+      return r;
     }),
 
   update: (id: string, updates: Record<string, unknown>) =>
@@ -87,10 +84,6 @@ export const companiesApi = {
     tenantService.isSlugAvailable(slug, excludeId),
 };
 
-// ════════════════════════════════════════════════════════════════
-//  Subscriptions API
-// ════════════════════════════════════════════════════════════════
-
 export const subscriptionsApi = {
   getByCompany: (tenantId: string) =>
     tenantService.getCompanySubscriptions(tenantId) as Promise<Subscription[]>,
@@ -105,10 +98,6 @@ export const subscriptionsApi = {
   refresh: () => invalidate('subscriptions:'),
 };
 
-// ════════════════════════════════════════════════════════════════
-//  Platform Stats API
-// ════════════════════════════════════════════════════════════════
-
 export const statsApi = {
   get: () => cached<PlatformStats>('stats:platform', () =>
     tenantService.getPlatformStats(),
@@ -119,10 +108,6 @@ export const statsApi = {
     return statsApi.get();
   },
 };
-
-// ════════════════════════════════════════════════════════════════
-//  Audit Log API
-// ════════════════════════════════════════════════════════════════
 
 export const auditApi = {
   getLogs: (limit = 100) =>

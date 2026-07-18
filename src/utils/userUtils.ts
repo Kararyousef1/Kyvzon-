@@ -211,7 +211,7 @@ export function normalizeRole(role: string | undefined | null): UserRole {
 
   const normalizedRole = roleMap[role.toLowerCase()] || (role.toLowerCase() as UserRole);
 
-  const validRoles: UserRole[] = ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager'];
+  const validRoles: UserRole[] = ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'tech', 'finance'];
 
   return validRoles.includes(normalizedRole) ? normalizedRole : 'employee';
 }
@@ -300,6 +300,8 @@ export function getUserRoleBadge(role: UserRole): string {
     gatekeeper: 'حارس',
     developer: 'مطور',
     it_admin: 'تقنية معلومات',
+    tech: 'تقنية',
+    finance: 'مالية',
   };
   return roleBadges[role] || 'موظف';
 }

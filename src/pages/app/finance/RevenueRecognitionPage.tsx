@@ -1,21 +1,45 @@
-import React, { useState, useEffect } from 'react';
-import { FileCheck, Plus } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { FileCheck, Loader2, Plus, RefreshCw, CheckCircle } from 'lucide-react';
 import { revenueRecognitionService } from '../../../services/sdk/RevenueRecognitionService';
+import { getErrorMessage } from '../../../services/errors';
+import { useUIStore } from '../../../core/stores';
+
 export default function RevenueRecognitionPage() {
-  const [loading, setLoading] = useState(true);
+  const { addToast } = useUIStore();
   const [contracts, setContracts] = useState<any[]>([]);
-  useEffect(() => { revenueRecognitionService.findActive().then(c => { setContracts(c); setLoading(false); }).catch(() => setLoading(false)); }, []);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setContracts(await revenueRecognitionService.findActive() as any[]);
+    } catch (e) {
+      addToast(`تعذر التحميل: ${getErrorMessage(e)}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => { void load(); }, [load]);
+
   return (
-    <div className="p-6" dir="rtl">
-      <div className="flex items-center justify-between mb-6">
-        <div><h1 className="text-2xl font-extrabold">الاعتراف بالإيرادات</h1><p className="text-slate-500">إدارة العقود وفق ASC 606 / IFRS 15</p></div>
-        <button className="bg-blue-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-bold hover:bg-blue-700"><Plus size={16}/> عقد جديد</button>
+    <div className="p-6 md:p-8 space-y-6" dir="rtl">
+      <div className="flex justify-between flex-wrap gap-3">
+        <div>
+          <p className="text-sm font-bold text-emerald-700">Revenue Recognition — Wave 3 (Beta) — Real SDK ✅</p>
+          <h1 className="text-3xl font-black">الاعتراف بالإيرادات (IFRS 15)</h1>
+          <p className="text-slate-500 mt-2">عقود + جداول اعتراف — revenue_contracts و revenue_recognition_schedules.</p>
+        </div>
+        <button onClick={() => void load()} className="border rounded-xl px-4 py-2 font-bold"><RefreshCw size={15} className="inline ml-1" />تحديث</button>
       </div>
-      {loading ? <div className="text-center py-10 text-slate-400">جارٍ التحميل من قاعدة البيانات عبر SDK...</div> : contracts.length === 0 ? <div className="text-center py-10 text-slate-400">لا توجد عقود حالياً — سيتم عرضها عند التشغيل</div> : (
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-          <table className="w-full text-sm"><thead className="bg-slate-50 border-b"><tr><th className="text-right px-5 py-3 font-extrabold">رقم العقد</th><th className="text-right px-5 py-3 font-extrabold">العميل</th><th className="text-right px-5 py-3 font-extrabold">المبلغ</th><th className="text-right px-5 py-3 font-extrabold">الطريقة</th><th className="text-right px-5 py-3 font-extrabold">الحالة</th></tr></thead>
-            <tbody className="divide-y divide-slate-100">
-              {contracts.map(c => <tr key={c.id} className="hover:bg-blue-50/30"><td className="px-5 py-4 font-mono text-blue-600 font-bold">{c.contract_number || '—'}</td><td className="px-5 py-4 font-medium">{c.customer_name || '—'}</td><td className="px-5 py-4 font-extrabold">{Number(c.total_amount || 0).toLocaleString('en-US')} SAR</td><td className="px-5 py-4 text-xs font-bold bg-amber-50 text-amber-700 rounded-full px-2">{c.recognition_method || '—'}</td><td className="px-5 py-4"><span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-extrabold border border-emerald-200">نشط</span></td></tr>)}
+
+      {loading ? <div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3" />جارٍ التحميل...</div> : (
+        <div className="bg-white border rounded-2xl overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50"><tr><th className="p-3 text-right">رقم العقد</th><th className="p-3 text-right">العميل</th><th className="p-3 text-right">المبلغ</th><th className="p-3 text-right">الطريقة</th><th className="p-3 text-right">الحالة</th></tr></thead>
+            <tbody className="divide-y">
+              {contracts.map(c => <tr key={c.id}><td className="p-3 font-mono font-bold text-emerald-700">{c.contract_number || '—'}</td><td className="p-3">{c.customer_name || '—'}</td><td className="p-3 font-black">{Number(c.total_amount || 0).toLocaleString()}</td><td className="p-3"><span className="px-2 py-1 bg-amber-50 border border-amber-200 rounded-full text-xs font-bold">{c.recognition_method || '—'}</span></td><td className="p-3"><span className="px-2 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><CheckCircle size={12} />{c.status}</span></td></tr>)}
+              {!contracts.length && <tr><td colSpan={5} className="p-16 text-center text-slate-500"><FileCheck className="mx-auto mb-3 text-slate-300" />لا توجد عقود إيرادات — أنشئ من revenue_contracts.</td></tr>}
             </tbody>
           </table>
         </div>

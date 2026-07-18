@@ -1,10 +1,22 @@
-CREATE TABLE IF NOT EXISTS currencies (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  code VARCHAR(3) NOT NULL UNIQUE,
-  name VARCHAR(50) NOT NULL,
-  symbol VARCHAR(5),
-  exchange_rate NUMERIC(15,6) DEFAULT 1.000000,
-  is_base_currency BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_currencies_code ON currencies(code);
+-- =============================================================================
+-- 0117_multi_currency.sql — DEPRECATED / SUPERSEDED
+-- =============================================================================
+-- التاريخ الأصلي: كان ينشئ currencies(id UUID, code, exchange_rate...)
+-- القرار العلاجي (18 يوليو 2026): هذا التعريف القديم متعارض مع التصميم IFRS
+-- الصحيح في 0126_finance_multi_entity_foundation.sql الذي ينشئ:
+--   currencies(code CHAR(3) PK, name, symbol, decimal_places, is_active)
+-- 
+-- لتجنب تعارض المخطط وتسهيل فحص العقود order-aware، تم تحويل هذا الملف
+-- إلى NO-OP مع توثيق واضح. الإنشاء الحقيقي يتم في 0126.
+-- 
+-- ملاحظة: لو كان هناك بيئة بها بيانات قديمة من هذا الجدول، فإن 0126
+-- يقوم بـ DROP TABLE IF EXISTS public.currencies CASCADE ثم إعادة الإنشاء
+-- بالشكل الصحيح، مع إعادة زرع العملات الأساسية (IQD, USD, SAR, EUR).
+-- =============================================================================
+
+-- No operation — superseded by 0126. Kept for migration history continuity.
+DO $$
+BEGIN
+  RAISE NOTICE '0117_multi_currency.sql is deprecated, currencies will be created in 0126';
+END
+$$;

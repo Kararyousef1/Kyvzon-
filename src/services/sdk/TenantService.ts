@@ -631,3 +631,93 @@ export const tenantService = {
 };
 
 export default tenantService;
+
+// ── تموين ذري جديد (0142) — يمنع البيانات اليتيمة ─────────────────────────────────
+export interface ProvisionTenantAtomicInput {
+  name_ar: string;
+  slug: string;
+  admin_email: string;
+  admin_password?: string;
+  plan?: 'trial' | 'basic' | 'professional' | 'enterprise';
+  seats?: number;
+}
+
+export interface ProvisionTenantAtomicResult {
+  tenant_id: string;
+  slug: string;
+  subscription_id: string;
+  legal_entity_id: string;
+  plan: string;
+  message: string;
+}
+
+// إضافة واجهة RPC للتموين الذري — مطابق لـ 0142_provision_tenant_atomic_rpc.sql
+export const provisionTenantAtomic = async (input: ProvisionTenantAtomicInput): Promise<ProvisionTenantAtomicResult> => {
+  const { data, error } = await supabase.rpc('provision_tenant_atomic', {
+    p_name_ar: input.name_ar,
+    p_slug: input.slug,
+    p_admin_email: input.admin_email,
+    p_admin_password: input.admin_password || null,
+    p_plan: input.plan || 'trial',
+    p_seats: input.seats || 10,
+  });
+
+  if (error) throw new Error(getErrorMessage(error));
+  return data as ProvisionTenantAtomicResult;
+};
+
+// تصدير من الخدمة
+(tenantService as any).provisionTenantAtomic = provisionTenantAtomic;
+
+// ── إنشاء شركة مع حساب إداري أولي — يربط Provisioning + Identity (يعالج مشكلة Dev Portal "شركة بلا حساب") ──
+export interface CreateCompanyWithAdminInput extends CreateTenantInput {
+  admin_email: string;
+  admin_password: string;
+  admin_full_name: string;
+  send_welcome_email?: boolean;
+}
+
+export const createCompanyWithInitialAdmin = async (input: CreateCompanyWithAdminInput) => {
+  // 1) تموين ذري للشركة (tenant + subscription + legal_entity DEFAULT)
+  const provision = await provisionTenantAtomic({
+    name_ar: input.name_ar,
+    slug: input.slug,
+    admin_email: input.admin_email,
+    admin_password: input.admin_password,
+    plan: (input.subscription_plan as any) || 'trial',
+    seats: input.max_employees || 10,
+  });
+
+  // 2) إنشاء حساب إداري أولي في الشركة الجديدة عبر Edge Function
+  //    يستخدم target_tenant_id لأن المتصل هو developer/it_admin
+  const { data: adminUserData, error: adminError } = await supabase.functions.invoke('admin-create-user', {
+    body: {
+      target_tenant_id: provision.tenant_id,
+      email: input.admin_email,
+      password: input.admin_password,
+      full_name: input.admin_full_name,
+      role: 'admin',
+      finance_role: 'entity_admin',
+      legal_entity_id: provision.legal_entity_id,
+    },
+  });
+
+  if (adminError) {
+    // حتى لو فشل إنشاء المستخدم، الشركة موجودة — نعيد معلومات الشركة مع تحذير
+    console.warn('Admin creation failed after provisioning:', adminError);
+    return {
+      provision,
+      admin: null,
+      warning: `تم إنشاء الشركة لكن فشل إنشاء الحساب الإداري: ${adminError.message}`,
+    };
+  }
+
+  return {
+    provision,
+    admin: adminUserData,
+    warning: null,
+  };
+};
+
+// إضافة للخدمة
+(tenantService as any).createCompanyWithInitialAdmin = createCompanyWithInitialAdmin;

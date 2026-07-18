@@ -1,18 +1,10 @@
 /**
- * ════════════════════════════════════════════════════════════════
- *  Structured Logger — Kyvzon Platform (v2 - Production Ready)
- *  ════════════════════════════════════════════════════════════════
- *
- *  A lightweight, type-safe, and extensible structured logger.
- *  Designed to work with the SDK layer and future observability tools.
- *
- *  Features:
- *  - Log levels with proper hierarchy
- *  - Automatic tenant context enrichment
- *  - Contextual metadata (tenant, user, component, action)
- *  - Child logger pattern for scoped logging
- *  - Ready for Sentry / OpenTelemetry integration
- *  - Zero dependencies
+ * Structured Logger — Kyvzon Platform (v3 - Treatment Plan)
+ * Features:
+ * - Log levels, tenant enrichment, child logger
+ * - Remote logging via ErrorLogService (SDK) for error/warn — respects SDK boundary
+ * - Correlation ID propagation
+ * - No sensitive data leak sanitization
  */
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -22,6 +14,7 @@ export interface LogContext {
   userId?: string;
   component?: string;
   action?: string;
+  correlationId?: string;
   [key: string]: unknown;
 }
 
@@ -38,6 +31,19 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   error: 3,
 };
 
+function getCorrelationId(): string {
+  try {
+    let id = sessionStorage.getItem('correlation_id');
+    if (!id) {
+      id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      sessionStorage.setItem('correlation_id', id);
+    }
+    return id;
+  } catch {
+    return `corr_${Date.now()}`;
+  }
+}
+
 class Logger {
   private minLevel: LogLevel = 'info';
   private enableConsole = true;
@@ -53,15 +59,19 @@ class Logger {
     return LOG_LEVELS[level] >= LOG_LEVELS[this.minLevel];
   }
 
-  /**
-   * Get current tenant ID safely (without throwing)
-   */
   private getTenantId(): string | undefined {
+    try { return localStorage.getItem('tenant_id') || undefined; } catch { return undefined; }
+  }
+
+  private getUserId(): string | undefined {
     try {
-      return localStorage.getItem('tenant_id') || undefined;
-    } catch {
+      const userStr = localStorage.getItem('auth_user');
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        return u?.id;
+      }
       return undefined;
-    }
+    } catch { return undefined; }
   }
 
   private formatMessage(level: LogLevel, message: string, context?: LogContext): string {
@@ -70,95 +80,97 @@ class Logger {
     return `[${timestamp}] [${level.toUpperCase()}] ${message}${ctx}`;
   }
 
+  private async sendToRemote(level: LogLevel, message: string, context: LogContext) {
+    if (!this.enableRemote) return;
+    if (level !== 'error' && level !== 'warn') return;
+
+    try {
+      // Use ErrorLogService (SDK) via dynamic import — respects SDK boundary
+      const { errorLogService } = await import('../sdk/ErrorLogService');
+
+      const sanitizedMessage = message.replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
+                                      .replace(/sk-[a-zA-Z0-9]+/g, '[REDACTED]');
+
+      await errorLogService.logError({
+        message: sanitizedMessage.slice(0, 2000),
+        source: (context.component as string) || 'logger',
+        stack_trace: (context.stack as string) || undefined,
+        severity: level,
+        category: (context.action as string) || 'general',
+        user_id: (context.userId as string) || this.getUserId() || null,
+        route: typeof window !== 'undefined' ? window.location.pathname : undefined,
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 200) : undefined,
+        metadata: {
+          correlation_id: context.correlationId || getCorrelationId(),
+          tenantId: context.tenantId || this.getTenantId(),
+          ...context,
+          url: typeof window !== 'undefined' ? window.location.href : null,
+        },
+      } as any);
+    } catch (e) {
+      console.warn('[Logger] Remote log failed:', e);
+    }
+  }
+
   private log(level: LogLevel, message: string, context?: LogContext) {
     if (!this.shouldLog(level)) return;
 
-    // Auto-enrich with tenant context if not provided
     const enrichedContext: LogContext = {
-      ...context,
+      correlationId: getCorrelationId(),
       tenantId: context?.tenantId || this.getTenantId(),
+      userId: context?.userId || this.getUserId(),
+      ...context,
     };
 
     const formatted = this.formatMessage(level, message, enrichedContext);
 
     if (this.enableConsole) {
       switch (level) {
-        case 'debug':
-          console.debug(formatted);
-          break;
-        case 'info':
-          console.info(formatted);
-          break;
-        case 'warn':
-          console.warn(formatted);
-          break;
-        case 'error':
-          console.error(formatted);
-          break;
+        case 'debug': console.debug(formatted); break;
+        case 'info': console.info(formatted); break;
+        case 'warn': console.warn(formatted); break;
+        case 'error': console.error(formatted); break;
       }
     }
 
-    // Future: Remote logging (Sentry, etc.)
     if (this.enableRemote) {
-      // TODO: Implement remote logging integration
+      void this.sendToRemote(level, message, enrichedContext);
+    } else if (level === 'error' && !import.meta.env.DEV) {
+      void this.sendToRemote(level, message, enrichedContext);
     }
   }
 
-  debug(message: string, context?: LogContext) {
-    this.log('debug', message, context);
-  }
+  debug(message: string, context?: LogContext) { this.log('debug', message, context); }
+  info(message: string, context?: LogContext) { this.log('info', message, context); }
+  warn(message: string, context?: LogContext) { this.log('warn', message, context); }
+  error(message: string, context?: LogContext) { this.log('error', message, context); }
 
-  info(message: string, context?: LogContext) {
-    this.log('info', message, context);
-  }
-
-  warn(message: string, context?: LogContext) {
-    this.log('warn', message, context);
-  }
-
-  error(message: string, context?: LogContext) {
-    this.log('error', message, context);
-  }
-
-  /**
-   * Log an error with stack trace and additional details
-   */
   logError(error: unknown, message?: string, context?: LogContext) {
     const errorMessage = message || 'An error occurred';
     const errorDetails = error instanceof Error 
-      ? { message: error.message, stack: error.stack, name: error.name }
-      : { error: String(error) };
+      ? { message: error.message, stack: error.stack?.slice(0, 2000), name: error.name }
+      : { error: String(error).slice(0, 2000) };
 
-    this.error(errorMessage, {
-      ...context,
-      ...errorDetails,
-    });
+    this.error(errorMessage, { ...context, ...errorDetails });
   }
 
-  /**
-   * Create a child logger with default context (useful for modules)
-   */
   child(defaultContext: LogContext) {
     return {
-      debug: (message: string, ctx?: LogContext) =>
-        this.debug(message, { ...defaultContext, ...ctx }),
-      info: (message: string, ctx?: LogContext) =>
-        this.info(message, { ...defaultContext, ...ctx }),
-      warn: (message: string, ctx?: LogContext) =>
-        this.warn(message, { ...defaultContext, ...ctx }),
-      error: (message: string, ctx?: LogContext) =>
-        this.error(message, { ...defaultContext, ...ctx }),
-      logError: (error: unknown, msg?: string, ctx?: LogContext) =>
-        this.logError(error, msg, { ...defaultContext, ...ctx }),
+      debug: (message: string, ctx?: LogContext) => this.debug(message, { ...defaultContext, ...ctx }),
+      info: (message: string, ctx?: LogContext) => this.info(message, { ...defaultContext, ...ctx }),
+      warn: (message: string, ctx?: LogContext) => this.warn(message, { ...defaultContext, ...ctx }),
+      error: (message: string, ctx?: LogContext) => this.error(message, { ...defaultContext, ...ctx }),
+      logError: (error: unknown, msg?: string, ctx?: LogContext) => this.logError(error, msg, { ...defaultContext, ...ctx }),
     };
   }
+
+  setRemote(enabled: boolean) { this.enableRemote = enabled; }
 }
 
-// Singleton instance
 export const logger = new Logger({
   minLevel: import.meta.env.DEV ? 'debug' : 'info',
   enableConsole: true,
-  enableRemote: false,
+  enableRemote: !import.meta.env.DEV,
 });
 
 export default logger;

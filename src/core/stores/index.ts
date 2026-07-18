@@ -203,6 +203,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         console.warn('⚠️ No profile found, using minimal user object');
       }
 
+      if (profile?.tenant_id) {
+        localStorage.setItem('tenant_id', profile.tenant_id);
+      }
       set({ user: profile, isAuthenticated: true, loading: false });
       setupRealtimeProfileSubscription(userId, (user) => set({ user }));
 
@@ -251,6 +254,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             profile.permissions,
           ),
         });
+        if (normalizedUser?.tenant_id) {
+          localStorage.setItem('tenant_id', normalizedUser.tenant_id);
+        }
         set({ user: normalizedUser, isAuthenticated: true });
 
         // Router يتولى التوجيه للصفحة الافتراضية عبر <RoleRedirect>
@@ -297,6 +303,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
 
     // إيقاف التحميل وتعيين المستخدم - مهم جداً لتجاوز AuthLoader
+    if (normalizedUser?.tenant_id) {
+      localStorage.setItem('tenant_id', normalizedUser.tenant_id);
+    }
     set({ user: normalizedUser, isAuthenticated: true, loading: false });
   },
 

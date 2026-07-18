@@ -6,12 +6,50 @@
 
 import { BaseService } from './BaseService';
 import type { DepartmentRecord } from '../../shared/types/sdk';
+import { supabase } from '../supabase/supabase';
 
 class DepartmentService extends BaseService<DepartmentRecord> {
   constructor() { super('departments'); }
 
   async findActive(): Promise<DepartmentRecord[]> {
-    return this.findAll({ filters: { is_active: true }, orderBy: 'name_ar', ascending: true });
+    try {
+      const tenantId = localStorage.getItem('tenant_id');
+      if (!tenantId) return [];
+
+      // 1. جلب الأقسام الخاصة بالشركة
+      let depts = await this.findAll({ filters: { is_active: true }, orderBy: 'name_ar', ascending: true });
+
+      // 2. إذا لم يكن هناك أي أقسام للشركة، نقوم بنسخ الأقسام الافتراضية من structure_departments تلقائياً!
+      if (depts.length === 0) {
+        const { data: defaultDepts, error } = await supabase
+          .from('structure_departments')
+          .select('name_ar, name_en')
+          .eq('is_active', true);
+
+        if (!error && defaultDepts && defaultDepts.length > 0) {
+          const payload = defaultDepts.map(d => ({
+            tenant_id: tenantId,
+            name_ar: d.name_ar,
+            name_en: d.name_en,
+            is_active: true
+          }));
+
+          const { data: inserted, error: insertError } = await supabase
+            .from('departments')
+            .insert(payload)
+            .select();
+
+          if (!insertError && inserted) {
+            depts = inserted as unknown as DepartmentRecord[];
+          }
+        }
+      }
+
+      return depts;
+    } catch (err) {
+      console.warn('DepartmentService.findActive auto-seed failed:', err);
+      return [];
+    }
   }
 
   async findTree(): Promise<(DepartmentRecord & { children?: DepartmentRecord[] })[]> {

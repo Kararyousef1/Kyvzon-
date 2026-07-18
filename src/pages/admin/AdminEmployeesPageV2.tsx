@@ -14,7 +14,6 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Search, Plus, Mail, Phone, Trash2, Edit2, Loader, X, Camera, ShieldCheck, Eye, RefreshCw, FileText, Users, UserCheck, UserX, Activity, Building, ChevronLeft, ChevronRight, Download, Upload, Landmark, DollarSign, Layers, FolderKanban, Check, AlertTriangle } from 'lucide-react';
 import Badge from '../../shared/components/ui/Badge';
 import { useAuthStore, useUIStore } from '../../core/stores';
-import { useTenantModules } from '../../shared/hooks/useTenantModules';
 import { userService } from '../../services/sdk/UserService';
 import { departmentService } from '../../services/sdk/DepartmentService';
 import { branchService } from '../../services/sdk/BranchService';
@@ -50,7 +49,6 @@ const ROLE_LABELS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r
 export default function AdminEmployeesPageV2() {
   const { user: currentUser } = useAuthStore();
   const { addToast } = useUIStore();
-  const { isEnabled } = useTenantModules();
 
   const [employees, setEmployees] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
@@ -74,13 +72,6 @@ export default function AdminEmployeesPageV2() {
   const [bulkPreview, setBulkPreview] = useState<any[]>([]);
   const [bulkProgress, setBulkProgress] = useState<{ done: number, total: number, errors: any[] } | null>(null);
   const [entityMemberships, setEntityMemberships] = useState<any[]>([]);
-
-  const tabs = [
-    { k: 'basic', l: 'الأساسية', icon: Users },
-    { k: 'permissions', l: 'صلاحيات HR', icon: ShieldCheck },
-    ...(isEnabled('finance') ? [{ k: 'finance', l: 'صلاحيات مالية', icon: Landmark }] : []),
-    { k: 'advanced', l: 'متقدم', icon: Activity },
-  ];
 
   const [form, setForm] = useState({
     full_name: '',
@@ -255,60 +246,17 @@ export default function AdminEmployeesPageV2() {
 
         // Create finance membership if selected
         const newUserId = (result as any).data?.id || (result as any).user_id;
-        if (newUserId) {
-          // حفظ الفرع والوردية في custom_permissions للـ profile + shift_assignments
-          try {
-            if (form.branch_id || (form as any).shift_code) {
-              await supabase.from('profiles').update({
-                custom_permissions: {
-                  branch_id: form.branch_id || null,
-                  shift_code: (form as any).shift_code || null,
-                  cost_centers: form.finance.cost_centers,
-                  projects: form.finance.projects,
-                }
-              }).eq('id', newUserId);
-
-              // إنشاء تعيين وردية — تم تبسيطه في خطة العلاج: نحفظ shift_code في custom_permissions فقط
-              // لأن shift_schedules تم حذفه كـ dead table في 0013، و shift_assignments يعتمد عليه بـ FK
-              // والجدول الصحيح المتبقي هو structure_shifts (مرجع للورديات)
-              // لذلك نحفظ الوردية في profiles.custom_permissions بدلاً من جدول منفصل
-              if ((form as any).shift_code) {
-                console.log('Shift assignment saved in custom_permissions:', (form as any).shift_code);
-                // سيتم حفظه بالفعل في custom_permissions أعلاه
-              }
-            }
-          } catch (branchErr) {
-            console.warn('Failed to save branch/shift:', branchErr);
-          }
-
-          if (form.finance.legal_entity_id) {
-            await supabase.from('entity_memberships').insert({
-              tenant_id: localStorage.getItem('tenant_id'),
-              legal_entity_id: form.finance.legal_entity_id,
-              user_id: newUserId,
-              finance_role: form.finance.finance_role,
-              is_active: true,
-            });
-          }
+        if (newUserId && form.finance.legal_entity_id) {
+          await supabase.from('entity_memberships').insert({
+            tenant_id: localStorage.getItem('tenant_id'),
+            legal_entity_id: form.finance.legal_entity_id,
+            user_id: newUserId,
+            finance_role: form.finance.finance_role,
+            is_active: true,
+          });
         }
 
-        const portalNames: any = {
-          employee: 'الموظف',
-          supervisor: 'المشرف',
-          manager: 'المدير',
-          hr: 'الموارد البشرية',
-          admin: form.branch_id ? `مدير نظام لفرع ${branches.find((b:any)=>b.id===form.branch_id)?.name_ar || ''}` : 'مدير نظام',
-          gatekeeper: 'الحارس',
-          it_admin: 'التقنية',
-        };
-        const shiftNames: any = {
-          morning: 'الصباحية (08:00-16:00)',
-          evening: 'المسائية (16:00-00:00)',
-          night: 'الليلية (00:00-08:00)',
-          flexible: 'مرنة',
-        };
-        const financeNote = form.finance.legal_entity_id ? ` + دور مالي ${form.finance.finance_role} في ${legalEntities.find((le:any)=>le.id===form.finance.legal_entity_id)?.code || ''}` : '';
-        addToast(`تم إنشاء ${form.full_name} — ${portalNames[form.role] || form.role} — فرع ${branches.find((b:any)=>b.id===form.branch_id)?.name_ar || 'عام'} — وردية ${shiftNames[(form as any).shift_code] || (form as any).shift_code || 'غير محددة'}${financeNote}`, 'success');
+        addToast(`تم إنشاء ${form.full_name} مع دور مالي ${form.finance.finance_role}`, 'success');
       }
       setModalOpen(false);
       await fetchAll();
@@ -490,7 +438,12 @@ export default function AdminEmployeesPageV2() {
             </div>
 
             <div className="flex gap-1 p-2 bg-slate-50 border-b overflow-x-auto">
-              {tabs.map((t: any) => (
+              {[
+                {k:'basic',l:'أساسي',icon:Building},
+                {k:'permissions',l:'صلاحيات HR',icon:ShieldCheck},
+                {k:'finance',l:'صلاحيات مالية',icon:Landmark},
+                {k:'advanced',l:'متقدم',icon:Activity},
+              ].map(t => (
                 <button key={t.k} onClick={() => setActiveTab(t.k as any)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap ${activeTab===t.k ? 'bg-white shadow border text-indigo-600' : 'text-slate-500'}`}><t.icon size={14} />{t.l}</button>
               ))}
             </div>
@@ -514,23 +467,6 @@ export default function AdminEmployeesPageV2() {
                     <div><label className="text-xs font-bold text-slate-500">المنصب</label><input value={form.position} onChange={e => setForm(f=>({...f, position: e.target.value}))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" /></div>
                     <div><label className="text-xs font-bold text-slate-500">الدور HR *</label><select value={form.role} onChange={e => setForm(f=>({...f, role: e.target.value as any}))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm">{ROLES.map(r=><option key={r.value} value={r.value}>{r.label}</option>)}</select></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="text-xs font-bold text-slate-500">الوردية التي سيعمل بها المستخدم</label><select value={(form as any).shift_code || ''} onChange={e => setForm(f=>({...f, shift_code: e.target.value} as any))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm"><option value="">اختر وردية</option><option value="morning">الوردية الصباحية (08:00-16:00)</option><option value="evening">الوردية المسائية (16:00-00:00)</option><option value="night">الوردية الليلية (00:00-08:00)</option><option value="flexible">وردية مرنة</option></select><p className="text-[10px] text-slate-400 mt-1">يتم حفظها في shift_assignments للموظف</p></div>
-                    <div><label className="text-xs font-bold text-slate-500">الفرع (إذا كان مدير نظام لفرع آخر)</label><select value={form.branch_id} onChange={e => setForm(f=>({...f, branch_id: e.target.value}))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm"><option value="">كل الفروع (إداري عام)</option>{branches.map((b:any)=><option key={b.id} value={b.id}>{b.name_ar}</option>)}</select><p className="text-[10px] text-slate-400 mt-1">مثال: إنشاء حساب مدير نظام لفرع آخر</p></div>
-                  </div>
-                  <div className="bg-slate-50 border rounded-xl p-3 text-xs">
-                    <p className="font-bold">🎯 إنشاء حسابات لكل البوابات (احترافي):</p>
-                    <ul className="mt-2 space-y-1 list-disc pr-4 text-slate-600">
-                      <li>للتقنية: اختر الدور it_admin أو tech — سيتمكن من دخول /app/tech-portal</li>
-                      <li>مشرف: الدور supervisor — /app/supervisor</li>
-                      <li>مدير: الدور manager — /app/manager</li>
-                      <li>موظف: الدور employee — /app/employee</li>
-                      <li>موارد بشرية: الدور hr — /app/hr</li>
-                      <li>مدير نظام لفرع آخر: الدور admin + اختر الفرع</li>
-                      <li>حارس: الدور gatekeeper — /app/gatekeeper</li>
-                      <li>مالية: اختر قسم المالية + في تبويب المالية حدد الكيان والدور المالي</li>
-                    </ul>
-                  </div>
                 </>
               )}
 
@@ -547,22 +483,9 @@ export default function AdminEmployeesPageV2() {
 
               {activeTab==='finance' && (
                 <div className="space-y-4">
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs">
-                    <p className="font-bold">💡 ملاحظة: بوابة المالية هي بوابة مثل باقي البوابات — التفاصيل المالية تظهر فقط إذا كان قسم المستخدم هو المالية</p>
-                    <p className="mt-1">حالياً القسم المختار: <strong>{form.department || 'غير محدد'}</strong> {form.department?.toLowerCase().includes('مالية') || form.department?.toLowerCase().includes('finance') || form.department==='finance' ? '→ سيتم عرض التفاصيل المالية' : '→ لن تظهر التفاصيل المالية (لأن القسم ليس المالية)'}</p>
-                  </div>
-                  <h4 className="font-black text-sm flex items-center gap-2"><Landmark size={16} className="text-violet-600" />الصلاحيات المالية المتقدمة — تظهر فقط عند اختيار قسم المالية</h4>
-                  <p className="text-xs text-slate-500">هذا التبويب يسمح بإنشاء حساب لبوابة المالية بمستوى احترافي — كيان قانوني + دور مالي + صلاحيات دقيقة + مراكز تكلفة — البوابات الأخرى ليس لها علاقة</p>
+                  <h4 className="font-black text-sm flex items-center gap-2"><Landmark size={16} className="text-violet-600" />الصلاحيات المالية المتقدمة — هذا هو جوهر طلبك</h4>
+                  <p className="text-xs text-slate-500">هذا التبويب يسمح بإنشاء حساب لبوابة المالية بمستوى احترافي جداً — كيان قانوني + دور مالي + صلاحيات دقيقة + مراكز تكلفة</p>
 
-                  {!(form.department?.toLowerCase().includes('مالية') || form.department?.toLowerCase().includes('finance') || form.department==='finance' || form.department==='general' && false) ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
-                      <p className="font-bold text-sm text-amber-800">التفاصيل المالية تظهر فقط عند اختيار قسم المالية</p>
-                      <p className="text-xs text-amber-700 mt-2">أنت حالياً اخترت قسم: <strong>{form.department || 'غير محدد'}</strong> — ليس قسم المالية، لذلك البوابات الأخرى ليس لها علاقة بالمالية.</p>
-                      <p className="text-xs text-amber-700 mt-2">إذا أردت إنشاء حساب لبوابة المالية، اختر في Tab الأساسي: القسم = المالية</p>
-                      <div className="mt-3 text-[11px] text-slate-500">بوابة المالية هي بوابة مثلها مثل باقي البوابات — عندما نختار قسم المالية هنا فقط سيتم عرض التفاصيل المالية</div>
-                    </div>
-                  ) : (
-                    <>
                   <div>
                     <label className="text-xs font-bold text-slate-500">الكيان القانوني *</label>
                     <select value={form.finance.legal_entity_id} onChange={e => setForm(f=>({...f, finance: {...f.finance, legal_entity_id: e.target.value}}))} className="w-full mt-1 px-4 py-2.5 bg-violet-50 border border-violet-200 rounded-xl text-sm">
@@ -621,8 +544,6 @@ export default function AdminEmployeesPageV2() {
                     </div>
                   </div>
 
-                    </>
-                  )}
                   <div className="bg-violet-50 border border-violet-200 rounded-xl p-3 text-xs text-violet-800">
                     <p className="font-bold">Preview:</p>
                     <p className="mt-1">{form.full_name || 'الموظف'} — {FINANCE_ROLES.find(r=>r.value===form.finance.finance_role)?.label} في كيان {legalEntities.find(le=>le.id===form.finance.legal_entity_id)?.code || '...'} — {form.finance.canPostJE ? 'يستطيع الترحيل' : 'لا يستطيع الترحيل'} — {form.finance.canClosePeriod ? 'يستطيع الإغلاق' : 'لا يغلق'}</p>

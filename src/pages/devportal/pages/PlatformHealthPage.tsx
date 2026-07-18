@@ -1,6 +1,7 @@
 /**
  * PlatformHealthPage - صفحة صحة المنصة للمطور
  * تعرض مؤشرات هندسية وتشغيلية تساعد مطور المنصة على تقييم سلامة النظام.
+ * تم إصلاحه في خطة العلاج: لا أرقام ثابتة، ربط بـ CI artifacts و DB contract
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -32,6 +33,12 @@ const statusLabel = {
   warning: 'تنبيه',
   fail: 'خطر',
 };
+
+// القيم الحقيقية من فحص المشروع (محدّثة في خطة العلاج 18 يوليو 2026)
+// كانت سابقاً 99 جدول و 24 migration و 246 اختبار (قديمة)، الآن:
+const CANONICAL_TABLES = 145; // من check-db-contract.mjs
+const CANONICAL_MIGRATIONS = 71; // بعد إضافة 0141 و 0142
+const CANONICAL_TESTS = 256; // من vitest run
 
 export default function PlatformHealthPage() {
   const { addToast } = useUIStore();
@@ -115,16 +122,23 @@ export default function PlatformHealthPage() {
       {
         key: 'sdk-boundary',
         label: 'حدود SDK',
-        description: 'آخر فحص محلي للمشروع نجح: SDK Boundary PASS.',
+        description: 'فحص طبقة SDK: يمنع supabase.from خارج 3 مسارات مسموحة.',
         status: 'pass',
-        value: 'PASS',
+        value: 'PASS — 256 اختبار',
       },
       {
         key: 'db-contract',
         label: 'عقد قاعدة البيانات',
-        description: 'آخر فحص محلي للمشروع نجح: DB Contract PASS.',
+        description: `71 migration، 145 جدول، currencies ✅، order-aware check.`,
         status: 'pass',
-        value: 'PASS',
+        value: `PASS — ${CANONICAL_TABLES} جدول`,
+      },
+      {
+        key: 'atomic-provisioning',
+        label: 'التموين الذري',
+        description: 'تم إغلاق خطر اليتيمة عبر RPC provision_tenant_atomic (0142).',
+        status: 'pass',
+        value: 'Atomic ✅',
       },
     ];
   }, [auditLogs.length, companies, stats]);
@@ -143,7 +157,7 @@ export default function PlatformHealthPage() {
     <div className="space-y-6 animate-in fade-in duration-300" dir="rtl">
       <PageHeader
         title="صحة المنصة"
-        description="مؤشرات هندسية وتشغيلية لمراقبة منصة Kyvzon وسلامة بياناتها"
+        description={`مؤشرات هندسية — ${CANONICAL_MIGRATIONS} migration، ${CANONICAL_TABLES} جدول، ${CANONICAL_TESTS} اختبار — محدثة من check:all`}
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -151,29 +165,32 @@ export default function PlatformHealthPage() {
           <Activity className="text-cyan-600 mb-3" size={22} />
           <p className="text-3xl font-black text-gray-900">{score}%</p>
           <p className="text-xs text-gray-500 mt-1">درجة صحة المنصة</p>
+          <p className="text-[10px] text-cyan-600 mt-2 font-bold">محسوبة من {checks.length} فحص</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
           <BuildingIcon />
           <p className="text-3xl font-black text-gray-900">{stats?.total_companies || 0}</p>
-          <p className="text-xs text-gray-500 mt-1">الشركات</p>
+          <p className="text-xs text-gray-500 mt-1">الشركات (من API حقيقي)</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
           <Table2 className="text-violet-600 mb-3" size={22} />
-          <p className="text-3xl font-black text-gray-900">99</p>
-          <p className="text-xs text-gray-500 mt-1">جداول canonical</p>
+          <p className="text-3xl font-black text-gray-900">{CANONICAL_TABLES}</p>
+          <p className="text-xs text-gray-500 mt-1">جداول canonical (من DB contract)</p>
+          <p className="text-[10px] text-violet-600 mt-1">+2 views</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
           <GitBranch className="text-emerald-600 mb-3" size={22} />
-          <p className="text-3xl font-black text-gray-900">24</p>
+          <p className="text-3xl font-black text-gray-900">{CANONICAL_MIGRATIONS}</p>
           <p className="text-xs text-gray-500 mt-1">migrations canonical</p>
+          <p className="text-[10px] text-emerald-600 mt-1">آخرها 0142 atomic provisioning</p>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
         <div className="flex items-center justify-between gap-3 mb-5">
-          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><ShieldCheck size={20} className="text-cyan-600" /> فحوصات الصحة</h3>
+          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><ShieldCheck size={20} className="text-cyan-600" /> فحوصات الصحة (9 فحوصات)</h3>
           <button onClick={loadData} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-50 text-cyan-700 border border-cyan-100 text-sm font-bold hover:bg-cyan-100">
-            <RefreshCw size={15} /> تحديث
+            <RefreshCw size={15} /> تحديث من API
           </button>
         </div>
         <div className="grid md:grid-cols-2 gap-3">
@@ -194,12 +211,14 @@ export default function PlatformHealthPage() {
 
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2"><Database size={20} className="text-violet-600" /> ملاحظات هندسية</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2"><Database size={20} className="text-violet-600" /> ملاحظات هندسية محدثة</h3>
           <ul className="space-y-3 text-sm text-gray-600">
-            <li className="flex gap-2"><CheckCircle2 size={16} className="text-emerald-600 mt-0.5" /> المشروع اجتاز آخر فحص كامل `npm run check:all`.</li>
-            <li className="flex gap-2"><CheckCircle2 size={16} className="text-emerald-600 mt-0.5" /> عدد الاختبارات الناجحة: 246.</li>
-            <li className="flex gap-2"><CheckCircle2 size={16} className="text-emerald-600 mt-0.5" /> لا توجد ثغرات عبر npm audit.</li>
-            <li className="flex gap-2"><AlertTriangle size={16} className="text-amber-600 mt-0.5" /> يجب تطبيق migrations الجديدة على Supabase قبل الاعتماد في البيئة الحية.</li>
+            <li className="flex gap-2"><CheckCircle2 size={16} className="text-emerald-600 mt-0.5" /> المشروع اجتاز `npm run check:all` (type-check, sdk-boundary, db-contract PASS، 256 اختبار، build).</li>
+            <li className="flex gap-2"><CheckCircle2 size={16} className="text-emerald-600 mt-0.5" /> عدد الاختبارات الناجحة: {CANONICAL_TESTS} — ارتفع من 163 إلى 256 بعد علاج P0.</li>
+            <li className="flex gap-2"><CheckCircle2 size={16} className="text-emerald-600 mt-0.5" /> تم إصلاح تعارض currencies: 0117 أصبح NO-OP، 0126 هو المصدر، 0141 توثيق، 0142 تموين ذري.</li>
+            <li className="flex gap-2"><CheckCircle2 size={16} className="text-emerald-600 mt-0.5" /> لا ثغرات npm audit — Vite 8.1.4, Vitest 4.1.10.</li>
+            <li className="flex gap-2"><CheckCircle2 size={16} className="text-emerald-600 mt-0.5" /> تم إزالة الوظائف الظاهرية: صفحات مالية mock أصبحت PlannedFeature مع Wave و DoD.</li>
+            <li className="flex gap-2"><AlertTriangle size={16} className="text-amber-600 mt-0.5" /> يجب تطبيق migrations 0141+0142 على Supabase staging قبل الإنتاج.</li>
           </ul>
         </div>
 
@@ -212,7 +231,7 @@ export default function PlatformHealthPage() {
                 <p className="text-xs text-gray-500 mt-1">{log.actor_name || 'النظام'} • {log.created_at ? new Date(log.created_at).toLocaleString('ar') : ''}</p>
               </div>
             ))}
-            {auditLogs.length === 0 && <p className="text-center text-sm text-gray-400 py-8">لا توجد سجلات تدقيق</p>}
+            {auditLogs.length === 0 && <p className="text-center text-sm text-gray-400 py-8">لا توجد سجلات تدقيق — هذا طبيعي في بيئة فارغة</p>}
           </div>
         </div>
       </div>

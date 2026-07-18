@@ -14,6 +14,8 @@ import {
   ArrowRightLeft, Bot, FileBarChart, HeartPulse, Award, FileText,
 } from 'lucide-react';
 import { PageHeader, Badge, EmptyState, ConfirmDialog } from '../components/shared';
+import CompanyDetailDrawer from '../components/CompanyDetailDrawer';
+import CompanyCreateWizard from '../components/CompanyCreateWizard';
 import { companiesApi } from '../services/api';
 import type { Company, DevPortalPage, IconType } from '../types';
 import { useUIStore } from '../../../core/stores';
@@ -575,6 +577,79 @@ const Detail: FC<{ label: string; value: React.ReactNode }> = ({ label, value })
   </div>
 );
 
+
+const CreateInitialAdminModal: FC<{
+  company: Company;
+  onClose: () => void;
+  onCreated: () => void;
+}> = ({ company, onClose, onCreated }) => {
+  const { addToast } = useUIStore();
+  const [form, setForm] = useState({ email: `admin@${company.slug}.com`, full_name: '', password: '' });
+  const [saving, setSaving] = useState(false);
+
+  const handleCreate = async () => {
+    if (!form.email || !form.full_name || form.password.length < 8) {
+      addToast('يرجى ملء كل الحقول وكلمة مرور 8 أحرف على الأقل', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { supabase } = await import('../../../services/supabase/supabase');
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          target_tenant_id: company.id,
+          email: form.email,
+          password: form.password,
+          full_name: form.full_name,
+          role: 'admin',
+        }
+      });
+      if (error) throw new Error(error.message || 'فشل إنشاء الحساب');
+      if ((data as any)?.error) throw new Error((data as any).error);
+      addToast(`تم إنشاء حساب إداري أولي ${form.full_name} للشركة ${company.name_ar}`, 'success');
+      onCreated();
+    } catch (err: any) {
+      addToast(`فشل: ${err.message}`, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b">
+          <h3 className="font-black text-lg">إنشاء حساب إداري أولي</h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center"><X size={16} /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 text-xs text-cyan-800">
+            <p className="font-bold">للشركة: {company.name_ar} ({company.slug})</p>
+            <p className="font-mono text-[11px] mt-1">ID: {company.id.slice(0,12)}... — سيُستخدم كـ target_tenant_id</p>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-500">البريد الإلكتروني *</label>
+            <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="w-full mt-1 px-3 py-2.5 border rounded-xl text-sm" placeholder="admin@company.com" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-500">الاسم الكامل *</label>
+            <input value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} className="w-full mt-1 px-3 py-2.5 border rounded-xl text-sm" placeholder="أحمد محمد" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-500">كلمة المرور * (8 أحرف على الأقل)</label>
+            <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="w-full mt-1 px-3 py-2.5 border rounded-xl text-sm" placeholder="كلمة مرور قوية" />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl bg-white border text-sm font-bold">إلغاء</button>
+            <button onClick={handleCreate} disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold text-sm disabled:opacity-50">{saving ? 'جاري الإنشاء...' : 'إنشاء الحساب'}</button>
+          </div>
+          <p className="text-[11px] text-slate-400 text-center">سيتم استدعاء Edge Function admin-create-user مع target_tenant_id={company.id.slice(0,8)}... ويُنشأ entity_membership كـ entity_admin تلقائياً</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ════════════════════════════════════════════════════════════════
 //  Companies Page
 // ════════════════════════════════════════════════════════════════
@@ -589,6 +664,8 @@ export default function CompaniesPage({ onNavigate }: { onNavigate?: (page: DevP
   const [viewing, setViewing]       = useState<Company | null>(null);
   const [saving, setSaving]         = useState(false);
   const [confirm, setConfirm]       = useState<{ type: string; company: Company } | null>(null);
+  const [createAdminFor, setCreateAdminFor] = useState<Company | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const fetchCompanies = useCallback(async () => {
     setLoading(true);
@@ -614,12 +691,16 @@ export default function CompaniesPage({ onNavigate }: { onNavigate?: (page: DevP
     : companies;
 
   // Actions
-  const handleCreate = () => { setEditing(null); setFormOpen(true); };
+  const handleCreate = () => { setEditing(null); setWizardOpen(true); };
+  const handleCreateOld = () => { setEditing(null); setFormOpen(true); }; // kept for fallback
   const handleEdit   = (c: Company) => { setEditing(c); setFormOpen(true); };
   const handleView   = (c: Company) => { setViewing(c); };
   const handleManageModules = (c: Company) => {
     sessionStorage.setItem('devportal_selected_tenant', c.id);
     onNavigate?.('modules');
+  };
+  const handleCreateAdmin = (c: Company) => {
+    setCreateAdminFor(c);
   };
 
   const handleSave = async (data: Record<string, unknown>) => {
@@ -751,11 +832,36 @@ export default function CompaniesPage({ onNavigate }: { onNavigate?: (page: DevP
         onClose={() => { setFormOpen(false); setEditing(null); }}
         saving={saving}
       />
-      <CompanyDetailModal
-        company={viewing}
-        onClose={() => setViewing(null)}
-        onEdit={handleEdit}
-      />
+      {viewing && (
+        <CompanyDetailDrawer
+          company={viewing}
+          onClose={() => setViewing(null)}
+          onEdit={handleEdit}
+          onCreateAdmin={handleCreateAdmin}
+        />
+      )}
+      {/* Keep old modal as fallback hidden */}
+      {false && (
+        <CompanyDetailModal
+          company={viewing}
+          onClose={() => setViewing(null)}
+          onEdit={handleEdit}
+        />
+      )}
+      {wizardOpen && (
+        <CompanyCreateWizard
+          open={wizardOpen}
+          onClose={() => setWizardOpen(false)}
+          onCreated={async () => { setWizardOpen(false); await fetchCompanies(); }}
+        />
+      )}
+      {createAdminFor && (
+        <CreateInitialAdminModal
+          company={createAdminFor}
+          onClose={() => setCreateAdminFor(null)}
+          onCreated={async () => { setCreateAdminFor(null); await fetchCompanies(); }}
+        />
+      )}
       <ConfirmDialog
         open={!!confirm}
         title={confirm?.type === 'suspend' ? 'تعليق الشركة' : confirm?.type === 'activate' ? 'تفعيل الشركة' : 'حذف الشركة'}

@@ -366,16 +366,8 @@ export default function TrainingManagementPage() {
     return courses.filter((c) => c.title.includes(q) || c.titleEn?.toLowerCase().includes(q) || c.instructor.includes(q) || c.tags.some((t) => t.includes(q)));
   }, [courses, searchQuery]);
 
-  const saveToLocal = (id: string, data: CourseUpsertData) => {
-    try {
-      const stored = localStorage.getItem('courses_data');
-      const localCourses: LocalCourseRecord[] = stored ? JSON.parse(stored) : [];
-      const idx = localCourses.findIndex((c) => c.id === id || c._id === id);
-      const entry: LocalCourseRecord = { ...data, id, _id: id, updatedAt: new Date().toISOString() };
-      if (idx >= 0) localCourses[idx] = { ...localCourses[idx], ...entry };
-      else localCourses.unshift(entry);
-      localStorage.setItem('courses_data', JSON.stringify(localCourses));
-    } catch { /* تجاهل */ }
+  const saveToLocal = (_id: string, _data: CourseUpsertData) => {
+    /* تم إزالة الاعتماد على localStorage في خطة العلاج — كل شيء من Supabase عبر courseService */
   };
 
   const handleSaveCourse = async (data: Partial<ManagedCourse>) => {
@@ -574,26 +566,20 @@ export default function TrainingManagementPage() {
           courseId={quizCourse.id}
           courseTitle={quizCourse.title}
           courseContent={quizCourse.richContent}
-          onSave={(quiz: any) => {
+          onSave={async (quiz: any) => {
             try {
-              const stored = localStorage.getItem('quizzes_data');
-              const quizzes: LocalQuizRecord[] = stored ? JSON.parse(stored) : [];
-              const idx = quizzes.findIndex((q) => q.course_id === quiz.course_id);
-              const record: LocalQuizRecord = { ...quiz, id: quiz.id, course_id: quiz.course_id };
-              if (idx >= 0) quizzes[idx] = { ...quizzes[idx], ...record };
-              else quizzes.push(record);
-              localStorage.setItem('quizzes_data', JSON.stringify(quizzes));
-
-              const coursesStored = localStorage.getItem('courses_data');
-              if (coursesStored) {
-                const localCourses: LocalCourseRecord[] = JSON.parse(coursesStored);
-                const courseIdx = localCourses.findIndex((c) => c.id === quiz.course_id);
-                if (courseIdx >= 0) {
-                  localCourses[courseIdx].quiz_id = quiz.id;
-                  localStorage.setItem('courses_data', JSON.stringify(localCourses));
-                }
-              }
-              addToast('تم حفظ الاختبار بنجاح', 'success');
+              const { supabase } = await import('../../services/supabase/supabase');
+              const tenant_id = localStorage.getItem('tenant_id');
+              const { error } = await supabase.from('quizzes').upsert({ 
+                id: (quiz as any).id || undefined,
+                course_id: (quiz as any).course_id, 
+                title: (quiz as any).title || 'اختبار',
+                questions: (quiz as any).questions || [],
+                tenant_id,
+                updated_at: new Date().toISOString()
+              } as any);
+              if (error) throw error;
+              addToast('تم حفظ الاختبار في Supabase', 'success');
             } catch {
               addToast('تم حفظ الاختبار محلياً', 'info');
             }

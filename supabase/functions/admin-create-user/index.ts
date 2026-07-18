@@ -20,10 +20,12 @@ interface CreateUserPayload {
   role: string;
   department_id?: string;
   employee_code?: string;
-  // Backward-compatible input name; stored as employee_code.
   employee_number?: string;
   phone?: string;
   position?: string;
+  target_tenant_id?: string; // جديد: يسمح للمطور بتحديد tenant آخر لإنشاء أول admin
+  finance_role?: string; // جديد: دور مالي اختياري
+  legal_entity_id?: string; // جديد: كيان قانوني للدور المالي
 }
 
 function corsHeaders(req: Request): Record<string, string> {
@@ -90,11 +92,10 @@ serve(async (req: Request) => {
     if (profileError || !callerProfile || !CALLER_ROLES.has(String(callerProfile.role))) {
       return json(req, { error: 'غير مخوّل. يتطلب صلاحية إدارية.' }, 403);
     }
-    if (!callerProfile.tenant_id) {
+    if (!callerProfile.tenant_id && !PLATFORM_ROLES.has(String(callerProfile.role))) {
       return json(req, { error: 'لا توجد شركة مرتبطة بالمستخدم الإداري.' }, 403);
     }
 
-    // 🛡️ Rate limiting — بعد التحقق من الهوية (لا نضيع حدوداً على غير المصرّح لهم)
     const rl = checkRateLimit(authData.user.id, 'admin-create-user', RATE_LIMITS.ADMIN_CREATE);
     if (!rl.allowed) {
       return new Response(
@@ -111,8 +112,11 @@ serve(async (req: Request) => {
     const password = String(payload.password || '');
     const fullName = String(payload.full_name || '').trim();
     const role = String(payload.role || '');
+    const targetTenantIdInput = payload.target_tenant_id ? String(payload.target_tenant_id).trim() : null;
+    const financeRole = payload.finance_role ? String(payload.finance_role).trim() : null;
+    const legalEntityIdInput = payload.legal_entity_id ? String(payload.legal_entity_id).trim() : null;
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
       return json(req, { error: 'البريد الإلكتروني غير صالح' }, 400);
     }
     if (password.length < 8 || password.length > 128) {
@@ -127,30 +131,77 @@ serve(async (req: Request) => {
     if (payload.department_id && !isUuid(payload.department_id)) {
       return json(req, { error: 'معرّف القسم غير صالح' }, 400);
     }
+    if (targetTenantIdInput && !isUuid(targetTenantIdInput)) {
+      return json(req, { error: 'معرّف الشركة المستهدفة غير صالح' }, 400);
+    }
+    if (legalEntityIdInput && !isUuid(legalEntityIdInput)) {
+      return json(req, { error: 'معرّف الكيان القانوني غير صالح' }, 400);
+    }
 
-    // 🛡️ منع Privilege Escalation عبر إنشاء مستخدم بدور منصة
     if (PLATFORM_ROLES.has(role)) {
       return json(req, { error: 'لا يمكن إنشاء مستخدم بدور منصة عبر هذه الواجهة' }, 403);
+    }
+
+    // تحديد الشركة المستهدفة — المنطق الجديد لإصلاح مشكلة Dev Portal
+    let targetTenantId = callerProfile.tenant_id;
+
+    if (targetTenantIdInput) {
+      // فقط platform owners يمكنهم تحديد tenant آخر
+      if (!PLATFORM_ROLES.has(String(callerProfile.role))) {
+        return json(req, { error: 'فقط مطور المنصة يمكنه إنشاء مستخدم في شركة أخرى (target_tenant_id)' }, 403);
+      }
+      targetTenantId = targetTenantIdInput;
+
+      // تحقق أن الشركة المستهدفة موجودة
+      const tempAdminClient = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { data: targetTenant, error: tenantError } = await tempAdminClient
+        .from('tenants')
+        .select('id, status')
+        .eq('id', targetTenantId)
+        .maybeSingle();
+
+      if (tenantError || !targetTenant) {
+        return json(req, { error: 'الشركة المستهدفة غير موجودة' }, 404);
+      }
+    }
+
+    if (!targetTenantId) {
+      return json(req, { error: 'لا يمكن تحديد الشركة المستهدفة' }, 400);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // لا تثق باسم القسم القادم من المتصفح. تحقق من UUID ومن أن القسم
-    // يخص نفس الشركة، ثم استخدم الاسم المعتمد من قاعدة البيانات للـ profile.
     let departmentName: string | null = null;
     if (payload.department_id) {
       const { data: department, error: departmentError } = await adminClient
         .from('departments')
         .select('id, name_ar')
         .eq('id', payload.department_id)
-        .eq('tenant_id', callerProfile.tenant_id)
+        .eq('tenant_id', targetTenantId)
         .maybeSingle();
       if (departmentError || !department) {
-        return json(req, { error: 'القسم المحدد غير موجود ضمن شركتك' }, 400);
+        return json(req, { error: 'القسم المحدد غير موجود ضمن الشركة المستهدفة' }, 400);
       }
       departmentName = department.name_ar;
+    }
+
+    // تحقق من legal_entity إذا تم تمريره
+    let validatedLegalEntityId: string | null = null;
+    if (legalEntityIdInput) {
+      const { data: entity, error: entityError } = await adminClient
+        .from('legal_entities')
+        .select('id, tenant_id')
+        .eq('id', legalEntityIdInput)
+        .eq('tenant_id', targetTenantId)
+        .maybeSingle();
+      if (entityError || !entity) {
+        return json(req, { error: 'الكيان القانوني غير موجود ضمن الشركة المستهدفة' }, 400);
+      }
+      validatedLegalEntityId = entity.id;
     }
 
     const { firstName, lastName } = splitName(fullName);
@@ -162,7 +213,7 @@ serve(async (req: Request) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name: fullName, role, tenant_id: callerProfile.tenant_id },
+      user_metadata: { full_name: fullName, role, tenant_id: targetTenantId },
     });
 
     if (createError || !newUser.user) {
@@ -174,7 +225,7 @@ serve(async (req: Request) => {
       .from('profiles')
       .insert({
         id: newUser.user.id,
-        tenant_id: callerProfile.tenant_id,
+        tenant_id: targetTenantId,
         email,
         full_name: fullName,
         role,
@@ -193,7 +244,7 @@ serve(async (req: Request) => {
     const { error: employeeInsertError } = await adminClient
       .from('employees')
       .insert({
-        tenant_id: callerProfile.tenant_id,
+        tenant_id: targetTenantId,
         user_id: newUser.user.id,
         employee_code: employeeCode,
         first_name: firstName,
@@ -213,21 +264,69 @@ serve(async (req: Request) => {
       return json(req, { error: 'فشل إنشاء سجل الموظف' }, 500);
     }
 
-    // Audit (fire-and-forget — لن يفشل حتى لو DB down)
+    // جديد: إذا تم تمرير finance_role و legal_entity_id، أنشئ عضوية مالية
+    // أو إذا كان role=admin، اجعله entity_admin للـ DEFAULT entity تلقائياً (للحساب الأولي)
+    try {
+      if (financeRole && validatedLegalEntityId) {
+        const allowedFinanceRoles = new Set(['viewer','accountant','approver','finance_manager','entity_admin']);
+        if (allowedFinanceRoles.has(financeRole)) {
+          await adminClient.from('entity_memberships').insert({
+            tenant_id: targetTenantId,
+            legal_entity_id: validatedLegalEntityId,
+            user_id: newUser.user.id,
+            finance_role: financeRole,
+            is_active: true,
+          });
+        }
+      } else if (role === 'admin') {
+        // للحساب الإداري الأولي، امنحه entity_admin في الكيان الافتراضي DEFAULT تلقائياً
+        const { data: defaultEntity } = await adminClient
+          .from('legal_entities')
+          .select('id')
+          .eq('tenant_id', targetTenantId)
+          .eq('code', 'DEFAULT')
+          .maybeSingle();
+
+        if (defaultEntity) {
+          await adminClient.from('entity_memberships').insert({
+            tenant_id: targetTenantId,
+            legal_entity_id: defaultEntity.id,
+            user_id: newUser.user.id,
+            finance_role: 'entity_admin',
+            is_active: true,
+          });
+        }
+      }
+    } catch (membershipError) {
+      console.warn('Entity membership creation failed (non-critical):', membershipError instanceof Error ? membershipError.message : String(membershipError));
+      // لا نفشل العملية كاملة إذا فشل إنشاء العضوية المالية — يمكن إضافته لاحقاً من Admin Portal
+    }
+
     await audit(
       adminClient,
-      callerProfile.tenant_id,
+      targetTenantId,
       authData.user.id,
       newUser.user.id,
       'admin_create_user',
-      { email, role, department_id: payload.department_id || null },
+      { 
+        email, 
+        role, 
+        department_id: payload.department_id || null, 
+        target_tenant_id: targetTenantId,
+        finance_role: financeRole || null,
+        legal_entity_id: validatedLegalEntityId || null,
+        is_initial_admin: !!targetTenantIdInput,
+      },
     );
 
     return json(req, {
       success: true,
       user_id: newUser.user.id,
       email,
-      message: `تم إنشاء المستخدم ${fullName} بنجاح`,
+      tenant_id: targetTenantId,
+      message: targetTenantIdInput 
+        ? `تم إنشاء حساب إداري أولي ${fullName} للشركة ${targetTenantId} بنجاح` 
+        : `تم إنشاء المستخدم ${fullName} بنجاح`,
     }, 201);
   } catch (error) {
     console.error('Unexpected admin-create-user error:', error instanceof Error ? error.message : String(error));

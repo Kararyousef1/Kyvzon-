@@ -10,6 +10,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    include: ['src/test/**/*.test.{ts,tsx}'],
+    exclude: ['node_modules/', 'dist/', 'e2e/', 'playwright.config.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json'],
@@ -31,6 +33,7 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.config.*',
         'dist/',
+        'e2e/',
       ],
       thresholds: {
         statements: 70,
