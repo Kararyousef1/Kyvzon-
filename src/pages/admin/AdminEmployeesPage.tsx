@@ -17,6 +17,7 @@ import {
 import Badge from '../../shared/components/ui/Badge';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { userService } from '../../services/sdk/UserService';
+import { departmentService } from '../../services/sdk/DepartmentService';
 import { adminUserService } from '../../services/sdk/AdminUserService';
 import { entitlementService } from '../../services/sdk/EntitlementService';
 import { exportToStyledExcel } from '../../utils/exportToExcel';
@@ -49,6 +50,7 @@ interface FormState {
   passcode: string;
   role: UserRole;
   department: string;
+  department_id: string;
   position: string;
   phone: string;
   salary: string;
@@ -60,18 +62,12 @@ interface FormState {
 //  Constants
 // ════════════════════════════════════════════════════════════════
 
-const DEPARTMENTS = [
-  'التقنية', 'المبيعات', 'التسويق', 'الدعم الفني',
-  'الموارد البشرية', 'الإدارة', 'المالية', 'تقنية المعلومات',
-];
-
 const ROLES: { value: string; label: string; color: string }[] = [
   { value: 'employee', label: 'موظف', color: 'bg-blue-100 text-blue-700' },
   { value: 'supervisor', label: 'مشرف', color: 'bg-cyan-100 text-cyan-700' },
   { value: 'manager', label: 'مدير', color: 'bg-amber-100 text-amber-700' },
   { value: 'hr', label: 'موارد بشرية', color: 'bg-emerald-100 text-emerald-700' },
   { value: 'gatekeeper', label: 'حارس', color: 'bg-teal-100 text-teal-700' },
-  { value: 'it_admin', label: 'تقنية معلومات', color: 'bg-sky-100 text-sky-700' },
   { value: 'admin', label: 'مدير نظام', color: 'bg-rose-100 text-rose-700' },
 ];
 
@@ -91,7 +87,7 @@ const DEFAULT_PERMS: Record<string, string[]> = {
 
 const EMPTY_FORM: FormState = {
   full_name: '', email: '', passcode: '', role: 'employee',
-  department: '', position: '', phone: '',
+  department: '', department_id: '', position: '', phone: '',
   salary: '', salary_currency: 'IQD',
   permissions: DEFAULT_PERMS.employee,
 };
@@ -107,6 +103,7 @@ export default function AdminEmployeesPage() {
   const { addToast } = useUIStore();
 
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
+  const [departmentOptions, setDepartmentOptions] = useState<Array<{ id: string; name_ar: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('all');
@@ -126,8 +123,15 @@ export default function AdminEmployeesPage() {
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const data = await userService.findAllUsers();
+      const [data, departmentRows] = await Promise.all([
+        userService.findAllUsers(),
+        departmentService.findActive().catch(() => []),
+      ]);
       setEmployees((data || []) as unknown as EmployeeRecord[]);
+      setDepartmentOptions((departmentRows || []).map(department => ({
+        id: department.id,
+        name_ar: department.name_ar,
+      })));
     } catch (err: unknown) {
       addToast('فشل تحميل الموظفين: ' + getErrorMessage(err), 'error');
     } finally {
@@ -185,6 +189,7 @@ export default function AdminEmployeesPage() {
       passcode: '',
       role: emp.role || 'employee',
       department: emp.department || '',
+      department_id: departmentOptions.find(department => department.name_ar === emp.department)?.id || '',
       position: emp.position || '',
       phone: emp.phone || '',
       salary: (emp as any).salary || '',
@@ -208,8 +213,8 @@ export default function AdminEmployeesPage() {
       addToast('يرجى تعبئة الاسم والبريد', 'error');
       return;
     }
-    if (formMode === 'create' && form.passcode.length < 6) {
-      addToast('كلمة المرور 6 أحرف على الأقل', 'error');
+    if (formMode === 'create' && form.passcode.length < 8) {
+      addToast('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'error');
       return;
     }
     setSaving(true);
@@ -237,7 +242,10 @@ export default function AdminEmployeesPage() {
           password: form.passcode,
           full_name: form.full_name,
           role: form.role,
-          department_id: form.department,
+          department_id: form.department_id || undefined,
+          department: form.department || undefined,
+          position: form.position || undefined,
+          phone: form.phone || undefined,
         });
         if (result.error) {
           addToast('فشل: ' + result.error, 'error');
@@ -501,10 +509,17 @@ export default function AdminEmployeesPage() {
                 </div>
                 <div>
                   <label className="text-xs font-bold text-gray-500 mb-1 block">القسم</label>
-                  <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
+                  <select value={form.department_id} onChange={e => {
+                    const department = departmentOptions.find(item => item.id === e.target.value);
+                    setForm(f => ({
+                      ...f,
+                      department_id: department?.id || '',
+                      department: department?.name_ar || '',
+                    }));
+                  }}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-400">
                     <option value="">— اختر القسم —</option>
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    {departmentOptions.map(department => <option key={department.id} value={department.id}>{department.name_ar}</option>)}
                   </select>
                 </div>
                 <div>

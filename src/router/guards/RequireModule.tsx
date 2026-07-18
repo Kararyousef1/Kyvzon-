@@ -7,15 +7,22 @@ import { useTenantModules } from '../../shared/hooks/useTenantModules';
 import { getModuleForPath } from '../moduleMap';
 import Button from '../../shared/components/ui/Button';
 
-export function RequireModule({ children }: { children?: React.ReactNode }) {
+export function RequireModule({
+  children,
+  moduleKey,
+}: {
+  children?: React.ReactNode;
+  moduleKey?: string;
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   const { isEnabled, loaded, loading } = useTenantModules();
   const moduleInfo = getModuleForPath(location.pathname);
+  const effectiveModule = moduleKey ?? moduleInfo?.moduleKey;
 
-  if (!moduleInfo) return children ? <>{children}</> : <Outlet />;
+  if (!effectiveModule) return children ? <>{children}</> : <Outlet />;
   if (!loaded || loading) return null;
-  if (isEnabled(moduleInfo.moduleKey)) return children ? <>{children}</> : <Outlet />;
+  if (isEnabled(effectiveModule)) return children ? <>{children}</> : <Outlet />;
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-6" dir="rtl">
@@ -25,7 +32,7 @@ export function RequireModule({ children }: { children?: React.ReactNode }) {
         </div>
         <h1 className="text-xl font-extrabold text-slate-900 mb-2">البوابة غير مفعلة</h1>
         <p className="text-sm text-slate-500 leading-relaxed mb-5">
-          {moduleInfo.label} غير مفعلة في اشتراك شركتك. يرجى التواصل مع إدارة منصة Kyvzon لتفعيلها.
+          {moduleInfo?.label ?? 'هذه البوابة'} غير مفعلة في اشتراك شركتك. يرجى التواصل مع إدارة منصة Kyvzon لتفعيلها.
         </p>
         <Button variant="secondary" onClick={() => navigate('/app')} icon={<ArrowRight size={14} />} iconPosition="left">
           العودة للرئيسية

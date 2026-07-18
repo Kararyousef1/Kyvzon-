@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { audit, PLATFORM_ROLES } from '../_shared/adminAuth.ts';
+import { audit, isUuid, PLATFORM_ROLES } from '../_shared/adminAuth.ts';
 import { checkRateLimit, rateLimitHeaders, RATE_LIMITS } from '../_shared/rateLimit.ts';
 
 const TARGET_ROLES = new Set([
@@ -124,6 +124,9 @@ serve(async (req: Request) => {
     if (!TARGET_ROLES.has(role)) {
       return json(req, { error: 'الدور المطلوب غير مسموح' }, 400);
     }
+    if (payload.department_id && !isUuid(payload.department_id)) {
+      return json(req, { error: 'معرّف القسم غير صالح' }, 400);
+    }
 
     // 🛡️ منع Privilege Escalation عبر إنشاء مستخدم بدور منصة
     if (PLATFORM_ROLES.has(role)) {
@@ -133,6 +136,23 @@ serve(async (req: Request) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
+
+    // لا تثق باسم القسم القادم من المتصفح. تحقق من UUID ومن أن القسم
+    // يخص نفس الشركة، ثم استخدم الاسم المعتمد من قاعدة البيانات للـ profile.
+    let departmentName: string | null = null;
+    if (payload.department_id) {
+      const { data: department, error: departmentError } = await adminClient
+        .from('departments')
+        .select('id, name_ar')
+        .eq('id', payload.department_id)
+        .eq('tenant_id', callerProfile.tenant_id)
+        .maybeSingle();
+      if (departmentError || !department) {
+        return json(req, { error: 'القسم المحدد غير موجود ضمن شركتك' }, 400);
+      }
+      departmentName = department.name_ar;
+    }
+
     const { firstName, lastName } = splitName(fullName);
     const employeeCode = String(
       payload.employee_code || payload.employee_number || `EMP-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
@@ -158,6 +178,9 @@ serve(async (req: Request) => {
         email,
         full_name: fullName,
         role,
+        department: departmentName,
+        position: payload.position || null,
+        phone: payload.phone || null,
         status: 'active',
       });
 

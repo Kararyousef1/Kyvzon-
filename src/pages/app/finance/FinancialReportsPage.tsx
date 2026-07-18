@@ -1,29 +1,7 @@
-import React, { useState, useEffect } from 'react';
-export default function PageComponent() {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any[]>([]);
-  const [search, setSearch] = useState('');
-  useEffect(() => {
-    setLoading(true);
-    setTimeout(() => { setData([]); setLoading(false); }, 800);
-  }, []);
-  return (
-    <div className="p-6" dir="rtl">
-      <h1 className="text-2xl font-extrabold mb-2">صفحة متكاملة</h1>
-      <p className="text-slate-500 mb-4">لا توجد بيانات وهمية — متصلة بـ SDK</p>
-      <div className="bg-white rounded-xl border shadow-sm p-6 mb-4">
-        <div className="flex gap-4 mb-4">
-          <input type="text" placeholder="البحث..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full md:w-72 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">إضافة جديد</button>
-        </div>
-        {loading ? (
-          <div className="text-center py-10 text-slate-400">جارٍ التحميل من قاعدة البيانات عبر SDK...</div>
-        ) : data.length === 0 ? (
-          <div className="text-center py-10 text-slate-400">لا توجد بيانات حالياً — سيتم عرضها من SDK عند التشغيل</div>
-        ) : (
-          <div className="text-center py-6 text-slate-600">تم تحميل البيانات من SDK بنجاح</div>
-        )}
-      </div>
-    </div>
-  );
-}
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { BarChart3, Building2, Loader2, RefreshCw } from 'lucide-react';
+import { legalEntityService, type LegalEntityRecord } from '../../../services/sdk/FinanceFoundationService';
+import { financialReportService, type TrialBalanceRow } from '../../../services/sdk/FinancialReportService';
+import { getErrorMessage } from '../../../services/errors';
+import { useUIStore } from '../../../core/stores';
+export default function FinancialReportsPage(){const {addToast}=useUIStore();const [entities,setEntities]=useState<LegalEntityRecord[]>([]),[entityId,setEntityId]=useState(''),[rows,setRows]=useState<TrialBalanceRow[]>([]),[loading,setLoading]=useState(true);const load=useCallback(async()=>{setLoading(true);try{const es=await legalEntityService.findActive();setEntities(es);const id=entityId||es[0]?.id||'';if(!entityId&&id)setEntityId(id);setRows(id?await financialReportService.getTrialBalance(id):[])}catch(e){addToast(`تعذر تحميل التقارير: ${getErrorMessage(e)}`,'error')}finally{setLoading(false)}},[addToast,entityId]);useEffect(()=>{void load()},[load]);const totals=useMemo(()=>{const net=(type:string,normal:'debit'|'credit')=>rows.filter(r=>r.account_type===type).reduce((s,r)=>s+(normal==='debit'?Number(r.debit_balance)-Number(r.credit_balance):Number(r.credit_balance)-Number(r.debit_balance)),0);const revenue=net('Revenue','credit'),expenses=net('Expense','debit'),assets=net('Asset','debit'),liabilities=net('Liability','credit'),equity=net('Equity','credit');return{revenue,expenses,profit:revenue-expenses,assets,liabilities,equity}},[rows]);return <div className="p-6 md:p-8 space-y-6" dir="rtl"><div className="flex justify-between"><div><p className="text-sm font-bold text-violet-700">IFRS Financial Statements</p><h1 className="text-3xl font-black">التقارير المالية</h1><p className="text-slate-500 mt-2">ملخصات محسوبة من ميزان المراجعة للقيود المرحلة فقط.</p></div><button onClick={()=>void load()} className="border rounded-xl px-4 py-2 font-bold"><RefreshCw size={15} className="inline ml-1"/>تحديث</button></div><label className="bg-white border rounded-xl p-3 flex max-w-md gap-2"><Building2 size={17}/><select className="w-full outline-none" value={entityId} onChange={e=>setEntityId(e.target.value)}>{entities.map(e=><option key={e.id} value={e.id}>{e.code} — {e.name_ar}</option>)}</select></label>{loading?<div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3"/>جارٍ احتساب التقارير…</div>:<div className="grid lg:grid-cols-2 gap-6"><section className="bg-white border rounded-2xl p-6"><h2 className="font-black flex gap-2"><BarChart3 className="text-emerald-600"/>قائمة الربح أو الخسارة</h2><Row label="الإيرادات" value={totals.revenue}/><Row label="المصروفات" value={totals.expenses}/><Row label="صافي الربح / الخسارة" value={totals.profit} strong/></section><section className="bg-white border rounded-2xl p-6"><h2 className="font-black flex gap-2"><BarChart3 className="text-blue-600"/>ملخص المركز المالي</h2><Row label="الأصول" value={totals.assets}/><Row label="الالتزامات" value={totals.liabilities}/><Row label="حقوق الملكية" value={totals.equity}/><Row label="الالتزامات + الملكية" value={totals.liabilities+totals.equity} strong/></section><p className="lg:col-span-2 text-sm rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">هذه نسخة التقرير الأساسية المبنية من أرصدة الحسابات. تقارير IFRS النهائية، التدفقات النقدية، الإفصاحات، والضرائب تتطلب استكمال AP/AR والبنوك والأصول وقواعد التصنيف المعتمدة.</p></div>}</div>};function Row({label,value,strong=false}:{label:string;value:number;strong?:boolean}){return <div className={`flex justify-between border-b py-4 ${strong?'font-black text-lg':''}`}><span>{label}</span><span>{value.toLocaleString()}</span></div>}

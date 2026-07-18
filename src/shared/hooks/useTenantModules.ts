@@ -8,7 +8,7 @@ import { tenantModuleService } from '../../services/sdk/TenantModuleService';
 
 const PLATFORM_ROLES = new Set(['developer', 'it_admin']);
 const STAFF_FALLBACK_MODULES = [
-  'employee', 'hr', 'admin', 'manager', 'supervisor', 'gatekeeper', 'movement', 'tawathul', 'tech_portal', 'ai', 'reports', 'health_safety', 'succession', 'contracts',
+  'employee', 'hr', 'finance', 'admin', 'manager', 'supervisor', 'gatekeeper', 'movement', 'tawathul', 'tech_portal', 'ai', 'reports', 'health_safety', 'succession', 'contracts',
 ];
 
 export function useTenantModules() {

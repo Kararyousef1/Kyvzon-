@@ -1232,17 +1232,21 @@ export interface ManagerWorkloadItemRecord {
 }
 
 export interface ChartOfAccountRecord {
-  id: string; tenant_id: string; code: string; name: string; name_ar?: string;
+  id: string; tenant_id: string; legal_entity_id: string; code: string; name: string; name_ar?: string;
   account_type: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
-  parent_id?: string; level: number; is_active: boolean; created_at: string;
+  parent_id?: string; level: number; is_active: boolean; allow_posting?: boolean;
+  normal_balance?: 'debit' | 'credit'; created_at: string;
 }
 export interface JournalEntryRecord {
-  id: string; tenant_id: string; entry_number: string; entry_date: string;
-  description?: string; reference?: string; total_debit: number; total_credit: number;
-  status: 'draft' | 'posted' | 'reversed'; created_by?: string; created_at: string;
+  id: string; tenant_id: string; legal_entity_id: string; entry_number: string; entry_date: string;
+  accounting_period_id?: string; journal_book_id?: string; transaction_currency_code?: string;
+  exchange_rate?: number; description?: string; reference?: string; total_debit: number; total_credit: number;
+  status: 'draft' | 'submitted' | 'approved' | 'posted' | 'reversed' | 'voided';
+  created_by?: string; posted_at?: string; posted_by?: string; created_at: string;
 }
 export interface JournalEntryLineRecord {
-  id: string; entry_id: string; tenant_id: string; account_id: string;
-  description?: string; debit_amount: number; credit_amount: number;
-  reference?: string; cost_center?: string; project_code?: string; created_at: string;
+  id: string; entry_id: string; tenant_id: string; legal_entity_id: string; account_id: string;
+  line_number?: number; description?: string; debit_amount: number; credit_amount: number;
+  transaction_debit?: number; transaction_credit?: number; transaction_currency_code?: string;
+  cost_center?: string; cost_center_id?: string; project_code?: string; project_id?: string; created_at: string;
 }

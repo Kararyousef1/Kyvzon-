@@ -3,6 +3,7 @@
  */
 
 export const ROUTE_MODULE_MAP: Array<{ pathPrefix: string; moduleKey: string; label: string }> = [
+  { pathPrefix: '/app/finance', moduleKey: 'finance', label: 'البوابة المالية' },
   { pathPrefix: '/app/employee', moduleKey: 'employee', label: 'بوابة الموظف' },
   { pathPrefix: '/app/hr/contracts', moduleKey: 'contracts', label: 'عقود الموظفين' },
   { pathPrefix: '/app/hr/succession', moduleKey: 'succession', label: 'تخطيط التعاقب' },

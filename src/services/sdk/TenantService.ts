@@ -13,6 +13,7 @@
 
 import { supabase } from '../supabase/supabase';
 import { getErrorMessage } from '../errors';
+import { MODULE_CATALOG, modulesForPlan, tenantModuleService } from './TenantModuleService';
 
 // ════════════════════════════════════════════════════════════════
 //  الأنواع
@@ -175,6 +176,29 @@ const PLAN_PRICES: Record<string, number> = {
 //  Tenant Service
 // ════════════════════════════════════════════════════════════════
 
+/** Keep tenant_modules (the route guard source of truth) in sync with the
+ * company form. tenant.enabled_modules remains a backwards-compatible mirror. */
+async function applyTenantModuleSelection(
+  tenantId: string,
+  plan: string,
+  selectedModules?: string[],
+): Promise<void> {
+  const allowed = new Set(modulesForPlan(plan));
+  const selected = new Set(selectedModules ?? allowed);
+
+  await tenantModuleService.syncWithPlan(tenantId, plan);
+  await Promise.all(
+    MODULE_CATALOG
+      .filter((module) => allowed.has(module.key))
+      .map((module) => tenantModuleService.setModuleEnabled({
+        tenantId,
+        moduleKey: module.key,
+        enabled: selected.has(module.key),
+        plan,
+      })),
+  );
+}
+
 export const tenantService = {
   // ── جلب جميع الشركات ───────────────────────────────────────
   async getAllCompanies(): Promise<TenantCompany[]> {
@@ -289,6 +313,7 @@ export const tenantService = {
       metadata: { source: 'company_create' },
     });
 
+    await applyTenantModuleSelection(data.id, plan, input.enabled_modules);
     return data as TenantCompany;
   },
 
@@ -340,7 +365,16 @@ export const tenantService = {
       .single();
 
     if (error) throw new Error(getErrorMessage(error));
-    return data as TenantCompany;
+
+    const company = data as TenantCompany;
+    if (updates.subscription_plan !== undefined || updates.enabled_modules !== undefined) {
+      await applyTenantModuleSelection(
+        id,
+        company.subscription_plan,
+        updates.enabled_modules ?? company.enabled_modules,
+      );
+    }
+    return company;
   },
 
   // ── حذف شركة (Soft Delete) ──────────────────────────────────

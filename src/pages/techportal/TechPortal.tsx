@@ -18,7 +18,6 @@ import { biometricDeviceService } from '../../services/sdk/BiometricDeviceServic
 import { entitlementService } from '../../services/sdk/EntitlementService';
 import { syncLogService } from '../../services/sdk/SyncLogService';
 import { attendanceService } from '../../services/sdk/AttendanceService';
-import { errorLogService } from '../../services/sdk/ErrorLogService';
 import { securityEventService } from '../../services/sdk/SecurityEventService';
 import { settingsService } from '../../services/sdk/SettingsService';
 import { getErrorMessage } from '../../services/errors';
@@ -433,7 +432,9 @@ function SystemHealthPage() {
       const [deviceStats, syncLogs, errors, securityEvents] = await Promise.all([
         biometricDeviceService.getStats(),
         syncLogService.findRecentLogs(100).catch(() => []),
-        errorLogService.findAll({ orderBy: 'created_at', ascending: false, limit: 100 }).catch(() => []),
+        import('../../services/sdk/ErrorLogService').then(({ errorLogService }) =>
+          errorLogService.findAll({ orderBy: 'created_at', ascending: false, limit: 100 }).catch(() => []),
+        ),
         securityEventService.findAll({ orderBy: 'created_at', ascending: false, limit: 100 }).catch(() => []),
       ]);
       setHealth({

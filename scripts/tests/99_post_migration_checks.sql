@@ -67,6 +67,10 @@ DECLARE
     'gatekeeper_sessions', 'gatekeeper_visitors', 'gatekeeper_visitor_logs',
     'movements_log', 'time_logs', 'specialties',
     'job_applications', 'ai_insights', 'customer_reviews',
+    'approval_requests', 'approval_actions',
+    'financial_approval_requests', 'financial_approval_steps',
+    'legal_entities', 'entity_memberships', 'fiscal_years', 'accounting_periods',
+    'cost_centers', 'finance_projects', 'exchange_rates',
     'tawathul_conversations', 'tawathul_messages', 'tawathul_members'
   ];
   required_views TEXT[] := ARRAY[

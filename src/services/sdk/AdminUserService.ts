@@ -14,6 +14,9 @@ export interface CreateUserParams {
   full_name: string;
   role: string;
   department_id?: string;
+  department?: string;
+  position?: string;
+  phone?: string;
   employee_id?: string;
 }
 

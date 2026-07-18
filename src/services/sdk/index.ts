@@ -62,7 +62,6 @@ export { adminUserService } from './AdminUserService';
 export { incidentCommentService } from './IncidentCommentService';
 export { timeLogService } from './TimeLogService';
 export { syncLogService } from './SyncLogService';
-export { errorLogService } from './ErrorLogService';
 export { employeeGoalService, goalUpdateService, employeeSkillService } from './EmployeeDevelopmentService';
 export { hrCaseService, hrCaseCommentService, employeeLetterRequestService } from './EmployeeSelfServiceService';
 export { employeeContractService } from './ContractService';
@@ -78,6 +77,8 @@ export { approvalRequestService, approvalActionService } from './ApprovalService
 export { managerWorkloadItemService } from './ManagerService';
 export { tenantModuleService, MODULE_CATALOG, PLAN_ALLOWED_MODULES, PLAN_LIMITS, modulesForPlan, isModuleAllowedForPlan, planLimitsForPlan } from './TenantModuleService';
 export type { TenantModuleRecord, ModuleCatalogItem, ModuleKey, PlanLimits } from './TenantModuleService';
+export { currencyService, financeSetupService, legalEntityService, entityMembershipService, fiscalYearService, accountingPeriodService, requireFinanceTenantId } from './FinanceFoundationService';
+export type { CurrencyRecord, LegalEntityRecord, EntityMembershipRecord, FiscalYearRecord, AccountingPeriodRecord, FinanceRole, EntityStatus, FiscalYearStatus, AccountingPeriodStatus } from './FinanceFoundationService';
 export { entitlementService } from './EntitlementService';
 export type { TenantUsageSnapshot } from './EntitlementService';
 
@@ -87,8 +88,12 @@ export type { TenantCompany, TenantSubscription, TenantStats, PlatformAuditEntry
 
 // قاعدة البيانات (كلينتات) - من src/services/supabase/
 export { supabase, default as supabaseClient } from '../supabase/supabase';export { generalLedgerService } from './GeneralLedgerService';
+export type { CreateJournalDraftInput, JournalDraftLineInput } from './GeneralLedgerService';
 export { chartOfAccountService } from './ChartOfAccountService';
-export { accountsPayableService } from './AccountsPayableService';
+export { accountsPayableService, vendorService } from './AccountsPayableService';
+export type { AccountsPayableRecord, VendorRecord, PayableStatus } from './AccountsPayableService';
+export { vendorPaymentService } from './VendorPaymentService';
+export type { VendorPaymentRecord, VendorPaymentAllocationInput } from './VendorPaymentService';
 export { accountsReceivableService } from './AccountsReceivableService';
 export { cashManagementService } from './CashManagementService';
 export { taxService } from './TaxService';

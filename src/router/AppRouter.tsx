@@ -52,6 +52,17 @@ import PublicInfoPage from '../pages/public/static/PublicInfoPage';
 // ─── Lazy: Employee ─────────────────────────────────────────────────────
 // ─── Lazy: Finance ──────────────────────────────────────────────────────
 const FinancialDashboard    = lazy(() => import('../pages/app/finance/FinancialDashboard'));
+const ChartOfAccountsPage   = lazy(() => import('../pages/app/finance/ChartOfAccountsPage'));
+const JournalEntriesPage    = lazy(() => import('../pages/app/finance/JournalEntriesPage'));
+const TrialBalancePage      = lazy(() => import('../pages/app/finance/TrialBalancePage'));
+const FinanceSetupPage      = lazy(() => import('../pages/app/finance/FinanceSetupPage'));
+const AccountingPeriodsPage = lazy(() => import('../pages/app/finance/AccountingPeriodsPage'));
+const GeneralLedgerPage     = lazy(() => import('../pages/app/finance/GeneralLedgerPage'));
+const FinancialReportsPage  = lazy(() => import('../pages/app/finance/FinancialReportsPage'));
+const VendorsPage           = lazy(() => import('../pages/app/finance/VendorsPage'));
+const AccountsPayablePage   = lazy(() => import('../pages/app/finance/AccountsPayablePage'));
+const APAgingPage           = lazy(() => import('../pages/app/finance/APAgingPage'));
+const VendorPaymentsPage    = lazy(() => import('../pages/app/finance/VendorPaymentsPage'));
 
 const EmployeeDashboard    = lazy(() => import('../pages/employee/EmployeeDashboard'));
 const ProblemsList         = lazy(() => import('../pages/employee/ProblemsList'));
@@ -317,11 +328,26 @@ export function AppRoutes() {
             <Route index element={<TawathulPortalPage />} />
             <Route path="admin" element={<RequireRole roles={['admin', 'hr']}><TawathulAdminPage /></RequireRole>} />
           </Route>
+
+          {/* Finance */}
+          <Route path="finance" element={<RequireModule moduleKey="finance" />}>
+            <Route index element={<FinancialDashboard />} />
+            <Route path="chart-of-accounts" element={<ChartOfAccountsPage />} />
+            <Route path="journal-entries" element={<JournalEntriesPage />} />
+            <Route path="trial-balance" element={<TrialBalancePage />} />
+            <Route path="setup" element={<FinanceSetupPage />} />
+            <Route path="accounting-periods" element={<AccountingPeriodsPage />} />
+            <Route path="general-ledger" element={<GeneralLedgerPage />} />
+            <Route path="reports" element={<FinancialReportsPage />} />
+            <Route path="vendors" element={<VendorsPage />} />
+            <Route path="accounts-payable" element={<AccountsPayablePage />} />
+            <Route path="accounts-payable/aging" element={<APAgingPage />} />
+            <Route path="vendor-payments" element={<VendorPaymentsPage />} />
+          </Route>
           </Route>
         </Route>
 
         {/* أي مسار غير معروف تحت auth → redirect للـ default */}
-          <Route path="finance" element={<RequireModule moduleKey="finance" />}><Route index element={<FinancialDashboard />} /></Route>
         <Route path="*" element={<RoleRedirect />} />
       </Route>
     </Routes>

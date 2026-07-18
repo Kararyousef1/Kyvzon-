@@ -1,8 +1,6 @@
--- Financial approval workflow.
--- This intentionally uses financial_* table names. The manager portal owns
--- public.approval_requests and public.approval_actions (migration 0023).
--- Keeping the domains separate prevents incompatible schemas from silently
--- sharing one table when migrations are applied to a clean database.
+-- Compatibility migration for databases where the previous version of 0107
+-- was already recorded. It creates the isolated financial approval schema
+-- without modifying the manager approval tables or deleting existing data.
 
 CREATE TABLE IF NOT EXISTS public.financial_approval_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -18,9 +16,6 @@ CREATE TABLE IF NOT EXISTS public.financial_approval_requests (
   CHECK (current_step <= total_steps)
 );
 
-CREATE INDEX IF NOT EXISTS idx_financial_approval_tenant ON public.financial_approval_requests(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_financial_approval_status ON public.financial_approval_requests(tenant_id, status);
-
 CREATE TABLE IF NOT EXISTS public.financial_approval_steps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   request_id UUID NOT NULL REFERENCES public.financial_approval_requests(id) ON DELETE CASCADE,
@@ -34,6 +29,8 @@ CREATE TABLE IF NOT EXISTS public.financial_approval_steps (
   UNIQUE (request_id, step_order)
 );
 
+CREATE INDEX IF NOT EXISTS idx_financial_approval_tenant ON public.financial_approval_requests(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_financial_approval_status ON public.financial_approval_requests(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_financial_approval_steps_request ON public.financial_approval_steps(request_id);
 
 ALTER TABLE public.financial_approval_requests ENABLE ROW LEVEL SECURITY;
@@ -46,17 +43,13 @@ CREATE POLICY financial_approval_requests_access ON public.financial_approval_re
 
 DROP POLICY IF EXISTS financial_approval_steps_access ON public.financial_approval_steps;
 CREATE POLICY financial_approval_steps_access ON public.financial_approval_steps FOR ALL TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.financial_approval_requests request
-      WHERE request.id = request_id
-        AND request.tenant_id = public.current_user_tenant_id()
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.financial_approval_requests request
-      WHERE request.id = request_id
-        AND request.tenant_id = public.current_user_tenant_id()
-    )
-  );
+  USING (EXISTS (
+    SELECT 1 FROM public.financial_approval_requests request
+    WHERE request.id = request_id
+      AND request.tenant_id = public.current_user_tenant_id()
+  ))
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM public.financial_approval_requests request
+    WHERE request.id = request_id
+      AND request.tenant_id = public.current_user_tenant_id()
+  ));
