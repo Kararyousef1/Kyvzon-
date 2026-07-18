@@ -1,18 +1,4 @@
-export type ModuleKey =
-  | 'employee'
-  | 'hr'
-  | 'admin'
-  | 'manager'
-  | 'supervisor'
-  | 'gatekeeper'
-  | 'movement'
-  | 'tawathul'
-  | 'tech_portal'
-  | 'ai'
-  | 'reports'
-  | 'health_safety'
-  | 'succession'
-  | 'contracts';
+export type ModuleKey = 'finance' | 'employee' | 'hr' | 'admin' | 'manager' | 'supervisor' | 'gatekeeper' | 'movement' | 'tawathul' | 'tech_portal' | 'ai' | 'reports' | 'health_safety' | 'succession' | 'contracts';
 
 export interface ModuleCatalogItem {
   key: ModuleKey;
@@ -45,12 +31,13 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
   { key: 'health_safety', label: 'الصحة والسلامة', description: 'حوادث السلامة والإجراءات التصحيحية', category: 'advanced', minPlan: 'enterprise' },
   { key: 'succession', label: 'تخطيط التعاقب', description: 'المناصب الحرجة والمرشحون والخطط التطويرية', category: 'advanced', minPlan: 'enterprise' },
   { key: 'contracts', label: 'عقود الموظفين', description: 'عقود العمل والتنبيهات والتجديد', category: 'advanced', minPlan: 'professional' },
+  { key: 'finance', label: 'بوابة المالية', description: 'الدفتري العام، الذمم، النقدية، الضرائب، الميزانيات', category: 'core', minPlan: 'basic' },
 ];
 
 export const PLAN_ALLOWED_MODULES: Record<string, ModuleKey[]> = {
-  basic: ['employee', 'hr'],
-  professional: ['employee', 'hr', 'admin', 'manager', 'supervisor', 'gatekeeper', 'movement', 'tawathul', 'reports', 'contracts'],
-  enterprise: MODULE_CATALOG.map(m => m.key),
+  basic: ['employee', 'hr', 'finance'],
+  professional: ['employee', 'hr', 'admin', 'finance', 'manager', 'supervisor', 'gatekeeper', 'movement', 'tawathul', 'reports', 'contracts'],
+  enterprise: ['employee', 'hr', 'finance', ...MODULE_CATALOG.map(m => m.key)],
   custom: MODULE_CATALOG.map(m => m.key),
 };
 

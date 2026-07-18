@@ -311,6 +311,7 @@ export const tenantService = {
     if (updates.max_employees !== undefined) updateData.max_employees = updates.max_employees;
     if (updates.features !== undefined) updateData.features = updates.features;
     if (updates.notes !== undefined) updateData.notes = updates.notes;
+    if (updates.enabled_modules !== undefined) updateData.enabled_modules = updates.enabled_modules;
 
     const billingKeys: Array<keyof CreateTenantInput> = [
       'billing_cycle', 'billing_amount', 'currency', 'payment_method', 'payment_status',

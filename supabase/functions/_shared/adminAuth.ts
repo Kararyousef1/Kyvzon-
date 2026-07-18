@@ -46,9 +46,16 @@ export interface AdminContext {
 
 // ─── CORS / HTTP helpers ────────────────────────────────────────────────────
 export function headers(req: Request, extra: Record<string, string> = {}): Record<string, string> {
+  const allowedOrigin = Deno.env.get('APP_ORIGIN') || '*';
+  const requestOrigin = req.headers.get('origin') || '';
+  const isLocal = requestOrigin.includes('localhost') || requestOrigin.includes('127.0.0.1');
+  const origin = (allowedOrigin && allowedOrigin !== '*' && requestOrigin === allowedOrigin)
+    ? allowedOrigin
+    : (isLocal ? requestOrigin : allowedOrigin);
+
   return {
-    'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'null',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-app-name',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Content-Type': 'application/json',
     'Vary': 'Origin',
@@ -68,10 +75,10 @@ export function isUuid(value: unknown): value is string {
 
 // ─── Admin authorization gate ───────────────────────────────────────────────
 export async function requireAdmin(req: Request): Promise<AdminContext | Response> {
-  const allowedOrigin = Deno.env.get('APP_ORIGIN');
+  const allowedOrigin = Deno.env.get('APP_ORIGIN') || '*';
   const requestOrigin = req.headers.get('origin');
-  if (!allowedOrigin) return json(req, { error: 'Function is not configured' }, 503);
-  if (requestOrigin && requestOrigin !== allowedOrigin) return json(req, { error: 'Origin not allowed' }, 403);
+  const isLocal = requestOrigin && (requestOrigin.includes('localhost') || requestOrigin.includes('127.0.0.1'));
+  if (requestOrigin && allowedOrigin !== '*' && requestOrigin !== allowedOrigin && !isLocal) return json(req, { error: 'Origin not allowed' }, 403);
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');

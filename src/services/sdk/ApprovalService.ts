@@ -1,26 +1,11 @@
-/**
- * ApprovalService - مركز موافقات المدير
- */
 import { BaseService } from './BaseService';
-import type { ApprovalActionRecord, ApprovalRequestRecord } from '../../shared/types/sdk';
-
-class ApprovalRequestService extends BaseService<ApprovalRequestRecord> {
+class ApprovalService extends BaseService<any> {
   constructor() { super('approval_requests'); }
-  async findForApprover(approverId: string): Promise<ApprovalRequestRecord[]> {
-    return this.findAll({ filters: { current_approver_id: approverId }, orderBy: 'created_at', ascending: false });
-  }
-  async createRequest(data: Partial<ApprovalRequestRecord>): Promise<ApprovalRequestRecord> {
-    return this.create({ ...data, status: data.status || 'pending', priority: data.priority || 'normal' });
-  }
-  async decide(id: string, status: 'approved' | 'rejected', approverId?: string, note?: string): Promise<ApprovalRequestRecord> {
-    return this.update(id, { status, decided_by: approverId, decided_at: new Date().toISOString(), decision_note: note, updated_at: new Date().toISOString() } as Partial<ApprovalRequestRecord>);
-  }
+  async createRequest(data: Partial<any>) { return this.create(data); }
+  async approve(id: string, approverId: string, comments?: string) { return this.update(id, { status: 'approved', updated_at: new Date().toISOString() } as any); }
+  async reject(id: string, approverId: string, comments?: string) { return this.update(id, { status: 'rejected', updated_at: new Date().toISOString() } as any); }
+  async findPending(tenantId: string) { return this.findAll({ filters: { tenant_id: tenantId, status: 'pending' }, orderBy: 'created_at', ascending: false }); }
 }
-
-class ApprovalActionService extends BaseService<ApprovalActionRecord> {
-  constructor() { super('approval_actions'); }
-  async addAction(data: Partial<ApprovalActionRecord>): Promise<ApprovalActionRecord> { return this.create(data); }
-}
-
-export const approvalRequestService = new ApprovalRequestService();
-export const approvalActionService = new ApprovalActionService();
+export const approvalRequestService = new ApprovalService();
+export const approvalService = approvalRequestService;
+export const approvalActionService = new ApprovalService();

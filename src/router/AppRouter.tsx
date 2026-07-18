@@ -50,6 +50,9 @@ import PublicPortalDetailPage from '../pages/public/portals/PublicPortalDetailPa
 import PublicInfoPage from '../pages/public/static/PublicInfoPage';
 
 // ─── Lazy: Employee ─────────────────────────────────────────────────────
+// ─── Lazy: Finance ──────────────────────────────────────────────────────
+const FinancialDashboard    = lazy(() => import('../pages/app/finance/FinancialDashboard'));
+
 const EmployeeDashboard    = lazy(() => import('../pages/employee/EmployeeDashboard'));
 const ProblemsList         = lazy(() => import('../pages/employee/ProblemsList'));
 const ProblemDetail        = lazy(() => import('../pages/employee/ProblemDetail'));
@@ -318,6 +321,7 @@ export function AppRoutes() {
         </Route>
 
         {/* أي مسار غير معروف تحت auth → redirect للـ default */}
+          <Route path="finance" element={<RequireModule moduleKey="finance" />}><Route index element={<FinancialDashboard />} /></Route>
         <Route path="*" element={<RoleRedirect />} />
       </Route>
     </Routes>

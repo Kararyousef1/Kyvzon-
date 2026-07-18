@@ -86,4 +86,18 @@ export { tenantService } from './TenantService';
 export type { TenantCompany, TenantSubscription, TenantStats, PlatformAuditEntry, PlatformStats } from './TenantService';
 
 // قاعدة البيانات (كلينتات) - من src/services/supabase/
-export { supabase, default as supabaseClient } from '../supabase/supabase';
+export { supabase, default as supabaseClient } from '../supabase/supabase';export { generalLedgerService } from './GeneralLedgerService';
+export { chartOfAccountService } from './ChartOfAccountService';
+export { accountsPayableService } from './AccountsPayableService';
+export { accountsReceivableService } from './AccountsReceivableService';
+export { cashManagementService } from './CashManagementService';
+export { taxService } from './TaxService';
+export { budgetService } from './BudgetService';
+export { financialReportService } from './FinancialReportService';
+export { auditTrailService } from './AuditTrailService';
+export { systemNoteService } from './SystemNoteService';
+export { approvalService } from './ApprovalService';
+export { multiBookService } from './MultiBookService';
+export { fixedAssetService } from './FixedAssetService';
+export { financialReportTemplateService } from './FinancialReportTemplateService';
+export { intercompanyService } from './IntercompanyService';

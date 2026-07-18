@@ -4,7 +4,7 @@ import { getModuleForPath } from '../router/moduleMap';
 
 describe('SaaS tenant modules control plane', () => {
   it('basic plan exposes only core employee and hr modules', () => {
-    expect(modulesForPlan('basic')).toEqual(['employee', 'hr']);
+    expect(modulesForPlan('basic')).toEqual(['employee', 'hr', 'finance']);
     expect(isModuleAllowedForPlan('employee', 'basic')).toBe(true);
     expect(isModuleAllowedForPlan('manager', 'basic')).toBe(false);
   });

@@ -57,6 +57,12 @@ export const PORTALS: PortalData[] = [
     features: { ar: ['محادثات فردية وجماعية', 'قنوات مؤسسية', 'مرفقات وتفاعلات', 'إشعارات وذكر المستخدمين', 'تصدير وأرشفة'], en: ['DMs & groups', 'Company channels', 'Files & reactions', 'Notifications & mentions', 'Export & archive'], ku: ['چاتی تاک و گروپ', 'کەناڵ', 'هاوپێچ و کاردانەوە', 'ئاگاداری', 'هەناردن و ئەرشیف'] },
   },
   {
+    id: 'finance', icon: BarChart3, color: '#10b981', gradient: 'from-emerald-500 to-teal-600',
+    title: { ar: 'بوابة المالية', en: 'Finance Portal', ku: 'دەروازەی دارایی' },
+    desc: { ar: 'نظام مالي متكامل: الدفتر العام، الذمم، النقدية، الضرائب، الميزانيات، التدقيق، الموافقات، الكتب المتعددة، الأصول، التقارير المالية، والإيرادات.', en: 'Full financial system: GL, AP/AR, cash, tax, budgets, audit, approvals, multi-book, assets, reports, and revenue.', ku: 'سیستەمی تەواوی دارایی: ژمێریاری گشتی، پارەدان و وەرگرتن، باج، بودجە، پشکنین و ڕاپۆرتەکان.' },
+    features: { ar: ['الدفتري العام والقيود', 'الذمم الدائنة والمدينة', 'إدارة النقدية والمطابقة البنكية', 'الضرائب والميزانية والتقارير', 'الأصول الثابتة والموافقة'], en: ['General ledger & entries', 'AP & AR', 'Cash & bank reconciliation', 'Tax, budget & reports', 'Fixed assets & approvals'], ku: ['ژمێریاری گشتی', 'پارەدان و وەرگرتن', 'پارە و بانک', 'باج و بودجە', 'سەرمایەی جێگیر'] },
+  },
+  {
     id: 'tech', icon: Cpu, color: '#8b5cf6', gradient: 'from-violet-500 to-purple-600',
     title: { ar: 'البوابة التقنية', en: 'Technical Portal', ku: 'دەروازەی تەکنیکی' },
     desc: { ar: 'إدارة أجهزة البصمة، سجل المزامنة، صحة النظام، الإعدادات التقنية، وحدود الأجهزة حسب خطة الاشتراك.', en: 'Manage biometric devices, sync logs, system health, technical settings and device limits by subscription plan.', ku: 'بەڕێوەبردنی ئامێری پەنجەمۆر، تۆماری هاوکاتکردن، تەندروستی سیستەم و ڕێکخستنەکان.' },

@@ -27,11 +27,15 @@ interface CreateUserPayload {
 }
 
 function corsHeaders(req: Request): Record<string, string> {
-  const allowedOrigin = Deno.env.get('APP_ORIGIN');
+  const allowedOrigin = Deno.env.get('APP_ORIGIN') || '*';
   const requestOrigin = req.headers.get('origin') || '';
+  const isLocal = requestOrigin.includes('localhost') || requestOrigin.includes('127.0.0.1');
+  const origin = (allowedOrigin && allowedOrigin !== '*' && requestOrigin === allowedOrigin)
+    ? allowedOrigin
+    : (isLocal ? requestOrigin : allowedOrigin);
   return {
-    'Access-Control-Allow-Origin': allowedOrigin || 'null',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-app-name',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Content-Type': 'application/json',
     'Vary': 'Origin',
@@ -54,10 +58,10 @@ serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req) });
   if (req.method !== 'POST') return json(req, { error: 'Method not allowed' }, 405);
 
-  const allowedOrigin = Deno.env.get('APP_ORIGIN');
+  const allowedOrigin = Deno.env.get('APP_ORIGIN') || '*';
   const requestOrigin = req.headers.get('origin');
-  if (!allowedOrigin) return json(req, { error: 'Function is not configured' }, 503);
-  if (requestOrigin && requestOrigin !== allowedOrigin) {
+  const isLocal = requestOrigin && (requestOrigin.includes('localhost') || requestOrigin.includes('127.0.0.1'));
+  if (requestOrigin && allowedOrigin !== '*' && requestOrigin !== allowedOrigin && !isLocal) {
     return json(req, { error: 'Origin not allowed' }, 403);
   }
 
