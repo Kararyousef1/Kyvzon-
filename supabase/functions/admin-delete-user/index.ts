@@ -25,16 +25,65 @@ serve(async (req: Request) => {
     );
     if (target.error || !target.profile) return json(req, { error: 'المستخدم غير موجود في الشركة' }, 404);
 
-    const { error } = await context.adminClient.auth.admin.deleteUser(targetId);
-    if (error) {
-      console.error('admin-delete-user failed:', error.message);
-      return json(req, { error: 'فشل حذف المستخدم' }, 500);
+    // ─── محاولة حذف المستخدم من auth.users ────────────────────────────────
+    const { error: authDeleteError } = await context.adminClient.auth.admin.deleteUser(targetId);
+
+    if (authDeleteError) {
+      const isOrphan =
+        authDeleteError.message.toLowerCase().includes('user not found') ||
+        authDeleteError.message.toLowerCase().includes('not found');
+
+      if (isOrphan) {
+        // ─── حالة Profile Orphan ──────────────────────────────────────────
+        // المستخدم موجود في profiles لكن ليس في auth.users
+        // (أُنشئ بطريقة قديمة أو بدون مرور بـ auth)
+        // الحل: نحذف الـ profile مباشرة لأن tenant isolation تم التحقق منه أعلاه
+        console.warn(`admin-delete-user: orphan profile detected for ${targetId}, deleting profile directly`);
+
+        const { error: profileDeleteError } = await context.adminClient
+          .from('profiles')
+          .delete()
+          .eq('id', targetId);
+
+        if (profileDeleteError) {
+          console.error('admin-delete-user: orphan profile delete failed:', profileDeleteError.message);
+          return json(req, { error: 'فشل حذف ملف المستخدم اليتيم' }, 500);
+        }
+
+        await audit(
+          context.adminClient,
+          context.callerProfile.tenant_id!,
+          context.caller.id,
+          targetId,
+          'admin_delete_orphan_profile',
+          {
+            reason: typeof body.reason === 'string' ? body.reason.slice(0, 500) : null,
+            note: 'auth user was not found; profile deleted directly',
+          },
+        );
+
+        return json(req, { success: true, orphan: true }, 200);
+      }
+
+      // ─── خطأ حقيقي من auth ─────────────────────────────────────────────
+      console.error('admin-delete-user: auth.admin.deleteUser failed:', authDeleteError.message);
+      return json(req, { error: 'فشل حذف المستخدم من نظام المصادقة' }, 500);
     }
 
-    await audit(context.adminClient, context.callerProfile.tenant_id!, context.caller.id, targetId, 'admin_delete_user', {
-      reason: typeof body.reason === 'string' ? body.reason.slice(0, 500) : null,
-    });
+    // ─── حذف ناجح من auth (cascade يحذف profile تلقائياً) ─────────────────
+    await audit(
+      context.adminClient,
+      context.callerProfile.tenant_id!,
+      context.caller.id,
+      targetId,
+      'admin_delete_user',
+      {
+        reason: typeof body.reason === 'string' ? body.reason.slice(0, 500) : null,
+      },
+    );
+
     return json(req, { success: true }, 200);
+
   } catch (error) {
     console.error('admin-delete-user error:', error instanceof Error ? error.message : String(error));
     return json(req, { error: 'خطأ داخلي في الخادم' }, 500);
