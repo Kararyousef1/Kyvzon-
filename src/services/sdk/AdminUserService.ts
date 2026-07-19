@@ -32,6 +32,28 @@ export interface DeleteUserParams {
   reason?: string;
 }
 
+// استخراج رسالة الخطأ الحقيقية من FunctionsHttpError أو أي خطأ
+async function extractEdgeFunctionError(error: unknown): Promise<string> {
+  if (!error || typeof error !== 'object') return 'خطأ غير معروف';
+
+  // FunctionsHttpError من Supabase JS SDK يحتوي على context.json()
+  const e = error as {
+    message?: string;
+    context?: { json?: () => Promise<{ error?: string }> };
+  };
+
+  try {
+    if (e.context?.json) {
+      const body = await e.context.json();
+      if (body?.error) return body.error;
+    }
+  } catch {
+    // تجاهل أخطاء parsing
+  }
+
+  return e.message || 'فشل الاتصال بـ Edge Function';
+}
+
 class AdminUserService {
   /**
    * إنشاء مستخدم جديد عبر Edge Function
@@ -41,38 +63,38 @@ class AdminUserService {
       const { data, error } = await supabase.functions.invoke('admin-create-user', {
         body: params,
       });
-      if (error) return { data: null, error: error.message };
+      if (error) {
+        const msg = await extractEdgeFunctionError(error);
+        return { data: null, error: msg };
+      }
       return { data: data as CreateUserResult, error: null };
-    } catch (err: any) {
-      return { data: null, error: err.message || 'فشل الاتصال بـ Edge Function' };
+    } catch (err: unknown) {
+      const msg = await extractEdgeFunctionError(err);
+      return { data: null, error: msg };
     }
   }
 
   /**
-   * حذف مستخدم عبر Edge Function مع تفعيل Fallback تلقائي (تعطيل الحساب في profiles)
+   * حذف مستخدم عبر Edge Function
+   * لا يوجد fallback صامت — الفشل يجب أن يظهر للمسؤول
    */
   async deleteUser(params: DeleteUserParams): Promise<{ data: unknown; error: string | null }> {
     try {
       const { data, error } = await supabase.functions.invoke('admin-delete-user', {
         body: params,
       });
-      if (!error) return { data, error: null };
 
-      console.warn('Edge function delete failed, falling back to profile deactivation:', error);
-      const { error: updateErr } = await supabase
-        .from('profiles')
-        .update({ status: 'inactive' })
-        .eq('id', params.target_user_id);
-
-      if (updateErr) return { data: null, error: error.message };
-      return { data: { success: true, fallback: true }, error: null };
-    } catch (err: any) {
-      try {
-        await supabase.from('profiles').update({ status: 'inactive' }).eq('id', params.target_user_id);
-        return { data: { success: true, fallback: true }, error: null };
-      } catch (fallbackErr: any) {
-        return { data: null, error: err.message || 'فشل حذف المستخدم' };
+      if (error) {
+        const msg = await extractEdgeFunctionError(error);
+        console.error('Failed to delete user:', msg);
+        return { data: null, error: msg };
       }
+
+      return { data, error: null };
+    } catch (err: unknown) {
+      const msg = await extractEdgeFunctionError(err);
+      console.error('Failed to delete user:', msg);
+      return { data: null, error: msg };
     }
   }
 
@@ -84,10 +106,14 @@ class AdminUserService {
       const { data, error } = await supabase.functions.invoke('admin-update-role', {
         body: { target_user_id: targetUserId, new_role: newRole, updated_by: updatedBy },
       });
-      if (error) return { data: null, error: error.message };
+      if (error) {
+        const msg = await extractEdgeFunctionError(error);
+        return { data: null, error: msg };
+      }
       return { data, error: null };
-    } catch (err: any) {
-      return { data: null, error: err.message || 'فشل الاتصال بـ Edge Function' };
+    } catch (err: unknown) {
+      const msg = await extractEdgeFunctionError(err);
+      return { data: null, error: msg };
     }
   }
 
@@ -99,10 +125,14 @@ class AdminUserService {
       const { data, error } = await supabase.functions.invoke('admin-reset-password', {
         body: { target_user_id: targetUserId, new_password: newPassword },
       });
-      if (error) return { data: null, error: error.message };
+      if (error) {
+        const msg = await extractEdgeFunctionError(error);
+        return { data: null, error: msg };
+      }
       return { data, error: null };
-    } catch (err: any) {
-      return { data: null, error: err.message || 'فشل الاتصال بـ Edge Function' };
+    } catch (err: unknown) {
+      const msg = await extractEdgeFunctionError(err);
+      return { data: null, error: msg };
     }
   }
 
@@ -114,10 +144,14 @@ class AdminUserService {
       const { data, error } = await supabase.functions.invoke('admin-toggle-status', {
         body: { target_user_id: targetUserId, disabled, updated_by: updatedBy },
       });
-      if (error) return { data: null, error: error.message };
+      if (error) {
+        const msg = await extractEdgeFunctionError(error);
+        return { data: null, error: msg };
+      }
       return { data, error: null };
-    } catch (err: any) {
-      return { data: null, error: err.message || 'فشل الاتصال بـ Edge Function' };
+    } catch (err: unknown) {
+      const msg = await extractEdgeFunctionError(err);
+      return { data: null, error: msg };
     }
   }
 }

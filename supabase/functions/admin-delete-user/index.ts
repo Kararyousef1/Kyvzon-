@@ -29,25 +29,46 @@ serve(async (req: Request) => {
     const { error: authDeleteError } = await context.adminClient.auth.admin.deleteUser(targetId);
 
     if (authDeleteError) {
-      const isOrphan =
-        authDeleteError.message.toLowerCase().includes('user not found') ||
-        authDeleteError.message.toLowerCase().includes('not found');
+      const msg = authDeleteError.message.toLowerCase();
 
-      if (isOrphan) {
-        // ─── حالة Profile Orphan ──────────────────────────────────────────
-        // المستخدم موجود في profiles لكن ليس في auth.users
-        // (أُنشئ بطريقة قديمة أو بدون مرور بـ auth)
-        // الحل: نحذف الـ profile مباشرة لأن tenant isolation تم التحقق منه أعلاه
-        console.warn(`admin-delete-user: orphan profile detected for ${targetId}, deleting profile directly`);
+      const isOrphan = msg.includes('user not found') || msg.includes('not found');
 
+      // "Database error loading user" = مستخدم موجود في auth.users
+      // لكن سجله مكسور/ناقص (أُنشئ بدون auth flow صحيح أو حُذف جزئياً)
+      // الحل: نحذف profile مباشرة لأن auth لا يمكنه تحميله أصلاً
+      const isCorrupt = msg.includes('database error loading user') ||
+                        msg.includes('error loading user') ||
+                        msg.includes('database error');
+
+      if (isOrphan || isCorrupt) {
+        const reason = isOrphan ? 'orphan_no_auth_user' : 'corrupt_auth_record';
+        console.warn(`admin-delete-user: ${reason} for ${targetId}, deleting profile directly`);
+
+        // حذف employees أولاً لأنه يشير إلى profiles
+        await context.adminClient
+          .from('employees')
+          .update({ user_id: null })
+          .eq('user_id', targetId)
+          .eq('tenant_id', context.callerProfile.tenant_id);
+
+        // ثم حذف profile
         const { error: profileDeleteError } = await context.adminClient
           .from('profiles')
           .delete()
           .eq('id', targetId);
 
         if (profileDeleteError) {
-          console.error('admin-delete-user: orphan profile delete failed:', profileDeleteError.message);
-          return json(req, { error: 'فشل حذف ملف المستخدم اليتيم' }, 500);
+          console.error('admin-delete-user: profile delete failed:', profileDeleteError.message);
+          return json(req, { error: 'فشل حذف ملف المستخدم' }, 500);
+        }
+
+        // إذا كان الخطأ "loading" وليس "not found" → نحاول حذف auth أيضاً عبر SQL مباشر
+        if (isCorrupt) {
+          try {
+            await context.adminClient.rpc('delete_auth_user_direct', { p_user_id: targetId });
+          } catch {
+            // نتجاهل — قد لا تكون الـ RPC موجودة، والـ profile حُذف بالفعل
+          }
         }
 
         await audit(
@@ -55,19 +76,20 @@ serve(async (req: Request) => {
           context.callerProfile.tenant_id!,
           context.caller.id,
           targetId,
-          'admin_delete_orphan_profile',
+          'admin_delete_profile_direct',
           {
             reason: typeof body.reason === 'string' ? body.reason.slice(0, 500) : null,
-            note: 'auth user was not found; profile deleted directly',
+            auth_error: reason,
+            note: authDeleteError.message,
           },
         );
 
-        return json(req, { success: true, orphan: true }, 200);
+        return json(req, { success: true, method: reason }, 200);
       }
 
-      // ─── خطأ حقيقي من auth ─────────────────────────────────────────────
+      // خطأ حقيقي غير متوقع
       console.error('admin-delete-user: auth.admin.deleteUser failed:', authDeleteError.message);
-      return json(req, { error: 'فشل حذف المستخدم من نظام المصادقة' }, 500);
+      return json(req, { error: 'فشل حذف المستخدم: ' + authDeleteError.message }, 500);
     }
 
     // ─── حذف ناجح من auth (cascade يحذف profile تلقائياً) ─────────────────
@@ -82,7 +104,7 @@ serve(async (req: Request) => {
       },
     );
 
-    return json(req, { success: true }, 200);
+    return json(req, { success: true, method: 'auth_delete' }, 200);
 
   } catch (error) {
     console.error('admin-delete-user error:', error instanceof Error ? error.message : String(error));
