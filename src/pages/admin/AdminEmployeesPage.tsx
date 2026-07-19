@@ -1,17 +1,9 @@
 /**
- * AdminEmployeesPage V2 — إدارة موظفين متقدمة جداً مع صلاحيات مالية
- * يعالج طلب المستخدم: "اريد ان يكون خيار اداره الموظفين لاضافه المستخدمين بمستوى متقدم واحترافي جدا"
- * 
- * Features:
- * - 4 Tabs في نموذج الإضافة: Basic, Permissions, Finance Access, Advanced
- * - Finance Access Tab: اختيار Legal Entity + Finance Role + صلاحيات دقيقة + Cost Centers + Projects
- * - Bulk Import CSV مع Preview + Validation + Progress
- * - Entity Memberships Table في تفاصيل الموظف
- * - Audit log
+ * AdminEmployeesPage V2 — إدارة موظفين متقدمة جداً مع معالج خطوات (Step-by-Step Wizard) وصلاحيات مالية
  */
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Search, Plus, Mail, Phone, Trash2, Edit2, Loader, X, Camera, ShieldCheck, Eye, RefreshCw, FileText, Users, UserCheck, UserX, Activity, Building, ChevronLeft, ChevronRight, Download, Upload, Landmark, DollarSign, Layers, FolderKanban, Check, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Search, Plus, Trash2, Edit2, Loader, X, ShieldCheck, Eye, RefreshCw, Users, Activity, Building, ChevronLeft, ChevronRight, Upload, Landmark, Check, ArrowRight, ArrowLeft } from 'lucide-react';
 import Badge from '../../shared/components/ui/Badge';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { useTenantModules } from '../../shared/hooks/useTenantModules';
@@ -22,7 +14,6 @@ import { adminUserService } from '../../services/sdk/AdminUserService';
 import { entitlementService } from '../../services/sdk/EntitlementService';
 import { legalEntityService, type LegalEntityRecord } from '../../services/sdk/FinanceFoundationService';
 import { supabase } from '../../services/supabase/supabase';
-import { exportToStyledExcel } from '../../utils/exportToExcel';
 import { getErrorMessage } from '../../services/errors';
 import type { UserRole } from '../../shared/types';
 
@@ -43,14 +34,163 @@ const ROLES: { value: string; label: string; color: string }[] = [
   { value: 'hr', label: 'موارد بشرية', color: 'bg-emerald-100 text-emerald-700' },
   { value: 'gatekeeper', label: 'حارس', color: 'bg-teal-100 text-teal-700' },
   { value: 'admin', label: 'مدير نظام', color: 'bg-rose-100 text-rose-700' },
+  { value: 'finance', label: 'مسؤول مالية', color: 'bg-violet-100 text-violet-700' },
+  { value: 'tech', label: 'تقني / IT', color: 'bg-cyan-100 text-cyan-700' },
 ];
 
 const ROLE_LABELS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r.value, r.label]));
 
+const ROLE_MODULE_MAP: Record<string, string> = {
+  employee: 'employee',
+  supervisor: 'supervisor',
+  manager: 'manager',
+  hr: 'hr',
+  gatekeeper: 'gatekeeper',
+  admin: 'admin',
+  finance: 'finance',
+  tech: 'tech_portal',
+};
+
+const PORTAL_PAGES = [
+  {
+    portalLabel: 'بوابة الموظف',
+    moduleKey: 'employee',
+    pages: [
+      { id: 'employee-dashboard', label: 'الرئيسية' },
+      { id: 'employee-problems', label: 'البلاغات' },
+      { id: 'new-problem', label: 'بلاغ جديد' },
+      { id: 'employee-attendance', label: 'سجل الحضور' },
+      { id: 'employee-requests', label: 'طلباتي' },
+      { id: 'employee-training', label: 'التدريب' },
+      { id: 'employee-goals', label: 'أهدافي ومهاراتي' },
+      { id: 'employee-sops', label: 'دليل الإجراءات' },
+      { id: 'employee-ai-chat', label: 'المساعد الذكي' },
+      { id: 'employee-wellness', label: 'الصحة النفسية' },
+      { id: 'employee-survey', label: 'الاستبيانات' },
+      { id: 'employee-contact', label: 'مركز خدمات HR' },
+      { id: 'employee-profile', label: 'حسابي' },
+      { id: 'employee-payroll', label: 'رواتبي' },
+      { id: 'employee-loans', label: 'سلفي' },
+      { id: 'employee-expenses', label: 'نفقاتي' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة الموارد البشرية (HR)',
+    moduleKey: 'hr',
+    pages: [
+      { id: 'hr-dashboard', label: 'الرئيسية' },
+      { id: 'hr-problems', label: 'البلاغات' },
+      { id: 'hr-analytics', label: 'التحليلات' },
+      { id: 'hr-team', label: 'إدارة الموظفين' },
+      { id: 'hr-reports', label: 'التقارير' },
+      { id: 'hr-attendance', label: 'سجلات الحضور' },
+      { id: 'hr-talent-market', label: 'سجل المؤهلات' },
+      { id: 'hr-movement-analysis', label: 'تحليل الحركة' },
+      { id: 'hr-manage-training', label: 'إدارة التدريب' },
+      { id: 'hr-training-reports', label: 'تقارير التدريب' },
+      { id: 'hr-payroll', label: 'الرواتب' },
+      { id: 'hr-loans', label: 'السلف والقروض' },
+      { id: 'hr-bonuses', label: 'الجوائز والمكافآت' },
+      { id: 'hr-expenses', label: 'طلبات النفقات' },
+      { id: 'hr-recruitment', label: 'التوظيف' },
+      { id: 'hr-onboarding', label: 'التعريف وإنهاء الخدمة' },
+      { id: 'hr-documents', label: 'مستندات الموظفين' },
+      { id: 'hr-contracts', label: 'عقود الموظفين' },
+      { id: 'hr-succession', label: 'تخطيط التعاقب' },
+      { id: 'hr-performance', label: 'تقييم الأداء' },
+      { id: 'hr-disciplinary', label: 'الإجراءات التأديبية' },
+      { id: 'hr-shifts', label: 'جدولة الورديات' },
+      { id: 'hr-health-safety', label: 'الصحة والسلامة' },
+      { id: 'hr-communication', label: 'صندوق الرسائل' },
+      { id: 'hr-service-center', label: 'مركز خدمات HR' },
+      { id: 'hr-sops', label: 'إدارة SOP' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة الإدارة (Admin)',
+    moduleKey: 'admin',
+    pages: [
+      { id: 'admin-dashboard', label: 'الرئيسية' },
+      { id: 'admin-employees', label: 'إدارة الموظفين' },
+      { id: 'admin-settings', label: 'إعدادات النظام' },
+      { id: 'admin-company-profile', label: 'ملف الشركة' },
+      { id: 'admin-branches', label: 'الفروع' },
+      { id: 'admin-org-structure', label: 'الهيكل التنظيمي' },
+      { id: 'admin-compliance', label: 'مركز الامتثال' },
+      { id: 'admin-ai-config', label: 'إعدادات AI' },
+      { id: 'admin-reports', label: 'تقارير النظام' },
+      { id: 'admin-sops-reports', label: 'تقارير SOP' },
+      { id: 'admin-audit-log', label: 'سجل العمليات' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة المشرف (Supervisor)',
+    moduleKey: 'supervisor',
+    pages: [
+      { id: 'supervisor-dashboard', label: 'الرئيسية' },
+      { id: 'supervisor-breaks', label: 'تسجيل الخروج' },
+      { id: 'supervisor-shift', label: 'إدارة الوردية' },
+      { id: 'supervisor-tasks', label: 'المهام اليومية' },
+      { id: 'supervisor-checklists', label: 'قوائم الفحص' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة المدير (Manager)',
+    moduleKey: 'manager',
+    pages: [
+      { id: 'manager-dashboard', label: 'الرئيسية' },
+      { id: 'manager-attendance', label: 'حضور الفريق' },
+      { id: 'manager-approvals', label: 'مركز الموافقات' },
+      { id: 'manager-performance', label: 'أداء الفريق' },
+      { id: 'manager-workload', label: 'عبء العمل' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة الأمن والحراسة (Gatekeeper)',
+    moduleKey: 'gatekeeper',
+    pages: [
+      { id: 'gatekeeper-portal', label: 'تسجيل الدخول والخروج' },
+      { id: 'gatekeeper-movements', label: 'بوابة الحركة' },
+      { id: 'kiosk-mode', label: 'محطة التسجيل الذاتي' },
+    ]
+  },
+  {
+    portalLabel: 'البوابة التقنية (IT)',
+    moduleKey: 'tech_portal',
+    pages: [
+      { id: 'tech-portal', label: 'البوابة التقنية' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة المالية (Finance)',
+    moduleKey: 'finance',
+    pages: [
+      { id: 'finance-dashboard', label: 'الدفتر العام' },
+      { id: 'finance-coa', label: 'دليل الحسابات' },
+      { id: 'finance-journal', label: 'قيود اليومية' },
+      { id: 'finance-trial-balance', label: 'ميزان المراجعة' },
+      { id: 'finance-ledger', label: 'دفتر الأستاذ' },
+      { id: 'finance-reports', label: 'التقارير المالية' },
+      { id: 'finance-periods', label: 'الفترات المحاسبية' },
+      { id: 'finance-vendors', label: 'الموردين' },
+      { id: 'finance-payable', label: 'الحسابات الدائنة' },
+      { id: 'finance-setup', label: 'إعداد المالية' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة التواصل (Tawathul)',
+    moduleKey: 'tawathul',
+    pages: [
+      { id: 'tawathul-portal', label: 'بوابة التواصل' },
+      { id: 'tawathul-admin', label: 'إعدادات التواصل' },
+    ]
+  }
+];
+
 export default function AdminEmployeesPageV2() {
   const { user: currentUser } = useAuthStore();
   const { addToast } = useUIStore();
-  const { isEnabled } = useTenantModules();
+  const { isEnabled, enabledPages, subscriptionPlan } = useTenantModules();
 
   const [employees, setEmployees] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
@@ -67,20 +207,39 @@ export default function AdminEmployeesPageV2() {
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedEmp, setSelectedEmp] = useState<any>(null);
   const [formMode, setFormMode] = useState<'create'|'edit'>('create');
-  const [activeTab, setActiveTab] = useState<'basic'|'permissions'|'finance'|'advanced'>('basic');
+  const [usage, setUsage] = useState<any>(null);
+
+  const visibleRoles = useMemo(() => {
+    return ROLES.filter(r => {
+      const moduleKey = ROLE_MODULE_MAP[r.value];
+      return !moduleKey || isEnabled(moduleKey);
+    });
+  }, [isEnabled]);
+
+  const visiblePortals = useMemo(() => {
+    return PORTAL_PAGES
+      .filter(p => !p.moduleKey || isEnabled(p.moduleKey))
+      .map(portal => {
+        if (subscriptionPlan === 'hybrid' && Array.isArray(enabledPages)) {
+          return {
+            ...portal,
+            pages: portal.pages.filter(pg => enabledPages.includes(pg.id))
+          };
+        }
+        return portal;
+      })
+      .filter(portal => portal.pages.length > 0);
+  }, [isEnabled, subscriptionPlan, enabledPages]);
+  
+  // Wizard Step State (1, 2, 3)
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+
   const [saving, setSaving] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkPreview, setBulkPreview] = useState<any[]>([]);
   const [bulkProgress, setBulkProgress] = useState<{ done: number, total: number, errors: any[] } | null>(null);
   const [entityMemberships, setEntityMemberships] = useState<any[]>([]);
-
-  const tabs = [
-    { k: 'basic', l: 'الأساسية', icon: Users },
-    { k: 'permissions', l: 'صلاحيات HR', icon: ShieldCheck },
-    ...(isEnabled('finance') ? [{ k: 'finance', l: 'صلاحيات مالية', icon: Landmark }] : []),
-    { k: 'advanced', l: 'متقدم', icon: Activity },
-  ];
 
   const [form, setForm] = useState({
     full_name: '',
@@ -92,6 +251,9 @@ export default function AdminEmployeesPageV2() {
     position: '',
     phone: '',
     branch_id: '',
+    shift_code: '',
+    status: 'active',
+    allowed_pages: [] as string[],
     finance: {
       legal_entity_id: '',
       finance_role: 'viewer' as FinanceRole,
@@ -110,13 +272,14 @@ export default function AdminEmployeesPageV2() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [emps, depts, brs, entities, cc, projs] = await Promise.all([
+      const [emps, depts, brs, entities, cc, projs, usageData] = await Promise.all([
         userService.findAllUsers(),
         departmentService.findActive().catch(() => []),
         branchService.findAll({ orderBy: 'name_ar' }).catch(() => []),
         legalEntityService.findActive().catch(() => []),
         (async () => { try { const { data } = await supabase.from('cost_centers').select('id, name_ar, code').limit(50); return data || []; } catch { return []; } })(),
         (async () => { try { const { data } = await supabase.from('finance_projects').select('id, name_ar, code').limit(50); return data || []; } catch { return []; } })(),
+        entitlementService.getUsage().catch(() => null),
       ]);
       setEmployees(emps || []);
       setDepartments(depts || []);
@@ -124,6 +287,7 @@ export default function AdminEmployeesPageV2() {
       setLegalEntities(entities as any || []);
       setCostCenters(cc as any);
       setProjects(projs as any);
+      setUsage(usageData);
     } catch (err) {
       addToast('فشل التحميل: ' + getErrorMessage(err), 'error');
     } finally {
@@ -149,12 +313,14 @@ export default function AdminEmployeesPageV2() {
   const openCreate = () => {
     setForm({
       full_name: '', email: '', passcode: '', role: 'employee',
-      department: '', department_id: '', position: '', phone: '', branch_id: '',
+      department: '', department_id: '', position: '', phone: '', branch_id: '', shift_code: '',
+      status: 'active',
+      allowed_pages: [] as string[],
       finance: { legal_entity_id: legalEntities[0]?.id || '', finance_role: 'viewer', canPostJE: false, canClosePeriod: false, canManageCoA: false, canViewPL: true, canExport: true, cost_centers: [], projects: [] }
     });
     setFormMode('create');
     setSelectedEmp(null);
-    setActiveTab('basic');
+    setWizardStep(1);
     setModalOpen(true);
   };
 
@@ -169,14 +335,16 @@ export default function AdminEmployeesPageV2() {
       position: emp.position || '',
       phone: emp.phone || '',
       branch_id: emp.branch_id || '',
+      shift_code: '',
+      status: emp.status || 'active',
+      allowed_pages: emp.custom_permissions?.allowed_pages || [] as string[],
       finance: { legal_entity_id: '', finance_role: 'viewer', canPostJE: false, canClosePeriod: false, canManageCoA: false, canViewPL: true, canExport: true, cost_centers: [], projects: [] }
     });
     setFormMode('edit');
     setSelectedEmp(emp);
-    setActiveTab('basic');
+    setWizardStep(1);
     setModalOpen(true);
 
-    // Load finance memberships for this user
     try {
       const { data } = await supabase.from('entity_memberships').select('*, legal_entities!inner(name_ar, code)').eq('user_id', emp.id);
       setEntityMemberships(data || []);
@@ -196,16 +364,48 @@ export default function AdminEmployeesPageV2() {
     } catch {}
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.full_name.trim() || !form.email.trim()) {
-      addToast('الاسم والبريد مطلوبان', 'error');
-      return;
+  const validateStep1 = () => {
+    if (!form.full_name.trim()) {
+      addToast('الاسم الكامل مطلوب', 'error');
+      return false;
+    }
+    if (!form.email.trim()) {
+      addToast('البريد الإلكتروني مطلوب', 'error');
+      return false;
     }
     if (formMode === 'create' && form.passcode.length < 8) {
-      addToast('كلمة المرور 8 أحرف على الأقل', 'error');
-      return;
+      addToast('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'error');
+      return false;
     }
+
+    // التحقق من عدم تكرار البريد الإلكتروني والاسم في نفس الشركة
+    const finalEmail = `${form.email.split('@')[0]}@kyvzon.com`.toLowerCase();
+    const emailExists = employees.some((e: any) => e.email?.toLowerCase() === finalEmail && (formMode === 'create' || e.id !== selectedEmp?.id));
+    if (emailExists) {
+      addToast('البريد الإلكتروني مستخدم بالفعل في هذه الشركة', 'error');
+      return false;
+    }
+
+    const nameExists = employees.some((e: any) => e.full_name?.trim().toLowerCase() === form.full_name.trim().toLowerCase() && (formMode === 'create' || e.id !== selectedEmp?.id));
+    if (nameExists) {
+      addToast('اسم الموظف مكرر بالفعل في هذه الشركة', 'error');
+      return false;
+    }
+
+    return true;
+  };
+
+  const validateStep2 = () => {
+    if (!form.role) {
+      addToast('دور HR مطلوب', 'error');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSave = async () => {
+    if (!validateStep1() || !validateStep2()) return;
+
     setSaving(true);
     try {
       if (formMode === 'edit' && selectedEmp) {
@@ -215,11 +415,24 @@ export default function AdminEmployeesPageV2() {
           department: form.department,
           position: form.position,
           phone: form.phone,
+          status: form.status,
         } as any);
 
-        // Update finance membership if selected
+        // حفظ الصفحات المسموحة في custom_permissions عند التعديل
+        const currentCustom = selectedEmp.custom_permissions || {};
+        await supabase.from('profiles').update({
+          custom_permissions: {
+            ...currentCustom,
+            allowed_pages: form.allowed_pages,
+          }
+        }).eq('id', selectedEmp.id);
+
+        // مزامنة حالة الحساب مع Supabase Auth إذا تغيرت
+        if (form.status !== selectedEmp.status) {
+          await adminUserService.toggleUserStatus(selectedEmp.id, form.status === 'inactive', currentUser?.id || '');
+        }
+
         if (form.finance.legal_entity_id) {
-          // Upsert membership
           const { data: existing } = await supabase.from('entity_memberships').select('id').eq('user_id', selectedEmp.id).eq('legal_entity_id', form.finance.legal_entity_id).maybeSingle();
           if (existing) {
             await supabase.from('entity_memberships').update({ finance_role: form.finance.finance_role, is_active: true }).eq('id', (existing as any).id);
@@ -245,6 +458,8 @@ export default function AdminEmployeesPageV2() {
           role: form.role,
           department_id: form.department_id || undefined,
           phone: form.phone || undefined,
+          finance_role: form.finance.legal_entity_id ? form.finance.finance_role : undefined,
+          legal_entity_id: form.finance.legal_entity_id || undefined,
         } as any);
 
         if ((result as any).error) {
@@ -253,30 +468,18 @@ export default function AdminEmployeesPageV2() {
           return;
         }
 
-        // Create finance membership if selected
-        const newUserId = (result as any).data?.id || (result as any).user_id;
+        const newUserId = result.data?.user_id || (result as any).user_id;
         if (newUserId) {
-          // حفظ الفرع والوردية في custom_permissions للـ profile + shift_assignments
           try {
-            if (form.branch_id || (form as any).shift_code) {
-              await supabase.from('profiles').update({
-                custom_permissions: {
-                  branch_id: form.branch_id || null,
-                  shift_code: (form as any).shift_code || null,
-                  cost_centers: form.finance.cost_centers,
-                  projects: form.finance.projects,
-                }
-              }).eq('id', newUserId);
-
-              // إنشاء تعيين وردية — تم تبسيطه في خطة العلاج: نحفظ shift_code في custom_permissions فقط
-              // لأن shift_schedules تم حذفه كـ dead table في 0013، و shift_assignments يعتمد عليه بـ FK
-              // والجدول الصحيح المتبقي هو structure_shifts (مرجع للورديات)
-              // لذلك نحفظ الوردية في profiles.custom_permissions بدلاً من جدول منفصل
-              if ((form as any).shift_code) {
-                console.log('Shift assignment saved in custom_permissions:', (form as any).shift_code);
-                // سيتم حفظه بالفعل في custom_permissions أعلاه
+            await supabase.from('profiles').update({
+              custom_permissions: {
+                branch_id: form.branch_id || null,
+                shift_code: form.shift_code || null,
+                cost_centers: form.finance.cost_centers,
+                projects: form.finance.projects,
+                allowed_pages: form.allowed_pages,
               }
-            }
+            }).eq('id', newUserId);
           } catch (branchErr) {
             console.warn('Failed to save branch/shift:', branchErr);
           }
@@ -292,23 +495,7 @@ export default function AdminEmployeesPageV2() {
           }
         }
 
-        const portalNames: any = {
-          employee: 'الموظف',
-          supervisor: 'المشرف',
-          manager: 'المدير',
-          hr: 'الموارد البشرية',
-          admin: form.branch_id ? `مدير نظام لفرع ${branches.find((b:any)=>b.id===form.branch_id)?.name_ar || ''}` : 'مدير نظام',
-          gatekeeper: 'الحارس',
-          it_admin: 'التقنية',
-        };
-        const shiftNames: any = {
-          morning: 'الصباحية (08:00-16:00)',
-          evening: 'المسائية (16:00-00:00)',
-          night: 'الليلية (00:00-08:00)',
-          flexible: 'مرنة',
-        };
-        const financeNote = form.finance.legal_entity_id ? ` + دور مالي ${form.finance.finance_role} في ${legalEntities.find((le:any)=>le.id===form.finance.legal_entity_id)?.code || ''}` : '';
-        addToast(`تم إنشاء ${form.full_name} — ${portalNames[form.role] || form.role} — فرع ${branches.find((b:any)=>b.id===form.branch_id)?.name_ar || 'عام'} — وردية ${shiftNames[(form as any).shift_code] || (form as any).shift_code || 'غير محددة'}${financeNote}`, 'success');
+        addToast(`تم إنشاء ${form.full_name} بنجاح ✅`, 'success');
       }
       setModalOpen(false);
       await fetchAll();
@@ -330,6 +517,17 @@ export default function AdminEmployeesPageV2() {
       return obj;
     });
     setBulkPreview(preview);
+  };
+
+  const downloadCSVTemplate = () => {
+    const csvContent = '\uFEFFfull_name,email,role,phone\nأحمد محمد,ahmed.mohammed,employee,07901234567\nسارة علي,sara.ali,hr,07801234567';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'kyvzon_employees_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleBulkImport = async () => {
@@ -362,7 +560,7 @@ export default function AdminEmployeesPageV2() {
         errors.push({ row, error: e.message });
       }
       setBulkProgress({ done, total: rows.length, errors });
-      await new Promise(r => setTimeout(r, 200)); // Rate limit 5/min = 200ms * 12? Actually 5/min is 12s, but for bulk we use 200ms for demo
+      await new Promise(r => setTimeout(r, 200));
     }
 
     addToast(`تم استيراد ${done}/${rows.length}`, done===rows.length ? 'success' : 'warning');
@@ -376,30 +574,41 @@ export default function AdminEmployeesPageV2() {
         <div>
           <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
             <Users size={24} className="text-indigo-600" />
-            إدارة الموظفين المتقدمة
-            <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-full">V2 Finance Ready ✅</span>
+            إدارة الموظفين والوصول المؤسسي
+            <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-full">Step Wizard V2 ✅</span>
           </h2>
-          <p className="text-sm text-slate-500 mt-1">إضافة مستخدمين بمستوى احترافي — HR + Finance Roles + Legal Entity + Cost Centers + Bulk Import</p>
+          <p className="text-sm text-slate-500 mt-1">إضافة مستخدمين عبر معالج خطوات متسلسل مع دعم صلاحيات الكيانات المالية والبوابات</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setShowBulk(true)} className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-50"><Upload size={14} />استيراد جماعي CSV</button>
-          <button onClick={openCreate} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-black flex items-center gap-2"><Plus size={14} />إضافة موظف متقدم</button>
+          <button onClick={openCreate} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-black flex items-center gap-2 shadow-lg shadow-indigo-500/25"><Plus size={14} />إضافة موظف جديد</button>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black">{employees.length}</p><p className="text-xs text-slate-500">إجمالي</p></div>
-        <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black text-emerald-600">{employees.filter((e:any)=>e.status==='active').length}</p><p className="text-xs text-slate-500">نشط</p></div>
-        <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black text-violet-600">{legalEntities.length}</p><p className="text-xs text-slate-500">كيان قانوني</p></div>
-        <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black text-blue-600">{employees.filter((e:any)=>['admin','hr','manager'].includes(e.role)).length}</p><p className="text-xs text-slate-500">إداريين</p></div>
+        <div className="bg-white border rounded-2xl p-4">
+          <p className="text-2xl font-black">
+            {employees.length}
+            {usage && <span className="text-xs text-slate-400 font-normal"> / {usage.limits.maxEmployees}</span>}
+          </p>
+          <p className="text-xs text-slate-500">إجمالي المستخدمين (الحد المسموح)</p>
+          {usage && (
+            <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+              <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${Math.min(100, (employees.length / usage.limits.maxEmployees) * 100)}%` }} />
+            </div>
+          )}
+        </div>
+        <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black text-emerald-600">{employees.filter((e:any)=>e.status==='active').length}</p><p className="text-xs text-slate-500">نشطون</p></div>
+        <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black text-violet-600">{legalEntities.length}</p><p className="text-xs text-slate-500">الكيانات المالية</p></div>
+        <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black text-blue-600">{employees.filter((e:any)=>['admin','hr','manager'].includes(e.role)).length}</p><p className="text-xs text-slate-500">المسؤولون والإداريون</p></div>
       </div>
 
       {/* Filters */}
       <div className="bg-white border rounded-2xl p-4 flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث بالاسم أو البريد..." className="w-full pr-10 pl-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث بالاسم أو البريد..." className="w-full pr-10 pl-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500" />
         </div>
         <select value={filterRole} onChange={e => setFilterRole(e.target.value)} className="px-4 py-2.5 bg-slate-50 border rounded-xl text-sm">
           <option value="all">كل الأدوار</option>
@@ -409,60 +618,59 @@ export default function AdminEmployeesPageV2() {
           <option value="all">كل الكيانات</option>
           {legalEntities.map(le => <option key={le.id} value={le.id}>{le.code} — {le.name_ar}</option>)}
         </select>
-        <button onClick={() => fetchAll()} className="px-4 py-2.5 bg-white border rounded-xl text-sm font-bold flex items-center gap-2"><RefreshCw size={14} />تحديث</button>
+        <button onClick={() => fetchAll()} className="px-4 py-2.5 bg-white border rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-50"><RefreshCw size={14} />تحديث</button>
       </div>
 
       {/* Table */}
-      {loading ? <div className="flex justify-center py-20"><Loader size={32} className="animate-spin" /></div> : (
-        <div className="bg-white border rounded-2xl overflow-hidden">
+      {loading ? <div className="flex justify-center py-20"><Loader size={32} className="animate-spin text-indigo-600" /></div> : (
+        <div className="bg-white border rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-50 border-b">
                 <tr className="text-right text-xs font-bold text-slate-500">
-                  <th className="py-3 px-5">الموظف</th>
-                  <th className="py-3 px-5">الدور HR</th>
-                  <th className="py-3 px-5">القسم</th>
-                  <th className="py-3 px-5">المالية</th>
-                  <th className="py-3 px-5">الحالة</th>
-                  <th className="py-3 px-5">إجراءات</th>
+                  <th className="py-3.5 px-5">الموظف</th>
+                  <th className="py-3.5 px-5">الدور HR</th>
+                  <th className="py-3.5 px-5">القسم</th>
+                  <th className="py-3.5 px-5">الوصول المالي</th>
+                  <th className="py-3.5 px-5">الحالة</th>
+                  <th className="py-3.5 px-5">إجراءات</th>
                 </tr>
               </thead>
               <tbody>
                 {paged.map((emp:any) => (
-                  <tr key={emp.id} className="border-b hover:bg-slate-50/50">
-                    <td className="py-3 px-5">
+                  <tr key={emp.id} className="border-b hover:bg-slate-50/50 transition-colors">
+                    <td className="py-3.5 px-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-sm">{emp.full_name?.charAt(0)||'?'}</div>
-                        <div><p className="font-bold text-sm">{emp.full_name}</p><p className="text-xs text-slate-500 font-mono">{emp.email}</p></div>
+                        <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-sm">{emp.full_name?.charAt(0)||'?'}</div>
+                        <div><p className="font-bold text-sm text-slate-900">{emp.full_name}</p><p className="text-xs text-slate-400 font-mono">{emp.email}</p></div>
                       </div>
                     </td>
-                    <td className="py-3 px-5"><span className={`px-2 py-1 rounded-full text-xs font-bold ${ROLES.find(r=>r.value===emp.role)?.color || 'bg-slate-100'}`}>{ROLE_LABELS[emp.role]||emp.role}</span></td>
-                    <td className="py-3 px-5 text-sm">{emp.department || '—'}</td>
-                    <td className="py-3 px-5"><span className="text-xs bg-violet-50 text-violet-700 border border-violet-200 px-2 py-1 rounded-full">Finance: يُعرض في التفاصيل</span></td>
-                    <td className="py-3 px-5"><span className={`px-2 py-1 rounded-full text-xs font-bold ${emp.status==='active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100'}`}>{emp.status||'active'}</span></td>
-                    <td className="py-3 px-5">
-                      <div className="flex gap-1">
-                        <button onClick={() => openView(emp)} className="w-8 h-8 bg-slate-50 border rounded-xl flex items-center justify-center hover:bg-indigo-50"><Eye size={14} /></button>
-                        <button onClick={() => {
-                          // reuse openEdit logic
-                          setForm({
-                            full_name: emp.full_name||'',
-                            email: emp.email?.split('@')[0]||'',
-                            passcode: '',
-                            role: emp.role||'employee',
-                            department: emp.department||'',
-                            department_id: '',
-                            position: emp.position||'',
-                            phone: emp.phone||'',
-                            branch_id: '',
-                            finance: { legal_entity_id: legalEntities[0]?.id||'', finance_role: 'viewer', canPostJE: false, canClosePeriod: false, canManageCoA: false, canViewPL: true, canExport: true, cost_centers: [], projects: [] }
-                          });
-                          setSelectedEmp(emp);
-                          setFormMode('edit');
-                          setActiveTab('basic');
-                          setModalOpen(true);
-                        }} className="w-8 h-8 bg-slate-50 border rounded-xl flex items-center justify-center hover:bg-amber-50"><Edit2 size={14} /></button>
-                        <button onClick={async () => { if(!confirm(`حذف ${emp.full_name}؟`)) return; await adminUserService.deleteUser({target_user_id: emp.id, deleted_by: currentUser?.id||''}); await fetchAll(); }} className="w-8 h-8 bg-slate-50 border rounded-xl flex items-center justify-center hover:bg-red-50 text-red-600"><Trash2 size={14} /></button>
+                    <td className="py-3.5 px-5"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${ROLES.find(r=>r.value===emp.role)?.color || 'bg-slate-100 text-slate-700'}`}>{ROLE_LABELS[emp.role]||emp.role}</span></td>
+                    <td className="py-3.5 px-5 text-sm text-slate-700">{emp.department || '—'}</td>
+                    <td className="py-3.5 px-5"><span className="text-xs bg-violet-50 text-violet-700 border border-violet-200 px-2.5 py-1 rounded-full">عرض عبر التفاصيل</span></td>
+                    <td className="py-3.5 px-5"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${emp.status==='active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}`}>{emp.status||'active'}</span></td>
+                    <td className="py-3.5 px-5">
+                      <div className="flex gap-1.5">
+                        <button onClick={() => openView(emp)} className="w-8 h-8 bg-slate-50 border rounded-xl flex items-center justify-center hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 transition-colors" title="عرض التفاصيل"><Eye size={14} /></button>
+                        <button onClick={() => openEdit(emp)} className="w-8 h-8 bg-slate-50 border rounded-xl flex items-center justify-center hover:bg-amber-50 text-slate-500 hover:text-amber-600 transition-colors" title="تعديل"><Edit2 size={14} /></button>
+                        <button onClick={async () => {
+                          if(!confirm(`هل أنت متأكد من حذف وتعطيل ${emp.full_name}؟`)) return;
+                          try {
+                            const result = await adminUserService.deleteUser({
+                              target_user_id: emp.id,
+                              deleted_by: currentUser?.id || '',
+                              reason: 'حذف من لوحة الإدارة',
+                            });
+                            if (result.error) {
+                              addToast('فشل حذف/تعطيل المستخدم: ' + result.error, 'error');
+                            } else {
+                              addToast('تم حذف وتعطيل المستخدم بنجاح ✅', 'success');
+                              await fetchAll();
+                            }
+                          } catch (err: any) {
+                            addToast('فشل الحذف: ' + err.message, 'error');
+                          }
+                        }} className="w-8 h-8 bg-slate-50 border rounded-xl flex items-center justify-center hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors" title="حذف"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>
@@ -471,226 +679,405 @@ export default function AdminEmployeesPageV2() {
             </table>
           </div>
           <div className="flex justify-between items-center p-4 border-t bg-slate-50">
-            <span className="text-xs text-slate-500">{filtered.length} موظف — صفحة {page}/{totalPages}</span>
+            <span className="text-xs text-slate-500 font-medium">{filtered.length} موظف — صفحة {page}/{totalPages}</span>
             <div className="flex gap-2">
-              <button disabled={page===1} onClick={() => setPage(p=>Math.max(1,p-1))} className="w-8 h-8 bg-white border rounded-xl flex items-center justify-center disabled:opacity-50"><ChevronLeft size={14} /></button>
-              <button disabled={page===totalPages} onClick={() => setPage(p=>Math.min(totalPages,p+1))} className="w-8 h-8 bg-white border rounded-xl flex items-center justify-center disabled:opacity-50"><ChevronLeft size={14} className="rotate-180" /></button>
+              <button disabled={page===1} onClick={() => setPage(p=>Math.max(1,p-1))} className="w-8 h-8 bg-white border rounded-xl flex items-center justify-center disabled:opacity-50 hover:bg-slate-50"><ChevronLeft size={14} /></button>
+              <button disabled={page===totalPages} onClick={() => setPage(p=>Math.min(totalPages,p+1))} className="w-8 h-8 bg-white border rounded-xl flex items-center justify-center disabled:opacity-50 hover:bg-slate-50"><ChevronLeft size={14} className="rotate-180" /></button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal — 4 Tabs */}
+      {/* ── Modal: Step-by-Step Wizard for Adding/Editing User ── */}
       {modalOpen && (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl border overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b">
-              <h3 className="font-black text-lg">{formMode==='create' ? 'إضافة موظف متقدم — 4 Tabs' : `تعديل ${selectedEmp?.full_name}`}</h3>
-              <button onClick={() => setModalOpen(false)} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center"><X size={16} /></button>
-            </div>
-
-            <div className="flex gap-1 p-2 bg-slate-50 border-b overflow-x-auto">
-              {tabs.map((t: any) => (
-                <button key={t.k} onClick={() => setActiveTab(t.k as any)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap ${activeTab===t.k ? 'bg-white shadow border text-indigo-600' : 'text-slate-500'}`}><t.icon size={14} />{t.l}</button>
-              ))}
-            </div>
-
-            <form onSubmit={handleSave} className="p-5 space-y-4 overflow-y-auto flex-1">
-              {activeTab==='basic' && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="text-xs font-bold text-slate-500">الاسم الكامل *</label><input value={form.full_name} onChange={e => setForm(f=>({...f, full_name: e.target.value}))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" placeholder="أحمد محمد" /></div>
-                    <div><label className="text-xs font-bold text-slate-500">البريد (سيُبنى @kyvzon.com) *</label><input value={form.email} onChange={e => setForm(f=>({...f, email: e.target.value}))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" placeholder="ahmed.mohammed" /></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="text-xs font-bold text-slate-500">كلمة المرور {formMode==='create'?'*':''}</label><input type="password" value={form.passcode} onChange={e => setForm(f=>({...f, passcode: e.target.value}))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" placeholder="8 أحرف على الأقل" /></div>
-                    <div><label className="text-xs font-bold text-slate-500">الهاتف</label><input value={form.phone} onChange={e => setForm(f=>({...f, phone: e.target.value}))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" /></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="text-xs font-bold text-slate-500">القسم</label><select value={form.department} onChange={e => setForm(f=>({...f, department: e.target.value, department_id: departments.find(d=>d.name_ar===e.target.value)?.id||''}))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm"><option value="">اختر قسماً</option>{departments.map((d:any)=><option key={d.id} value={d.name_ar}>{d.name_ar}</option>)}</select></div>
-                    <div><label className="text-xs font-bold text-slate-500">الفرع</label><select value={form.branch_id} onChange={e => setForm(f=>({...f, branch_id: e.target.value}))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm"><option value="">اختر فرعاً</option>{branches.map((b:any)=><option key={b.id} value={b.id}>{b.name_ar}</option>)}</select></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="text-xs font-bold text-slate-500">المنصب</label><input value={form.position} onChange={e => setForm(f=>({...f, position: e.target.value}))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" /></div>
-                    <div><label className="text-xs font-bold text-slate-500">الدور HR *</label><select value={form.role} onChange={e => setForm(f=>({...f, role: e.target.value as any}))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm">{ROLES.map(r=><option key={r.value} value={r.value}>{r.label}</option>)}</select></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="text-xs font-bold text-slate-500">الوردية التي سيعمل بها المستخدم</label><select value={(form as any).shift_code || ''} onChange={e => setForm(f=>({...f, shift_code: e.target.value} as any))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm"><option value="">اختر وردية</option><option value="morning">الوردية الصباحية (08:00-16:00)</option><option value="evening">الوردية المسائية (16:00-00:00)</option><option value="night">الوردية الليلية (00:00-08:00)</option><option value="flexible">وردية مرنة</option></select><p className="text-[10px] text-slate-400 mt-1">يتم حفظها في shift_assignments للموظف</p></div>
-                    <div><label className="text-xs font-bold text-slate-500">الفرع (إذا كان مدير نظام لفرع آخر)</label><select value={form.branch_id} onChange={e => setForm(f=>({...f, branch_id: e.target.value}))} className="w-full mt-1 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm"><option value="">كل الفروع (إداري عام)</option>{branches.map((b:any)=><option key={b.id} value={b.id}>{b.name_ar}</option>)}</select><p className="text-[10px] text-slate-400 mt-1">مثال: إنشاء حساب مدير نظام لفرع آخر</p></div>
-                  </div>
-                  <div className="bg-slate-50 border rounded-xl p-3 text-xs">
-                    <p className="font-bold">🎯 إنشاء حسابات لكل البوابات (احترافي):</p>
-                    <ul className="mt-2 space-y-1 list-disc pr-4 text-slate-600">
-                      <li>للتقنية: اختر الدور it_admin أو tech — سيتمكن من دخول /app/tech-portal</li>
-                      <li>مشرف: الدور supervisor — /app/supervisor</li>
-                      <li>مدير: الدور manager — /app/manager</li>
-                      <li>موظف: الدور employee — /app/employee</li>
-                      <li>موارد بشرية: الدور hr — /app/hr</li>
-                      <li>مدير نظام لفرع آخر: الدور admin + اختر الفرع</li>
-                      <li>حارس: الدور gatekeeper — /app/gatekeeper</li>
-                      <li>مالية: اختر قسم المالية + في تبويب المالية حدد الكيان والدور المالي</li>
-                    </ul>
-                  </div>
-                </>
-              )}
-
-              {activeTab==='permissions' && (
-                <div className="space-y-3">
-                  <h4 className="font-black text-sm">صلاحيات HR — حسب الدور {ROLE_LABELS[form.role]}</h4>
-                  <p className="text-xs text-slate-500">هذه الصلاحيات تحدد ما يراه المستخدم في بوابات HR، Employee، Manager، إلخ.</p>
-                  <div className="bg-slate-50 border rounded-xl p-4 text-xs text-slate-600">
-                    مثال: employee يرى dashboard, problems, tawathul-portal, wellness, my-attendance...
-                    <br/>سيتم تطبيق DEFAULT_PERMS حسب الدور مع إمكانية تخصيص لاحقاً.
-                  </div>
-                </div>
-              )}
-
-              {activeTab==='finance' && (
-                <div className="space-y-4">
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs">
-                    <p className="font-bold">💡 ملاحظة: بوابة المالية هي بوابة مثل باقي البوابات — التفاصيل المالية تظهر فقط إذا كان قسم المستخدم هو المالية</p>
-                    <p className="mt-1">حالياً القسم المختار: <strong>{form.department || 'غير محدد'}</strong> {form.department?.toLowerCase().includes('مالية') || form.department?.toLowerCase().includes('finance') || form.department==='finance' ? '→ سيتم عرض التفاصيل المالية' : '→ لن تظهر التفاصيل المالية (لأن القسم ليس المالية)'}</p>
-                  </div>
-                  <h4 className="font-black text-sm flex items-center gap-2"><Landmark size={16} className="text-violet-600" />الصلاحيات المالية المتقدمة — تظهر فقط عند اختيار قسم المالية</h4>
-                  <p className="text-xs text-slate-500">هذا التبويب يسمح بإنشاء حساب لبوابة المالية بمستوى احترافي — كيان قانوني + دور مالي + صلاحيات دقيقة + مراكز تكلفة — البوابات الأخرى ليس لها علاقة</p>
-
-                  {!(form.department?.toLowerCase().includes('مالية') || form.department?.toLowerCase().includes('finance') || form.department==='finance' || form.department==='general' && false) ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
-                      <p className="font-bold text-sm text-amber-800">التفاصيل المالية تظهر فقط عند اختيار قسم المالية</p>
-                      <p className="text-xs text-amber-700 mt-2">أنت حالياً اخترت قسم: <strong>{form.department || 'غير محدد'}</strong> — ليس قسم المالية، لذلك البوابات الأخرى ليس لها علاقة بالمالية.</p>
-                      <p className="text-xs text-amber-700 mt-2">إذا أردت إنشاء حساب لبوابة المالية، اختر في Tab الأساسي: القسم = المالية</p>
-                      <div className="mt-3 text-[11px] text-slate-500">بوابة المالية هي بوابة مثلها مثل باقي البوابات — عندما نختار قسم المالية هنا فقط سيتم عرض التفاصيل المالية</div>
-                    </div>
-                  ) : (
-                    <>
-                  <div>
-                    <label className="text-xs font-bold text-slate-500">الكيان القانوني *</label>
-                    <select value={form.finance.legal_entity_id} onChange={e => setForm(f=>({...f, finance: {...f.finance, legal_entity_id: e.target.value}}))} className="w-full mt-1 px-4 py-2.5 bg-violet-50 border border-violet-200 rounded-xl text-sm">
-                      <option value="">اختر كياناً قانونياً</option>
-                      {legalEntities.map(le => <option key={le.id} value={le.id}>{le.code} — {le.name_ar} ({le.base_currency_code})</option>)}
-                    </select>
-                    <p className="text-[11px] text-slate-400 mt-1">المستخدم سيكون له صلاحية مالية في هذا الكيان فقط — ليس كل الكيانات</p>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-500">الدور المالي *</label>
-                    <div className="grid gap-2 mt-2">
-                      {FINANCE_ROLES.map(r => (
-                        <label key={r.value} className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition ${form.finance.finance_role===r.value ? 'border-violet-400 bg-violet-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
-                          <input type="radio" name="finance_role" value={r.value} checked={form.finance.finance_role===r.value} onChange={e => setForm(f=>({...f, finance: {...f.finance, finance_role: e.target.value as any}}))} className="mt-1" />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2"><span className="font-black text-sm">{r.label}</span><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.color}`}>{r.value}</span></div>
-                            <p className="text-xs text-slate-500 mt-1">{r.desc}</p>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 mb-2 block">صلاحيات دقيقة</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        {k:'canPostJE',l:'يستطيع ترحيل قيد',desc:'Can Post Journal Entry'},
-                        {k:'canClosePeriod',l:'يستطيع إغلاق فترة',desc:'Can Close Period'},
-                        {k:'canManageCoA',l:'يدير دليل الحسابات',desc:'Can Manage CoA'},
-                        {k:'canViewPL',l:'يرى P&L والميزانية',desc:'Can View P&L'},
-                        {k:'canExport',l:'يصدّر التقارير',desc:'Can Export Reports'},
-                      ].map(item => (
-                        <label key={item.k} className="flex items-start gap-2 p-3 bg-white border rounded-xl cursor-pointer hover:bg-slate-50">
-                          <input type="checkbox" checked={(form.finance as any)[item.k]} onChange={e => setForm(f=>({...f, finance: {...f.finance, [item.k]: e.target.checked}}))} className="mt-1" />
-                          <div><p className="text-xs font-bold">{item.l}</p><p className="text-[10px] text-slate-400">{item.desc}</p></div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-500">مراكز التكلفة المسموحة</label>
-                      <select multiple value={form.finance.cost_centers} onChange={e => setForm(f=>({...f, finance: {...f.finance, cost_centers: Array.from(e.target.selectedOptions, o=>o.value)}}))} className="w-full mt-1 px-3 py-2.5 bg-slate-50 border rounded-xl text-xs h-24">
-                        {costCenters.map((cc:any)=><option key={cc.id} value={cc.id}>{cc.code} — {cc.name_ar}</option>)}
-                      </select>
-                      <p className="text-[10px] text-slate-400 mt-1">Ctrl+Click لاختيار متعدد — محاسب فرع الرياض يرى فقط cost center الرياض</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-500">المشاريع المسموحة</label>
-                      <select multiple value={form.finance.projects} onChange={e => setForm(f=>({...f, finance: {...f.finance, projects: Array.from(e.target.selectedOptions, o=>o.value)}}))} className="w-full mt-1 px-3 py-2.5 bg-slate-50 border rounded-xl text-xs h-24">
-                        {projects.map((p:any)=><option key={p.id} value={p.id}>{p.code} — {p.name_ar}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                    </>
-                  )}
-                  <div className="bg-violet-50 border border-violet-200 rounded-xl p-3 text-xs text-violet-800">
-                    <p className="font-bold">Preview:</p>
-                    <p className="mt-1">{form.full_name || 'الموظف'} — {FINANCE_ROLES.find(r=>r.value===form.finance.finance_role)?.label} في كيان {legalEntities.find(le=>le.id===form.finance.legal_entity_id)?.code || '...'} — {form.finance.canPostJE ? 'يستطيع الترحيل' : 'لا يستطيع الترحيل'} — {form.finance.canClosePeriod ? 'يستطيع الإغلاق' : 'لا يغلق'}</p>
-                  </div>
-                </div>
-              )}
-
-              {activeTab==='advanced' && (
-                <div className="space-y-4">
-                  <h4 className="font-black text-sm">الإعدادات المتقدمة</h4>
-                  <div className="bg-slate-50 border rounded-xl p-4 text-xs text-slate-600 space-y-2">
-                    <p><strong>سيتم إنشاء:</strong></p>
-                    <p>• profile + employee في tenant الحالي</p>
-                    <p>• entity_membership: tenant_id, legal_entity_id={form.finance.legal_entity_id?.slice(0,8)}..., user_id, finance_role={form.finance.finance_role}</p>
-                    <p>• audit في security_events</p>
-                    <p className="mt-3"><strong>المستخدم الجديد سيستطيع:</strong></p>
-                    <p>• دخول /app/finance حسب دوره المالي</p>
-                    <p>• رؤية تقارير P&L إذا canViewPL</p>
-                    <p>• إنشاء قيود مسودة إذا accountant، وترحيل إذا canPostJE</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4 border-t">
-                <button type="button" onClick={() => setModalOpen(false)} className="flex-1 px-4 py-3 rounded-xl bg-white border text-sm font-bold">إلغاء</button>
-                <button type="submit" disabled={saving} className="flex-1 px-4 py-3 rounded-xl bg-indigo-600 text-white font-black text-sm disabled:opacity-50">{saving ? 'جاري الحفظ...' : formMode==='create' ? 'إنشاء موظف متقدم + دور مالي' : 'تحديث'}</button>
+          <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 flex-shrink-0 bg-slate-50">
+              <div>
+                <h3 className="font-black text-lg text-slate-900">
+                  {formMode === 'create' ? 'إضافة موظف جديد — معالج الخطوات المؤسسي' : `تعديل بيانات ${selectedEmp?.full_name}`}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">أنشئ حساباً آمناً مع تحديد دقيق للبوابات والأدوار التنظيمية والمالية</p>
               </div>
-            </form>
+              <button onClick={() => setModalOpen(false)} className="w-8 h-8 bg-white border rounded-xl flex items-center justify-center hover:bg-slate-100 text-slate-500 transition-colors"><X size={16} /></button>
+            </div>
+
+            {/* Stepper Header */}
+            <div className="px-6 py-4 bg-white border-b border-slate-100 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                {[
+                  { step: 1, title: 'الهوية والاتصال' },
+                  { step: 2, title: 'التعيين التنظيمي والفرع' },
+                  { step: 3, title: 'البوابات والصلاحيات المالية' }
+                ].map((st) => (
+                  <div key={st.step} className="flex items-center gap-2 flex-1">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${wizardStep === st.step ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25' : wizardStep > st.step ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                      {wizardStep > st.step ? <Check size={14} /> : st.step}
+                    </div>
+                    <div className="hidden sm:block min-w-0">
+                      <p className={`text-xs font-bold truncate ${wizardStep === st.step ? 'text-indigo-600' : 'text-slate-500'}`}>{st.title}</p>
+                    </div>
+                    {st.step < 3 && <div className={`flex-1 h-1 rounded-full ${wizardStep > st.step ? 'bg-emerald-500' : 'bg-slate-100'}`} />}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Form Body */}
+            <div className="p-6 space-y-5 overflow-y-auto flex-1">
+              {/* STEP 1: Identity & Contact */}
+              {wizardStep === 1 && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-xs text-indigo-900">
+                    <p className="font-bold">الخطوة 1: الهوية الأساسية والاتصال</p>
+                    <p className="mt-0.5 text-indigo-700">أدخل الاسم الكامل والبريد الإلكتروني الأساسي وكلمة المرور الآمنة للدخول المنصبي.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 mb-1.5 block">الاسم الكامل *</label>
+                      <input
+                        value={form.full_name}
+                        onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all"
+                        placeholder="مثال: أحمد محمد الأنسي"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 mb-1.5 block">البريد الإلكتروني (النطاق المؤسسي @kyvzon.com) *</label>
+                      <div className="flex">
+                        <input
+                          value={form.email}
+                          onChange={e => setForm(f => ({ ...f, email: e.target.value.replace(/@.*/, '') }))}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-r-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500 text-left font-mono"
+                          dir="ltr"
+                          placeholder="ahmed.mohammed"
+                          required
+                        />
+                        <span className="bg-slate-200 border border-slate-200 border-r-0 rounded-l-xl px-3 flex items-center text-xs font-mono text-slate-600 select-none" dir="ltr">@kyvzon.com</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 mb-1.5 block">كلمة المرور المؤقتة / الدائمة {formMode === 'create' ? '*' : '(اتركها فارغة للإبقاء)'}</label>
+                      <input
+                        type="password"
+                        value={form.passcode}
+                        onChange={e => setForm(f => ({ ...f, passcode: e.target.value }))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+                        placeholder="8 أحرف أو أرقام على الأقل"
+                        {...(formMode === 'create' ? { required: true, minLength: 8 } : {})}
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">يجب أن تحتوي على 8 محرفاً على الأقل لأمان المنصة</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 mb-1.5 block">رقم الهاتف المحمول</label>
+                      <input
+                        value={form.phone}
+                        onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500 font-mono text-left"
+                        dir="ltr"
+                        placeholder="+964 790 000 0000"
+                      />
+                    </div>
+                  </div>
+
+                  {formMode === 'edit' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 mb-1.5 block">حالة الحساب</label>
+                        <select
+                          value={form.status || 'active'}
+                          onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+                        >
+                          <option value="active">نشط (Active)</option>
+                          <option value="inactive">معطل (Inactive)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* STEP 2: Organizational Assignment */}
+              {wizardStep === 2 && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-xs text-indigo-900">
+                    <p className="font-bold">الخطوة 2: التعيين التنظيمي والفرع والوردية</p>
+                    <p className="mt-0.5 text-indigo-700">حدد القسم الإداري، الفرع التابع له، الدور الرئيسي في النظام (HR Role)، والوردية التشغيلية.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 mb-1.5 block">القسم الإداري</label>
+                      <select
+                        value={form.department}
+                        onChange={e => setForm(f => ({ ...f, department: e.target.value, department_id: departments.find(d => d.name_ar === e.target.value)?.id || '' }))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+                      >
+                        <option value="">-- اختر القسم --</option>
+                        {departments.map((d: any) => <option key={d.id} value={d.name_ar}>{d.name_ar}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 mb-1.5 block">الفرع الرئيسي</label>
+                      <select
+                        value={form.branch_id}
+                        onChange={e => setForm(f => ({ ...f, branch_id: e.target.value }))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+                      >
+                        <option value="">-- اختر الفرع --</option>
+                        {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name_ar}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 mb-1.5 block">المسمى الوظيفي</label>
+                      <input
+                        value={form.position}
+                        onChange={e => setForm(f => ({ ...f, position: e.target.value }))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+                        placeholder="مثال: محاسب أول / مهندس برمجيات"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 mb-1.5 block">الدور الرئيسي في المنصة (RBAC Role) *</label>
+                      <select
+                        value={form.role}
+                        onChange={e => setForm(f => ({ ...f, role: e.target.value as any }))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500 font-bold"
+                        required
+                      >
+                        {visibleRoles.map(r => <option key={r.value} value={r.value}>{r.label} ({r.value})</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 mb-1.5 block">الوردية التشغيلية (Shift Schedule)</label>
+                    <select
+                      value={form.shift_code}
+                      onChange={e => setForm(f => ({ ...f, shift_code: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+                    >
+                      <option value="">-- اختر الوردية --</option>
+                      <option value="morning">الوردية الصباحية (08:00 ص — 04:00 م)</option>
+                      <option value="evening">الوردية المسائية (04:00 م — 12:00 ص)</option>
+                      <option value="night">الوردية الليلية (12:00 ص — 08:00 ص)</option>
+                      <option value="flexible">وردية مرنة (Flexible)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: Advanced & Financial Permissions (Visual Permission Matrix) */}
+              {wizardStep === 3 && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-xs text-indigo-900">
+                    <p className="font-bold">الخطوة 3: البوابات والصلاحيات المالية المتقدمة</p>
+                    <p className="mt-0.5 text-indigo-700">تحديد صلاحيات الكيانات القانونية والوصول المالي إذا كان المستخدم ضمن القسم المالي أو الإداري.</p>
+                  </div>
+
+                  {/* Dynamic Page-Level Permissions Selector */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-black text-sm text-slate-800">تخصيص صفحات وبوابات المستخدم (صلاحيات مخصصة)</h4>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // تحديد كل الصفحات المتاحة للبوابات المفعلة
+                          const allEnabledPages = visiblePortals
+                            .flatMap(p => p.pages.map(pg => pg.id));
+                          setForm(f => ({ ...f, allowed_pages: allEnabledPages }));
+                        }}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
+                      >
+                        تحديد الكل ✅
+                      </button>
+                    </div>
+
+                    <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
+                      {visiblePortals.map((portal) => {
+                        const portalPageIds = portal.pages.map(pg => pg.id);
+                        const allSelected = portalPageIds.every(id => form.allowed_pages.includes(id));
+
+                        return (
+                          <div key={portal.portalLabel} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                              <span className="font-black text-xs text-slate-700 uppercase tracking-wider">{portal.portalLabel}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (allSelected) {
+                                    // إلغاء تحديد الكل لهذه البوابة
+                                    setForm(f => ({ ...f, allowed_pages: f.allowed_pages.filter(id => !portalPageIds.includes(id)) }));
+                                  } else {
+                                    // تحديد الكل لهذه البوابة
+                                    setForm(f => ({ ...f, allowed_pages: [...new Set([...f.allowed_pages, ...portalPageIds])] }));
+                                  }
+                                }}
+                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800"
+                              >
+                                {allSelected ? 'إلغاء التحديد ❌' : 'تحديد الكل ✅'}
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {portal.pages.map((page) => {
+                                const isChecked = form.allowed_pages.includes(page.id);
+                                return (
+                                  <label key={page.id} className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${isChecked ? 'bg-indigo-50 border-indigo-200 text-indigo-800 font-bold' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        if (isChecked) {
+                                          setForm(f => ({ ...f, allowed_pages: f.allowed_pages.filter(id => id !== page.id) }));
+                                        } else {
+                                          setForm(f => ({ ...f, allowed_pages: [...f.allowed_pages, page.id] }));
+                                        }
+                                      }}
+                                      className="rounded text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span>{page.label}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Finance Binding (if enabled) */}
+                  {isEnabled('finance') && (
+                    <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Landmark size={18} className="text-violet-700" />
+                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">الربط المالي واختيار الكيان القانوني (Legal Entity)</h4>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 mb-1 block">الكيان القانوني المرتبط</label>
+                          <select
+                            value={form.finance.legal_entity_id}
+                            onChange={e => setForm(f => ({ ...f, finance: { ...f.finance, legal_entity_id: e.target.value } }))}
+                            className="w-full bg-white border border-violet-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                          >
+                            <option value="">-- بدون كيان مالي محدد --</option>
+                            {legalEntities.map(le => <option key={le.id} value={le.id}>{le.code} — {le.name_ar}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 mb-1 block">الدور المالي في الكيان</label>
+                          <select
+                            value={form.finance.finance_role}
+                            onChange={e => setForm(f => ({ ...f, finance: { ...f.finance, finance_role: e.target.value as any } }))}
+                            className="w-full bg-white border border-violet-200 rounded-xl px-3 py-2.5 text-sm outline-none font-bold"
+                          >
+                            {FINANCE_ROLES.map(fr => <option key={fr.value} value={fr.value}>{fr.label} ({fr.value})</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Wizard Footer Navigation */}
+              <div className="flex items-center justify-between pt-5 border-t border-slate-200 flex-shrink-0">
+                {wizardStep > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setWizardStep(s => (s - 1) as any)}
+                    className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors flex items-center gap-2"
+                  >
+                    <ArrowRight size={16} /> الخطوة السابقة
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(false)}
+                    className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors"
+                  >
+                    إلغاء
+                  </button>
+                )}
+
+                {wizardStep < 3 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (wizardStep === 1 && !validateStep1()) return;
+                      if (wizardStep === 2 && !validateStep2()) return;
+                      setWizardStep(s => (s + 1) as any);
+                    }}
+                    className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-500 transition-all shadow-md shadow-indigo-500/25 flex items-center gap-2"
+                  >
+                    الخطوة التالية <ArrowLeft size={16} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-sm hover:from-emerald-500 hover:to-teal-500 transition-all shadow-lg shadow-emerald-500/25 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {saving && <RefreshCw size={14} className="animate-spin" />}
+                    {saving ? 'جاري الحفظ...' : formMode === 'create' ? 'إنشاء الحساب وإتمام الموظف ✅' : 'حفظ التعديلات ✅'}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* View Modal with Finance Memberships */}
+      {/* View Modal */}
       {viewOpen && selectedEmp && (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border overflow-hidden max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-5 border-b">
-              <h3 className="font-black text-lg">تفاصيل {selectedEmp.full_name}</h3>
+              <h3 className="font-black text-lg">تفاصيل الموظف: {selectedEmp.full_name}</h3>
               <button onClick={() => setViewOpen(false)} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center"><X size={16} /></button>
             </div>
-            <div className="p-5 space-y-5 overflow-y-auto">
+            <div className="p-6 space-y-5 overflow-y-auto">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-xl">{selectedEmp.full_name?.charAt(0)}</div>
-                <div><p className="font-black">{selectedEmp.full_name}</p><p className="text-xs text-slate-500 font-mono">{selectedEmp.email} • {selectedEmp.role}</p></div>
+                <div><p className="font-black text-slate-900 text-lg">{selectedEmp.full_name}</p><p className="text-xs text-slate-400 font-mono">{selectedEmp.email} • الدور: {selectedEmp.role}</p></div>
               </div>
 
               <div>
-                <h4 className="font-black text-sm flex items-center gap-2"><Landmark size={14} /> العضويات المالية (entity_memberships)</h4>
+                <h4 className="font-black text-sm flex items-center gap-2 text-slate-800"><Landmark size={16} className="text-violet-600" /> العضويات المالية (entity_memberships)</h4>
                 <div className="mt-3 space-y-2">
-                  {entityMemberships.length===0 ? <p className="text-xs text-slate-400 text-center py-6">لا توجد عضويات مالية — هذا المستخدم لا يستطيع دخول Finance إلا إذا كان admin</p> : entityMemberships.map((m:any) => (
-                    <div key={m.id} className="p-3 bg-violet-50 border border-violet-200 rounded-xl flex justify-between items-center">
-                      <div><p className="font-bold text-sm">{m.legal_entities?.name_ar || m.legal_entity_id.slice(0,8)} ({m.legal_entities?.code})</p><p className="text-xs text-slate-500">{m.finance_role} • {m.is_active ? 'نشط' : 'غير نشط'}</p></div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${FINANCE_ROLES.find(r=>r.value===m.finance_role)?.color}`}>{m.finance_role}</span>
+                  {entityMemberships.length === 0 ? <p className="text-xs text-slate-400 text-center py-6">لا توجد عضويات مالية مرتبطة بهذا المستخدم حالياً</p> : entityMemberships.map((m: any) => (
+                    <div key={m.id} className="p-3.5 bg-violet-50 border border-violet-200 rounded-xl flex justify-between items-center">
+                      <div><p className="font-bold text-sm text-slate-900">{m.legal_entities?.name_ar || m.legal_entity_id.slice(0,8)} ({m.legal_entities?.code})</p><p className="text-xs text-slate-500">الدور المالي: {m.finance_role} • الحالة: {m.is_active ? 'نشط' : 'معطل'}</p></div>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${FINANCE_ROLES.find(r=>r.value===m.finance_role)?.color}`}>{m.finance_role}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="bg-slate-50 border rounded-xl p-3"><p className="text-slate-400">القسم</p><p className="font-bold mt-1">{selectedEmp.department || '—'}</p></div>
-                <div className="bg-slate-50 border rounded-xl p-3"><p className="text-slate-400">المنصب</p><p className="font-bold mt-1">{selectedEmp.position || '—'}</p></div>
-                <div className="bg-slate-50 border rounded-xl p-3"><p className="text-slate-400">الهاتف</p><p className="font-bold mt-1">{selectedEmp.phone || '—'}</p></div>
-                <div className="bg-slate-50 border rounded-xl p-3"><p className="text-slate-400">الحالة</p><p className="font-bold mt-1">{selectedEmp.status || 'active'}</p></div>
+                <div className="bg-slate-50 border rounded-xl p-3"><p className="text-slate-400">القسم الإداري</p><p className="font-bold mt-1 text-slate-800">{selectedEmp.department || '—'}</p></div>
+                <div className="bg-slate-50 border rounded-xl p-3"><p className="text-slate-400">المسمى الوظيفي</p><p className="font-bold mt-1 text-slate-800">{selectedEmp.position || '—'}</p></div>
+                <div className="bg-slate-50 border rounded-xl p-3"><p className="text-slate-400">رقم الهاتف</p><p className="font-bold mt-1 text-slate-800 font-mono" dir="ltr">{selectedEmp.phone || '—'}</p></div>
+                <div className="bg-slate-50 border rounded-xl p-3"><p className="text-slate-400">الحالة العامة</p><p className="font-bold mt-1 text-emerald-600">{selectedEmp.status || 'active'}</p></div>
               </div>
             </div>
             <div className="p-4 border-t bg-slate-50 flex gap-3">
-              <button onClick={() => setViewOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl bg-white border text-sm font-bold">إغلاق</button>
-              <button onClick={() => { setViewOpen(false); setFormMode('edit'); setModalOpen(true); setForm({ full_name: selectedEmp.full_name||'', email: selectedEmp.email?.split('@')[0]||'', passcode: '', role: selectedEmp.role||'employee', department: selectedEmp.department||'', department_id: '', position: selectedEmp.position||'', phone: selectedEmp.phone||'', branch_id: '', finance: { legal_entity_id: legalEntities[0]?.id||'', finance_role: 'viewer', canPostJE: false, canClosePeriod: false, canManageCoA: false, canViewPL: true, canExport: true, cost_centers: [], projects: [] } }); }} className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm">تعديل متقدم</button>
+              <button onClick={() => setViewOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl bg-white border text-sm font-bold text-slate-700 hover:bg-slate-100">إغلاق</button>
+              <button onClick={() => { setViewOpen(false); openEdit(selectedEmp); }} className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-500">تعديل الموظف</button>
             </div>
           </div>
         </div>
@@ -701,43 +1088,39 @@ export default function AdminEmployeesPageV2() {
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border overflow-hidden">
             <div className="flex items-center justify-between p-5 border-b">
-              <h3 className="font-black text-lg flex items-center gap-2"><Upload size={18} />استيراد جماعي CSV — 100 موظف</h3>
+              <h3 className="font-black text-lg flex items-center gap-2"><Upload size={18} />استيراد جماعي CSV</h3>
               <button onClick={() => setShowBulk(false)} className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center"><X size={16} /></button>
             </div>
             <div className="p-5 space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
-                <p className="font-bold">قالب CSV:</p>
-                <p className="font-mono mt-1">full_name,email,role,finance_role,legal_entity_code,phone</p>
-                <p className="mt-2">مثال:</p>
-                <p className="font-mono">أحمد محمد,ahmed@kyvzon.com,employee,accountant,DEFAULT,0790123456</p>
-                <button className="mt-2 text-xs underline">تنزيل قالب CSV نموذجي</button>
+                <p className="font-bold">قالب CSV المطلوب:</p>
+                <p className="font-mono mt-1">full_name,email,role,phone</p>
+                <p className="np-2">مثال:</p>
+                <p className="font-mono">أحمد محمد,ahmed@kyvzon.com,employee,0790123456</p>
               </div>
 
               <input type="file" accept=".csv" onChange={async e => { const file = e.target.files?.[0]; if(!file) return; setBulkFile(file); await handleBulkPreview(file); }} className="w-full border border-dashed rounded-xl p-4 text-sm" />
 
-              {bulkPreview.length>0 && (
+              {bulkPreview.length > 0 && (
                 <div>
-                  <h4 className="font-bold text-sm">معاينة أول 5 صفوف:</h4>
-                  <div className="mt-2 bg-slate-50 border rounded-xl p-3 overflow-x-auto">
-                    <table className="w-full text-xs"><thead><tr className="text-left">{Object.keys(bulkPreview[0]||{}).map(k=><th key={k} className="p-1">{k}</th>)}</tr></thead><tbody>{bulkPreview.map((r,i)=><tr key={i}>{Object.values(r).map((v:any, j)=><td key={j} className="p-1 font-mono truncate max-w-[100px]">{String(v)}</td>)}</tr>)}</tbody></table>
+                  <h4 className="font-bold text-sm mb-2">معاينة أول 5 صفوف:</h4>
+                  <div className="bg-slate-50 border rounded-xl p-3 overflow-x-auto text-xs font-mono">
+                    {bulkPreview.map((r, i) => <div key={i}>{JSON.stringify(r)}</div>)}
                   </div>
                 </div>
               )}
 
               {bulkProgress && (
                 <div className="space-y-2">
-                  <div className="flex justify-between text-xs"><span>التقدم: {bulkProgress.done}/{bulkProgress.total}</span><span>{Math.round(bulkProgress.done/bulkProgress.total*100)}%</span></div>
+                  <div className="flex justify-between text-xs font-bold"><span>التقدم: {bulkProgress.done}/{bulkProgress.total}</span><span>{Math.round(bulkProgress.done/bulkProgress.total*100)}%</span></div>
                   <div className="w-full bg-slate-200 rounded-full h-2"><div className="bg-indigo-600 h-2 rounded-full transition-all" style={{width: `${bulkProgress.done/bulkProgress.total*100}%`}} /></div>
-                  {bulkProgress.errors.length>0 && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-700 max-h-24 overflow-y-auto">{bulkProgress.errors.map((err,i)=><p key={i}>صف {err.row._row}: {err.error}</p>)}</div>}
                 </div>
               )}
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowBulk(false)} className="flex-1 px-4 py-3 rounded-xl bg-white border text-sm font-bold">إغلاق</button>
                 <button onClick={handleBulkImport} disabled={!bulkFile || !!bulkProgress} className="flex-1 px-4 py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm disabled:opacity-50">بدء الاستيراد</button>
               </div>
-
-              <p className="text-[11px] text-slate-400 text-center">يحترم Rate Limit 5/دقيقة — 100 موظف يأخذ ~20 دقيقة — مع Progress bar وتقرير أخطاء</p>
             </div>
           </div>
         </div>

@@ -377,6 +377,23 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'profile',
     'attendance',
   ],
+
+  // ═══════════════ تقنية ═══════════════
+  tech: [
+    'tech-portal',
+    'dashboard',
+    'notifications',
+    'my-notifications',
+    'profile',
+  ],
+
+  // ═══════════════ المالية ═══════════════
+  finance: [
+    'dashboard',
+    'reports',
+    'notifications',
+    'profile',
+  ],
 };
 
 /**

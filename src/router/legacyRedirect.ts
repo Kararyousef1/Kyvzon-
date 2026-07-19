@@ -113,6 +113,18 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'tawathul-portal':              '/app/tawathul',
   'tawathul-admin':               '/app/tawathul/admin',
   'developer-dashboard':          '/dev',
+
+  // Finance Portal
+  'finance-dashboard':            '/app/finance',
+  'finance-coa':                  '/app/finance/chart-of-accounts',
+  'finance-journal':              '/app/finance/journal-entries',
+  'finance-trial-balance':        '/app/finance/trial-balance',
+  'finance-ledger':               '/app/finance/general-ledger',
+  'finance-reports':              '/app/finance/financial-reports',
+  'finance-periods':              '/app/finance/accounting-periods',
+  'finance-vendors':              '/app/finance/vendors',
+  'finance-payable':              '/app/finance/accounts-payable',
+  'finance-setup':                '/app/finance/setup',
 };
 
 /**

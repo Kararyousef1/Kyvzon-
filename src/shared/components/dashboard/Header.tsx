@@ -98,6 +98,19 @@ export const viewTitles: Record<string, string> = {
   // Gatekeeper
   'gatekeeper-portal': 'تسجيل الدخول والخروج',
   'kiosk-mode': 'محطة التسجيل الذاتي',
+  // Tech Portal
+  'tech-portal': 'البوابة التقنية',
+  // Finance Portal
+  'finance-dashboard': 'ملخص الدفتر العام',
+  'finance-coa': 'دليل الحسابات',
+  'finance-journal': 'قيود اليومية',
+  'finance-trial-balance': 'ميزان المراجعة',
+  'finance-ledger': 'دفتر الأستاذ العام',
+  'finance-reports': 'التقارير المالية',
+  'finance-periods': 'الفترات المحاسبية',
+  'finance-vendors': 'إدارة الموردين',
+  'finance-payable': 'الحسابات الدائنة (AP)',
+  'finance-setup': 'إعدادات النظام المالي',
   // Developer
   'developer-dashboard': 'لوحة التحكم',
   'developer-attendance': 'نظام البصمة',

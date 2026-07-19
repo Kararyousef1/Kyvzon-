@@ -1,22 +1,24 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  Service Worker - Kyvzon Platform
+ *  Service Worker - Kyvzon Platform (Enhanced Phase 3 Pre-caching)
  * ════════════════════════════════════════════════════════════════
  *
- *  استراتيجية التخزين المؤقت:
+ *  استراتيجية التخزين المؤقت المتقدمة:
  *  ─────────────────────────────────────────────────────────────────
  *  1) التنقّل (HTML): Network-first مع fallback للكاش (صفحة offline)
  *  2) الأصول الثابتة (JS/CSS/خطوط/صور): Stale-while-revalidate (سريع)
  *  3) Supabase API + Auth: BYPASS (لا تخزين — بيانات حيّة + مصادقة)
  *  4) Realtime (WebSocket): BYPASS تلقائياً (SW لا يعترض ws://)
+ *  5) Web Push Notifications: استقبال وعرض الإشعارات الفورية
+ *  6) Pre-caching للأصول الحرجة لضمان التحميل الفوري دون اتصال
  *  ════════════════════════════════════════════════════════════════
  */
 
-const SW_VERSION = 'kyvzon-platform-v1';
+const SW_VERSION = 'kyvzon-platform-v2';
 const STATIC_CACHE = `${SW_VERSION}-static`;
 const RUNTIME_CACHE = `${SW_VERSION}-runtime`;
 
-// قائمة الأصول الأساسية للتخزين عند التثبيت (precache)
+// قائمة الأصول الأساسية للتخزين عند التثبيت (Precache)
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -27,14 +29,14 @@ const PRECACHE_URLS = [
 
 // أنماط الـ URLs التي يجب تجاوزها (عدم التخزين)
 const BYPASS_PATTERNS = [
-  /supabase\.co/i,          // كل طلبات Supabase (REST, Auth, Storage)
+  /supabase\.co/i,          // طلبات Supabase (REST, Auth, Storage)
   /googleapis\.com/i,       // Gemini API
   /generativelanguage/i,    // AI APIs
   /\/auth\//i,              // مصادقة
   /\/realtime\//i,          // Realtime WebSocket fallback
 ];
 
-// أنماط الأصول الثابتة (نفس النطاق فقط)
+// أنماط الأصول الثابتة
 const isStaticAsset = (url) => {
   const sameOrigin = url.origin === self.location.origin;
   return sameOrigin && /\.(?:js|css|woff2?|ttf|png|jpg|jpeg|svg|gif|webp|ico)$/i.test(url.pathname);
@@ -46,7 +48,6 @@ const isStaticAsset = (url) => {
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
-      // نضيف واحداً تلو الآخر لتجنّب فشل الكل إذا كان أحدها غائباً
       return Promise.allSettled(
         PRECACHE_URLS.map((url) => cache.add(url))
       );
@@ -75,29 +76,24 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
-  // فقط GET (تجاهل POST/PUT/DELETE — تذهب للشبكة دائماً)
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
 
-  // ─── BYPASS: Supabase + APIs خارجية ───
   if (BYPASS_PATTERNS.some((pattern) => pattern.test(url.href))) {
-    return; // دع الطلب يذهب للشبكة مباشرةً
+    return;
   }
 
-  // ─── التنقّل (HTML pages): Network-first ───
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request));
     return;
   }
 
-  // ─── الأصول الثابتة: Stale-while-revalidate ───
   if (isStaticAsset(url)) {
     event.respondWith(staleWhileRevalidate(request));
     return;
   }
 
-  // ─── افتراضي: حاول الشبكة ثم الكاش ───
   event.respondWith(networkFirst(request));
 });
 
@@ -105,11 +101,9 @@ self.addEventListener('fetch', (event) => {
 //  الاستراتيجيات
 // ════════════════════════════════════════════════════════════════
 
-// Network-first: الشبكة أولاً، عند الفشل الكاش، عند فشلهما صفحة offline
 async function networkFirst(request) {
   try {
     const networkResponse = await fetch(request);
-    // تخزين النسخة الناجحة في runtime cache
     const cache = await caches.open(RUNTIME_CACHE);
     cache.put(request, networkResponse.clone());
     return networkResponse;
@@ -117,7 +111,6 @@ async function networkFirst(request) {
     const cachedResponse = await caches.match(request);
     if (cachedResponse) return cachedResponse;
 
-    // للتنقّل: اعرض صفحة offline
     if (request.mode === 'navigate') {
       const offlinePage = await caches.match('/offline.html');
       if (offlinePage) return offlinePage;
@@ -126,7 +119,6 @@ async function networkFirst(request) {
   }
 }
 
-// Stale-while-revalidate: الكاش فوراً + تحديث بالخلفية
 async function staleWhileRevalidate(request) {
   const cache = await caches.open(RUNTIME_CACHE);
   const cachedResponse = await cache.match(request);
@@ -138,10 +130,56 @@ async function staleWhileRevalidate(request) {
       }
       return networkResponse;
     })
-    .catch(() => cachedResponse); // تجاهل فشل الشبكة
+    .catch(() => cachedResponse);
 
   return cachedResponse || fetchPromise;
 }
+
+// ════════════════════════════════════════════════════════════════
+//  Push Notifications: استقبال وعرض الإشعارات الفورية
+// ════════════════════════════════════════════════════════════════
+self.addEventListener('push', (event) => {
+  let data = { title: 'إشعار جديد من Kyvzon', body: 'لديك إشعار جديد في النظام', url: '/' };
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch {
+    if (event.data) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { url: data.url || '/' },
+    dir: 'rtl',
+    lang: 'ar',
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url === targetUrl && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
 
 // ════════════════════════════════════════════════════════════════
 //  Message: تحديث فوري من التطبيق

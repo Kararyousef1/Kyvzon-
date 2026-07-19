@@ -244,11 +244,28 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
 
+  // ─── 💰 FINANCE PORTAL ───
+  {
+    key: 'finance-main', label: 'البوابة المالية', roles: ['finance', 'admin'],
+    items: [
+      { id: 'finance-dashboard', label: 'الدفتر العام', icon: LayoutDashboard, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-coa', label: 'دليل الحسابات', icon: BookOpen, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-journal', label: 'قيود اليومية', icon: ClipboardList, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-trial-balance', label: 'ميزان المراجعة', icon: BarChart2, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-ledger', label: 'دفتر الأستاذ', icon: ScrollText, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-reports', label: 'التقارير المالية', icon: FileBarChart, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-periods', label: 'الفترات المحاسبية', icon: Clock, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-vendors', label: 'الموردين', icon: Users, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-payable', label: 'الحسابات الدائنة', icon: Receipt, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-setup', label: 'إعداد المالية', icon: Settings, roles: ['finance', 'admin'], section: 'finance-main' },
+    ],
+  },
+
   // ─── 💬 TAWATHUL (للجميع) ───
   {
-    key: 'tawathul', label: 'التواصل', roles: ['employee', 'supervisor', 'manager', 'hr', 'admin'],
+    key: 'tawathul', label: 'التواصل', roles: ['employee', 'supervisor', 'manager', 'hr', 'admin', 'finance'],
     items: [
-      { id: 'tawathul-portal', label: 'بوابة التواصل', icon: MessageSquare, roles: ['employee', 'supervisor', 'manager', 'hr', 'admin'], section: 'tawathul' },
+      { id: 'tawathul-portal', label: 'بوابة التواصل', icon: MessageSquare, roles: ['employee', 'supervisor', 'manager', 'hr', 'admin', 'finance'], section: 'tawathul' },
     ],
   },
   {
@@ -261,10 +278,10 @@ const NAV_SECTIONS: NavSection[] = [
   // ─── 🔔 NOTIFICATIONS (للجميع) ───
   {
     key: 'notifications', label: 'الإشعارات',
-    roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'it_admin'],
+    roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'it_admin', 'finance'],
     items: [
-      { id: 'my-notifications', label: 'الإشعارات', icon: Bell, roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'it_admin'], section: 'notifications', permKey: 'notifications' },
-      { id: 'notifications', label: 'التبليغات', icon: Megaphone, roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'it_admin'], section: 'notifications', permKey: 'notifications' },
+      { id: 'my-notifications', label: 'الإشعارات', icon: Bell, roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'it_admin', 'finance'], section: 'notifications', permKey: 'notifications' },
+      { id: 'notifications', label: 'التبليغات', icon: Megaphone, roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'it_admin', 'finance'], section: 'notifications', permKey: 'notifications' },
     ],
   },
 ];
@@ -367,6 +384,8 @@ const ROLE_CONFIG: Record<UserRole, { label: string; portalName: string; gradien
   gatekeeper:  { label: 'حارس',         portalName: 'بوابة الأمن',  gradient: 'from-cyan-600 to-blue-700',      bg: 'from-cyan-50 to-blue-50',      text: 'text-cyan-600' },
   developer:   { label: 'مطور',         portalName: 'بيئة التطوير', gradient: 'from-slate-700 to-slate-900',    bg: 'from-slate-100 to-slate-200',  text: 'text-slate-700' },
   it_admin:    { label: 'تقنية معلومات', portalName: 'البوابة التقنية', gradient: 'from-cyan-600 to-blue-700',    bg: 'from-cyan-50 to-blue-50',      text: 'text-cyan-600' },
+  tech:        { label: 'تقني',          portalName: 'البوابة التقنية', gradient: 'from-cyan-600 to-teal-700',   bg: 'from-cyan-50 to-teal-50',   text: 'text-cyan-600' },
+  finance:     { label: 'مالية',        portalName: 'بوابة المالية', gradient: 'from-emerald-600 to-emerald-800', bg: 'from-emerald-50 to-emerald-100', text: 'text-emerald-600' },
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -440,10 +459,22 @@ export default function Sidebar() {
   if (!user) return null;
 
   // ─── تصفية الأقسام والعناصر ──────────────────────────────────
+  const hasCustomPages = Array.isArray(user.custom_permissions?.allowed_pages);
+
   const canView = (item: NavItem): boolean => {
-    if (!item.roles.includes(role)) return false;
+    // 1) فحص تفعيل الموديل للشركة ككل
     const moduleKey = ITEM_MODULE_MAP[item.id];
     if (moduleKey && !isModuleEnabled(moduleKey)) return false;
+
+    // 2) فحص الصلاحيات المخصصة للصفحات (allowed_pages)
+    const allowedPages = user.custom_permissions?.allowed_pages;
+    if (Array.isArray(allowedPages)) {
+      // إذا كانت مصفوفة الصلاحيات المخصصة موجودة، نتحقق من وجود الصفحة فيها مباشرة
+      return allowedPages.includes(item.id);
+    }
+
+    // 3) Fallback: الفحص الافتراضي المبني على الأدوار والصلاحيات العامة
+    if (!item.roles.includes(role)) return false;
     if (item.permKey) {
       const effective = getEffectivePermissions(role, user.permissions);
       return hasPermission(effective, item.permKey);
@@ -452,7 +483,7 @@ export default function Sidebar() {
   };
 
   const visibleSections = NAV_SECTIONS
-    .filter((section) => section.roles.includes(role))
+    .filter((section) => hasCustomPages || section.roles.includes(role))
     .map((section) => ({
       ...section,
       items: section.items.filter(canView).map((item) => {

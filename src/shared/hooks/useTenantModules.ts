@@ -19,6 +19,8 @@ const STAFF_FALLBACK_MODULES = [
 
 interface UseTenantModulesResult {
   enabledModules: string[];
+  enabledPages?: string[];
+  subscriptionPlan?: string | null;
   isEnabled: (moduleKey?: string | null) => boolean;
   isModuleProductionReady: (moduleKey?: string) => boolean;
   getModuleStatus: (moduleKey?: string) => string;
@@ -31,9 +33,24 @@ interface UseTenantModulesResult {
   reload: () => Promise<void>;
 }
 
+function getModuleForPage(pageId: string): string {
+  if (pageId.startsWith('employee-') || pageId === 'new-problem') return 'employee';
+  if (pageId.startsWith('hr-')) return 'hr';
+  if (pageId.startsWith('admin-')) return 'admin';
+  if (pageId.startsWith('supervisor-')) return 'supervisor';
+  if (pageId.startsWith('manager-')) return 'manager';
+  if (pageId.startsWith('gatekeeper-') || pageId === 'kiosk-mode') return 'gatekeeper';
+  if (pageId === 'tech-portal') return 'tech_portal';
+  if (pageId.startsWith('finance-')) return 'finance';
+  if (pageId.startsWith('tawathul-')) return 'tawathul';
+  return '';
+}
+
 export function useTenantModules(): UseTenantModulesResult {
   const { user } = useAuthStore();
   const [enabledModules, setEnabledModules] = useState<string[]>([]);
+  const [enabledPages, setEnabledPages] = useState<string[]>([]);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [subscriptionExpired, setSubscriptionExpired] = useState(false);
@@ -75,20 +92,36 @@ export function useTenantModules(): UseTenantModulesResult {
     }
     setLoading(true);
     try {
-      // 1) جلب modules المفعلة
-      const rows = await tenantModuleService.getTenantModules(tenantId);
-      const enabled = rows.filter(r => r.is_enabled).map(r => String(r.module_key));
-      setEnabledModules(enabled.length ? enabled : STAFF_FALLBACK_MODULES);
-
       // 2) فحص حالة الاشتراك + حالة tenant — منع الوصول عند expired/suspended
       const { data: tenantData } = await supabase
         .from('tenants')
-        .select('status')
+        .select('status, subscription_plan, features')
         .eq('id', tenantId)
         .maybeSingle();
       
       if (tenantData) {
         setTenantStatus((tenantData as any).status);
+        setSubscriptionPlan((tenantData as any).subscription_plan);
+        const plan = (tenantData as any).subscription_plan;
+        const features = (tenantData as any).features || [];
+        setEnabledPages(features);
+
+        if (plan === 'hybrid') {
+          // إذا كان الاشتراك هجين، نقوم بتفعيل الموديلات المقابلة للصفحات المختارة تلقائياً
+          const enabledModulesFromPages = features.map(getModuleForPage).filter(Boolean);
+          const finalEnabledModules = [...new Set([...enabledModulesFromPages, 'employee', 'tawathul'])];
+          setEnabledModules(finalEnabledModules);
+        } else {
+          // 1) جلب modules المفعلة
+          const rows = await tenantModuleService.getTenantModules(tenantId);
+          const enabled = rows.filter(r => r.is_enabled).map(r => String(r.module_key));
+          setEnabledModules(rows.length ? enabled : STAFF_FALLBACK_MODULES);
+        }
+      } else {
+        // 1) جلب modules المفعلة
+        const rows = await tenantModuleService.getTenantModules(tenantId);
+        const enabled = rows.filter(r => r.is_enabled).map(r => String(r.module_key));
+        setEnabledModules(rows.length ? enabled : STAFF_FALLBACK_MODULES);
       }
 
       const { data: subData } = await supabase
@@ -148,6 +181,8 @@ export function useTenantModules(): UseTenantModulesResult {
 
   return {
     enabledModules,
+    enabledPages,
+    subscriptionPlan,
     isEnabled,
     isModuleProductionReady: checkProductionReady,
     getModuleStatus: checkStatus,

@@ -67,28 +67,9 @@ export default function TechPortal() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50" dir="rtl" style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}>
-      {/* Header */}
-      <header className="bg-gradient-to-r from-slate-800 to-slate-900 text-white px-6 py-4 flex items-center justify-between sticky top-0 z-20">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
-            <Cpu size={22} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-black tracking-tight">البوابة التقنية</h1>
-            <p className="text-xs text-slate-400">قسم تقنية المعلومات — {user?.department || 'IT'}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-bold">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            متصل
-          </span>
-        </div>
-      </header>
-
+    <div className="space-y-6" dir="rtl" style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}>
       {/* Navigation */}
-      <nav className="bg-white border-b border-slate-200 px-4 overflow-x-auto">
+      <nav className="bg-white border border-slate-200 rounded-2xl px-4 overflow-x-auto shadow-sm">
         <div className="flex gap-1 max-w-6xl mx-auto">
           {pages.map(p => {
             const Icon = p.icon;
@@ -106,13 +87,13 @@ export default function TechPortal() {
       </nav>
 
       {/* Content */}
-      <main className="max-w-6xl mx-auto p-4 sm:p-6">
+      <div className="max-w-6xl mx-auto">
         {activePage === 'dashboard' && <TechDashboard />}
         {activePage === 'biometric' && <BiometricDevicesPage />}
         {activePage === 'sync-logs' && <SyncLogsPage />}
         {activePage === 'system-health' && <SystemHealthPage />}
         {activePage === 'settings' && <TechSettingsPage />}
-      </main>
+      </div>
     </div>
   );
 }

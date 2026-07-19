@@ -217,6 +217,11 @@ export function AppRoutes() {
           {/* Insights (متاح لعدة أدوار) */}
           <Route path="insights" element={<AIInsightsDashboard />} />
 
+          {/* Tech Portal */}
+          <Route path="tech-portal" element={<RequireRole roles={['it_admin', 'tech', 'admin', 'developer']} />}>
+            <Route index element={<TechPortal />} />
+          </Route>
+
           {/* Employee */}
           <Route path="employee" element={<RequireRole roles={['employee', 'supervisor', 'manager']} />}>
             <Route index element={<EmployeeDashboard />} />
@@ -315,10 +320,7 @@ export function AppRoutes() {
             <Route path="movements" element={<MovementControlPage />} />
           </Route>
 
-          {/* IT / Tech Portal */}
-          <Route path="tech-portal" element={<RequireRole roles={['it_admin', 'admin', 'developer']} />}>
-            <Route index element={<TechPortal />} />
-          </Route>
+
 
           {/* Kiosk (متاح لأي مستخدم مصادَق عليه — يُستخدم في أجهزة عامة) */}
           <Route path="kiosk" element={<KioskPage />} />
@@ -330,19 +332,21 @@ export function AppRoutes() {
           </Route>
 
           {/* Finance */}
-          <Route path="finance" element={<RequireModule moduleKey="finance" />}>
-            <Route index element={<FinancialDashboard />} />
-            <Route path="chart-of-accounts" element={<ChartOfAccountsPage />} />
-            <Route path="journal-entries" element={<JournalEntriesPage />} />
-            <Route path="trial-balance" element={<TrialBalancePage />} />
-            <Route path="setup" element={<FinanceSetupPage />} />
-            <Route path="accounting-periods" element={<AccountingPeriodsPage />} />
-            <Route path="general-ledger" element={<GeneralLedgerPage />} />
-            <Route path="reports" element={<FinancialReportsPage />} />
-            <Route path="vendors" element={<VendorsPage />} />
-            <Route path="accounts-payable" element={<AccountsPayablePage />} />
-            <Route path="accounts-payable/aging" element={<APAgingPage />} />
-            <Route path="vendor-payments" element={<VendorPaymentsPage />} />
+          <Route path="finance" element={<RequireRole roles={['finance', 'finance_manager', 'accountant', 'entity_admin', 'admin', 'hr', 'manager']} />}>
+            <Route element={<RequireModule moduleKey="finance" />}>
+              <Route index element={<FinancialDashboard />} />
+              <Route path="chart-of-accounts" element={<ChartOfAccountsPage />} />
+              <Route path="journal-entries" element={<JournalEntriesPage />} />
+              <Route path="trial-balance" element={<TrialBalancePage />} />
+              <Route path="setup" element={<FinanceSetupPage />} />
+              <Route path="accounting-periods" element={<AccountingPeriodsPage />} />
+              <Route path="general-ledger" element={<GeneralLedgerPage />} />
+              <Route path="reports" element={<FinancialReportsPage />} />
+              <Route path="vendors" element={<VendorsPage />} />
+              <Route path="accounts-payable" element={<AccountsPayablePage />} />
+              <Route path="accounts-payable/aging" element={<APAgingPage />} />
+              <Route path="vendor-payments" element={<VendorPaymentsPage />} />
+            </Route>
           </Route>
           </Route>
         </Route>

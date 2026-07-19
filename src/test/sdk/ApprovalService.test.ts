@@ -5,7 +5,7 @@ const chains: Array<Record<string, ReturnType<typeof vi.fn>>> = [];
 vi.mock('../../services/supabase/supabase', () => {
   const chainable = () => {
     const chain: Record<string, ReturnType<typeof vi.fn>> = {};
-    for (const method of ['select', 'insert', 'update', 'eq', 'order', 'limit', 'range']) {
+    for (const method of ['select', 'insert', 'update', 'eq', 'order', 'limit', 'range', 'maybeSingle']) {
       chain[method] = vi.fn(() => chain);
     }
     chain.single = vi.fn(() => Promise.resolve({ data: { id: 'approval-1' }, error: null }));

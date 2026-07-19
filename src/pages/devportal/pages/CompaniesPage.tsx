@@ -68,6 +68,142 @@ function buildModuleState(enabled?: string[]): Record<string, boolean> {
   return Object.fromEntries(MODULE_CATALOG.map((module) => [module.key, defaults.includes(module.key)]));
 }
 
+const PORTAL_PAGES = [
+  {
+    portalLabel: 'بوابة الموظف',
+    moduleKey: 'employee',
+    pages: [
+      { id: 'employee-dashboard', label: 'الرئيسية' },
+      { id: 'employee-problems', label: 'البلاغات' },
+      { id: 'new-problem', label: 'بلاغ جديد' },
+      { id: 'employee-attendance', label: 'سجل الحضور' },
+      { id: 'employee-requests', label: 'طلباتي' },
+      { id: 'employee-training', label: 'التدريب' },
+      { id: 'employee-goals', label: 'أهدافي ومهاراتي' },
+      { id: 'employee-sops', label: 'دليل الإجراءات' },
+      { id: 'employee-ai-chat', label: 'المساعد الذكي' },
+      { id: 'employee-wellness', label: 'الصحة النفسية' },
+      { id: 'employee-survey', label: 'الاستبيانات' },
+      { id: 'employee-contact', label: 'مركز خدمات HR' },
+      { id: 'employee-profile', label: 'حسابي' },
+      { id: 'employee-payroll', label: 'رواتبي' },
+      { id: 'employee-loans', label: 'سلفي' },
+      { id: 'employee-expenses', label: 'نفقاتي' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة الموارد البشرية (HR)',
+    moduleKey: 'hr',
+    pages: [
+      { id: 'hr-dashboard', label: 'الرئيسية' },
+      { id: 'hr-problems', label: 'البلاغات' },
+      { id: 'hr-analytics', label: 'التحليلات' },
+      { id: 'hr-team', label: 'إدارة الموظفين' },
+      { id: 'hr-reports', label: 'التقارير' },
+      { id: 'hr-attendance', label: 'سجلات الحضور' },
+      { id: 'hr-talent-market', label: 'سجل المؤهلات' },
+      { id: 'hr-movement-analysis', label: 'تحليل الحركة' },
+      { id: 'hr-manage-training', label: 'إدارة التدريب' },
+      { id: 'hr-training-reports', label: 'تقارير التدريب' },
+      { id: 'hr-payroll', label: 'الرواتب' },
+      { id: 'hr-loans', label: 'السلف والقروض' },
+      { id: 'hr-bonuses', label: 'الجوائز والمكافآت' },
+      { id: 'hr-expenses', label: 'طلبات النفقات' },
+      { id: 'hr-recruitment', label: 'التوظيف' },
+      { id: 'hr-onboarding', label: 'التعريف وإنهاء الخدمة' },
+      { id: 'hr-documents', label: 'مستندات الموظفين' },
+      { id: 'hr-contracts', label: 'عقود الموظفين' },
+      { id: 'hr-succession', label: 'تخطيط التعاقب' },
+      { id: 'hr-performance', label: 'تقييم الأداء' },
+      { id: 'hr-disciplinary', label: 'الإجراءات التأديبية' },
+      { id: 'hr-shifts', label: 'جدولة الورديات' },
+      { id: 'hr-health-safety', label: 'الصحة والسلامة' },
+      { id: 'hr-communication', label: 'صندوق الرسائل' },
+      { id: 'hr-service-center', label: 'مركز خدمات HR' },
+      { id: 'hr-sops', label: 'إدارة SOP' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة الإدارة (Admin)',
+    moduleKey: 'admin',
+    pages: [
+      { id: 'admin-dashboard', label: 'الرئيسية' },
+      { id: 'admin-employees', label: 'إدارة الموظفين' },
+      { id: 'admin-settings', label: 'إعدادات النظام' },
+      { id: 'admin-company-profile', label: 'ملف الشركة' },
+      { id: 'admin-branches', label: 'الفروع' },
+      { id: 'admin-org-structure', label: 'الهيكل التنظيمي' },
+      { id: 'admin-compliance', label: 'مركز الامتثال' },
+      { id: 'admin-ai-config', label: 'إعدادات AI' },
+      { id: 'admin-reports', label: 'تقارير النظام' },
+      { id: 'admin-sops-reports', label: 'تقارير SOP' },
+      { id: 'admin-audit-log', label: 'سجل العمليات' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة المشرف (Supervisor)',
+    moduleKey: 'supervisor',
+    pages: [
+      { id: 'supervisor-dashboard', label: 'الرئيسية' },
+      { id: 'supervisor-breaks', label: 'تسجيل الخروج' },
+      { id: 'supervisor-shift', label: 'إدارة الوردية' },
+      { id: 'supervisor-tasks', label: 'المهام اليومية' },
+      { id: 'supervisor-checklists', label: 'قوائم الفحص' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة المدير (Manager)',
+    moduleKey: 'manager',
+    pages: [
+      { id: 'manager-dashboard', label: 'الرئيسية' },
+      { id: 'manager-attendance', label: 'حضور الفريق' },
+      { id: 'manager-approvals', label: 'مركز الموافقات' },
+      { id: 'manager-performance', label: 'أداء الفريق' },
+      { id: 'manager-workload', label: 'عبء العمل' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة الأمن والحراسة (Gatekeeper)',
+    moduleKey: 'gatekeeper',
+    pages: [
+      { id: 'gatekeeper-portal', label: 'تسجيل الدخول والخروج' },
+      { id: 'gatekeeper-movements', label: 'بوابة الحركة' },
+      { id: 'kiosk-mode', label: 'محطة التسجيل الذاتي' },
+    ]
+  },
+  {
+    portalLabel: 'البوابة التقنية (IT)',
+    moduleKey: 'tech_portal',
+    pages: [
+      { id: 'tech-portal', label: 'البوابة التقنية' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة المالية (Finance)',
+    moduleKey: 'finance',
+    pages: [
+      { id: 'finance-dashboard', label: 'الدفتر العام' },
+      { id: 'finance-coa', label: 'دليل الحسابات' },
+      { id: 'finance-journal', label: 'قيود اليومية' },
+      { id: 'finance-trial-balance', label: 'ميزان المراجعة' },
+      { id: 'finance-ledger', label: 'دفتر الأستاذ' },
+      { id: 'finance-reports', label: 'التقارير المالية' },
+      { id: 'finance-periods', label: 'الفترات المحاسبية' },
+      { id: 'finance-vendors', label: 'الموردين' },
+      { id: 'finance-payable', label: 'الحسابات الدائنة' },
+      { id: 'finance-setup', label: 'إعداد المالية' },
+    ]
+  },
+  {
+    portalLabel: 'بوابة التواصل (Tawathul)',
+    moduleKey: 'tawathul',
+    pages: [
+      { id: 'tawathul-portal', label: 'بوابة التواصل' },
+      { id: 'tawathul-admin', label: 'إعدادات التواصل' },
+    ]
+  }
+];
+
 // ════════════════════════════════════════════════════════════════
 //  Company Row
 // ════════════════════════════════════════════════════════════════
@@ -192,6 +328,7 @@ const CompanyFormModal: FC<{
     sales_owner: '',
     auto_renew: true,
     notes: '',
+    features: [] as string[],
   });
 
   const [modules, setModules] = useState<Record<string, boolean>>(() => buildModuleState());
@@ -230,11 +367,12 @@ const CompanyFormModal: FC<{
         sales_owner: String(billing.sales_owner || ''),
         auto_renew: Boolean(billing.auto_renew ?? true),
         notes: company.notes || '',
+        features: company.features || [],
       });
       const enabled = company.enabled_modules || modulesForPlan(company.subscription_plan || 'basic');
       setModules(buildModuleState(enabled));
     } else {
-      setForm((f) => ({ ...f, subscription_plan: 'basic', billing_amount: PLAN_PRICE.basic, max_employees: 50, max_branches: 1, max_biometric_devices: 1, storage_gb: 5 }));
+      setForm((f) => ({ ...f, subscription_plan: 'basic', billing_amount: PLAN_PRICE.basic, max_employees: 50, max_branches: 1, max_biometric_devices: 1, storage_gb: 5, features: [] }));
       setModules(buildModuleState(modulesForPlan('basic')));
     }
   }, [company]);
@@ -359,6 +497,7 @@ const CompanyFormModal: FC<{
               <option value="basic">أساسي (Basic) — 250$/شهر</option>
               <option value="professional">احترافي (Professional) — 750$/شهر</option>
               <option value="enterprise">مؤسسي (Enterprise) — 2000$/شهر</option>
+              <option value="hybrid">هجين (Hybrid) — مخصص بالكامل</option>
               <option value="custom">مخصص (Custom)</option>
             </select>
           </div>
@@ -447,37 +586,112 @@ const CompanyFormModal: FC<{
             </div>
           </div>
 
-          {/* تفعيل الوحدات */}
-          <div>
-            <label className="text-xs font-bold text-gray-500 mb-1 block">الوحدات المفعلة للشركة</label>
-            <p className="text-[10px] text-gray-400 mb-2">اختر البوابات التي ستحصل عليها هذه الشركة</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-              {MODULE_CATALOG.map((module) => {
-                const Icon = MODULE_ICON_MAP[module.key] || LayoutDashboard;
-                const enabled = Boolean(modules[module.key]);
-                const allowedByPlan = modulesForPlan(form.subscription_plan).includes(module.key);
-                return (
-                  <button
-                    key={module.key}
-                    type="button"
-                    onClick={() => setModules((m) => ({ ...m, [module.key]: !m[module.key] }))}
-                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-center relative ${
-                      enabled
-                        ? 'border-cyan-500 bg-cyan-50 text-cyan-700 shadow-sm'
-                        : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
-                    }`}
-                  >
-                    <Icon size={20} />
-                    <span className="text-xs font-bold">{module.label}</span>
-                    <span className="text-[9px] opacity-60 leading-tight">{module.description}</span>
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full mt-1 ${allowedByPlan ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {allowedByPlan ? MODULE_CATEGORY_LABEL[module.category] : `خارج ${PLAN_LABEL[form.subscription_plan] || form.subscription_plan}`}
-                    </span>
-                  </button>
-                );
-              })}
+          {/* تفعيل الصفحات المخصصة للاشتراك الهجين */}
+          {form.subscription_plan === 'hybrid' && (
+            <div className="rounded-2xl border border-cyan-100 bg-cyan-50/40 p-4 space-y-4">
+              <div className="flex items-center justify-between border-b border-cyan-100 pb-2">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal size={18} className="text-cyan-700" />
+                  <h4 className="text-sm font-black text-gray-900">تخصيص صفحات الاشتراك الهجين (Hybrid Pages)</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allPages = PORTAL_PAGES.flatMap(p => p.pages.map(pg => pg.id));
+                    setForm(f => ({ ...f, features: allPages }));
+                  }}
+                  className="text-xs font-bold text-cyan-700 hover:text-cyan-900"
+                >
+                  تحديد الكل ✅
+                </button>
+              </div>
+
+              <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
+                {PORTAL_PAGES.map((portal) => {
+                  const portalPageIds = portal.pages.map(pg => pg.id);
+                  const allSelected = portalPageIds.every(id => (form.features || []).includes(id));
+
+                  return (
+                    <div key={portal.portalLabel} className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                        <span className="font-bold text-xs text-gray-700">{portal.portalLabel}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (allSelected) {
+                              setForm(f => ({ ...f, features: (f.features || []).filter(id => !portalPageIds.includes(id)) }));
+                            } else {
+                              setForm(f => ({ ...f, features: [...new Set([...(f.features || []), ...portalPageIds])] }));
+                            }
+                          }}
+                          className="text-[10px] font-bold text-cyan-600 hover:text-cyan-800"
+                        >
+                          {allSelected ? 'إلغاء التحديد ❌' : 'تحديد الكل ✅'}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {portal.pages.map((page) => {
+                          const isChecked = (form.features || []).includes(page.id);
+                          return (
+                            <label key={page.id} className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${isChecked ? 'bg-cyan-50 border-cyan-200 text-cyan-800 font-bold' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  if (isChecked) {
+                                    setForm(f => ({ ...f, features: (f.features || []).filter(id => id !== page.id) }));
+                                  } else {
+                                    setForm(f => ({ ...f, features: [...(f.features || []), page.id] }));
+                                  }
+                                }}
+                                className="rounded text-cyan-600 focus:ring-cyan-500"
+                              />
+                              <span>{page.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* تفعيل الوحدات (يخفى في حال الاشتراك الهجين) */}
+          {form.subscription_plan !== 'hybrid' && (
+            <div>
+              <label className="text-xs font-bold text-gray-500 mb-1 block">الوحدات المفعلة للشركة</label>
+              <p className="text-[10px] text-gray-400 mb-2">اختر البوابات التي ستحصل عليها هذه الشركة</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                {MODULE_CATALOG.map((module) => {
+                  const Icon = MODULE_ICON_MAP[module.key] || LayoutDashboard;
+                  const enabled = Boolean(modules[module.key]);
+                  const allowedByPlan = modulesForPlan(form.subscription_plan).includes(module.key);
+                  return (
+                    <button
+                      key={module.key}
+                      type="button"
+                      onClick={() => setModules((m) => ({ ...m, [module.key]: !m[module.key] }))}
+                      className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-center relative ${
+                        enabled
+                          ? 'border-cyan-500 bg-cyan-50 text-cyan-700 shadow-sm'
+                          : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
+                      }`}
+                    >
+                      <Icon size={20} />
+                      <span className="text-xs font-bold">{module.label}</span>
+                      <span className="text-[9px] opacity-60 leading-tight">{module.description}</span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full mt-1 ${allowedByPlan ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {allowedByPlan ? MODULE_CATEGORY_LABEL[module.category] : `خارج ${PLAN_LABEL[form.subscription_plan] || form.subscription_plan}`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="text-xs font-bold text-gray-500 mb-1 block">ملاحظات</label>

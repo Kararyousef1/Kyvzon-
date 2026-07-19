@@ -320,6 +320,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await authService.clearSessionContext();
       await authService.logout();
       set({ user: null, isAuthenticated: false });
+      if (typeof window !== 'undefined') {
+        window.location.assign('/login');
+      }
     } catch (error) {
       console.error('Logout error:', getErrorMessage(error));
     }

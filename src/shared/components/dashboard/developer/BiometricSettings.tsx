@@ -281,12 +281,12 @@ export default function BiometricSettings() {
       const { data: syncData } = await supabase
         .from('sync_log')
         .select('*')
-        .order('sync_time', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(50);
       if (syncData) {
         setSyncLogs(syncData.map((s: any) => ({
           id: s.id,
-          timestamp: s.sync_time,
+          timestamp: s.created_at,
           device_name: `جهاز ${s.device_id || s.source}`,
           status: s.status === 'success' ? 'success' as const : 'failed' as const,
           records_count: s.records_synced || 0,
@@ -331,7 +331,7 @@ export default function BiometricSettings() {
         port: 443,
         status: 'connected',
         location: 'Cloud Server',
-        last_sync: syncData && syncData.length > 0 ? syncData[0].sync_time : null,
+        last_sync: syncData && syncData.length > 0 ? syncData[0].created_at : null,
         total_users: 0,
         total_logs: logsCount || 0,
         firmware_version: '-',

@@ -66,7 +66,7 @@ export default function OrgStructurePage() {
       await departmentService.create({
         name_ar: nameAr.trim(),
         name_en: nameEn.trim() || undefined,
-        parent_department_id: parentId || null,
+        parent_department_id: parentId || undefined,
         is_active: true
       });
 

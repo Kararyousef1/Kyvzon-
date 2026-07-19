@@ -18,7 +18,7 @@ class SyncLogService extends BaseService<SyncLogRecord> {
    */
   async findRecentLogs(limit: number = 50): Promise<any[]> {
     return this.findAll({
-      orderBy: 'sync_time',
+      orderBy: 'created_at',
       ascending: false,
       limit,
     });

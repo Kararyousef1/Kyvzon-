@@ -49,17 +49,30 @@ class AdminUserService {
   }
 
   /**
-   * حذف مستخدم عبر Edge Function
+   * حذف مستخدم عبر Edge Function مع تفعيل Fallback تلقائي (تعطيل الحساب في profiles)
    */
   async deleteUser(params: DeleteUserParams): Promise<{ data: unknown; error: string | null }> {
     try {
       const { data, error } = await supabase.functions.invoke('admin-delete-user', {
         body: params,
       });
-      if (error) return { data: null, error: error.message };
-      return { data, error: null };
+      if (!error) return { data, error: null };
+
+      console.warn('Edge function delete failed, falling back to profile deactivation:', error);
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ status: 'inactive' })
+        .eq('id', params.target_user_id);
+
+      if (updateErr) return { data: null, error: error.message };
+      return { data: { success: true, fallback: true }, error: null };
     } catch (err: any) {
-      return { data: null, error: err.message || 'فشل الاتصال بـ Edge Function' };
+      try {
+        await supabase.from('profiles').update({ status: 'inactive' }).eq('id', params.target_user_id);
+        return { data: { success: true, fallback: true }, error: null };
+      } catch (fallbackErr: any) {
+        return { data: null, error: err.message || 'فشل حذف المستخدم' };
+      }
     }
   }
 
