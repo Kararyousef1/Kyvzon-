@@ -76,11 +76,21 @@ export function transformServerNotification(raw: RawServerNotification): AppNoti
 // ════════════════════════════════════════════════════════════════
 
 /**
- * Map من userId → RealtimeChannel النشط.
- * كل مستخدم له channel واحد فقط في أي وقت.
- * هذا يحل مشكلة: Header + Sidebar + Store + Hook يفتحون channels متعددة.
+ * سجل القنوات النشطة مع عدّاد مرجعي (reference-counting).
+ *
+ * لماذا؟ عدة مكوّنات قد تشترك لنفس المستخدم في آنٍ واحد
+ * (Header/NotificationBell + Sidebar/HybridSidebar). التصميم السابق كان
+ * يزيل القناة القائمة وينشئ أخرى، ما يسبب سباقاً وخطأ:
+ *   "cannot add postgres_changes callbacks ... after subscribe()".
+ *
+ * الحل: قناة واحدة لكل مستخدم + مجموعة handlers (fan-out). القناة تُنشأ
+ * وتُشترك مرة واحدة فقط، وتُزال فقط عند انفصال آخر مشترك.
  */
-const activeChannels = new Map<string, ReturnType<typeof supabase.channel>>();
+interface ChannelEntry {
+  channel: ReturnType<typeof supabase.channel>;
+  handlers: Set<RealtimeHandler>;
+}
+const activeChannels = new Map<string, ChannelEntry>();
 
 /**
  * الاشتراك في Realtime للمستخدم.
@@ -99,16 +109,28 @@ export function subscribeToRealtimeNotifications(
 ): () => void {
   if (!userId) return () => {};
 
-  // تأكد من تنظيف القناة السابقة أولاً قبل فتح قناة جديدة
+  // إن وُجدت قناة نشطة لهذا المستخدم → أضِف الـ handler فقط (fan-out)
+  // دون إنشاء/إعادة اشتراك قناة ثانية (يمنع الخطأ ويوفّر الاتصالات).
   const existing = activeChannels.get(userId);
   if (existing) {
-    try {
-      supabase.removeChannel(existing);
-    } catch (e) {
-      // تجاهل أخطاء الإزالة
-    }
-    activeChannels.delete(userId);
+    existing.handlers.add(onEvent);
+    return () => {
+      existing.handlers.delete(onEvent);
+      // أزل القناة فقط عند انفصال آخر مشترك
+      if (existing.handlers.size === 0) {
+        try { supabase.removeChannel(existing.channel); } catch { /* ignore */ }
+        activeChannels.delete(userId);
+      }
+    };
   }
+
+  // أول مشترك لهذا المستخدم → أنشئ القناة مرة واحدة
+  const handlers = new Set<RealtimeHandler>([onEvent]);
+  const fanOut: RealtimeHandler = (event) => {
+    handlers.forEach((h) => {
+      try { h(event); } catch { /* handler واحد لا يُسقط البقية */ }
+    });
+  };
 
   // اسم قناة ثابت لتجنب تراكم القنوات
   const channelName = `notifications-${userId}`;
@@ -125,7 +147,7 @@ export function subscribeToRealtimeNotifications(
       },
       (payload) => {
         if (payload.new) {
-          onEvent({
+          fanOut({
             event: 'INSERT',
             notification: transformServerNotification(
               payload.new as unknown as RawServerNotification
@@ -144,7 +166,7 @@ export function subscribeToRealtimeNotifications(
       },
       (payload) => {
         if (payload.new) {
-          onEvent({
+          fanOut({
             event: 'UPDATE',
             notification: transformServerNotification(
               payload.new as unknown as RawServerNotification
@@ -164,7 +186,7 @@ export function subscribeToRealtimeNotifications(
       (payload) => {
         if (payload.old) {
           // عند الحذف نُعيد بناء كائن AppNotification جزئي
-          onEvent({
+          fanOut({
             event: 'DELETE',
             notification: {
               id: String((payload.old as { id: string }).id),
@@ -188,11 +210,15 @@ export function subscribeToRealtimeNotifications(
       }
     });
 
-  activeChannels.set(userId, channel);
+  const entry: ChannelEntry = { channel, handlers };
+  activeChannels.set(userId, entry);
 
   return () => {
-    supabase.removeChannel(channel);
-    activeChannels.delete(userId);
+    handlers.delete(onEvent);
+    if (handlers.size === 0) {
+      try { supabase.removeChannel(channel); } catch { /* ignore */ }
+      activeChannels.delete(userId);
+    }
   };
 }
 

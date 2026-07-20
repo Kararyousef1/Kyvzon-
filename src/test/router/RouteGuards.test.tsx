@@ -24,6 +24,17 @@ vi.mock('../../core/constants/permissions', () => ({
     Array.isArray(perms) && perms.includes(key),
 }));
 
+// Mock useTenantModules — RoleRedirect يعتمد عليه؛ نحاكي شركة غير هجينة
+// (يمنع أيضاً استيراد عميل supabase الحقيقي الذي يتطلب متغيرات بيئة).
+vi.mock('../../shared/hooks/useTenantModules', () => ({
+  useTenantModules: () => ({
+    subscriptionPlan: null,
+    enabledPages: [],
+    loaded: true,
+    loading: false,
+  }),
+}));
+
 import { RequireAuth } from '../../router/guards/RequireAuth';
 import { RequireRole } from '../../router/guards/RequireRole';
 import { RoleRedirect } from '../../router/guards/RoleRedirect';

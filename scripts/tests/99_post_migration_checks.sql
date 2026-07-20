@@ -149,4 +149,50 @@ BEGIN
 END $$;
 
 \echo ''
+\echo '=== I. دعم الاشتراك الهجين (hybrid) على مستوى قاعدة البيانات ==='
+DO $$
+BEGIN
+  -- 1) القيد يسمح بـ hybrid
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'tenants_subscription_plan_check'
+      AND conrelid = 'public.tenants'::regclass
+      AND pg_get_constraintdef(oid) LIKE '%hybrid%'
+  ) THEN
+    RAISE EXCEPTION 'FAILED: tenants_subscription_plan_check does not permit hybrid';
+  END IF;
+
+  -- 2) الدوال المساعدة موجودة
+  IF to_regprocedure('public.current_user_is_hybrid()') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: current_user_is_hybrid() missing';
+  END IF;
+  IF to_regprocedure('public.tenant_has_feature(text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: tenant_has_feature(text) missing';
+  END IF;
+
+  RAISE NOTICE 'CHECK I PASSED — hybrid plan + RLS helper functions موجودة';
+END $$;
+
+\echo ''
+\echo '=== J. بوابة RLS للوحدات في الاشتراك الهجين ==='
+DO $$
+DECLARE
+  v_gate_count INT;
+BEGIN
+  IF to_regprocedure('public.hybrid_allows_module(text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: hybrid_allows_module(text) missing';
+  END IF;
+  IF to_regprocedure('public.hybrid_enabled_modules()') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: hybrid_enabled_modules() missing';
+  END IF;
+
+  SELECT count(*) INTO v_gate_count FROM pg_policy WHERE polname LIKE 'hybrid_gate_%';
+  IF v_gate_count < 50 THEN
+    RAISE EXCEPTION 'FAILED: expected >=50 hybrid_gate policies, found %', v_gate_count;
+  END IF;
+
+  RAISE NOTICE 'CHECK J PASSED — % سياسة hybrid_gate + دوال البوابة موجودة', v_gate_count;
+END $$;
+
+\echo ''
 \echo '=== ✅ POST-MIGRATION CHECKS: ALL PASS ==='

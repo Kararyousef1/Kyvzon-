@@ -457,7 +457,18 @@ function PayrollSettingsTab() {
     (async () => {
       try {
         const data = await payrollSettingService.findSettings();
-        setSettings(data);
+        // fallback آمن إن لم توجد إعدادات محفوظة بعد (يمنع قراءة خصائص من null)
+        setSettings(data ?? {
+          default_currency: 'IQD',
+          working_days_per_month: 26,
+          tax_rate: 0,
+          social_security_rate: 0,
+          overtime_rate: 1.5,
+          late_penalty_per_minute: 0,
+          absence_penalty_per_day: 0,
+          max_loan_amount: 0,
+          max_loan_months: 12,
+        });
       } catch (err) {
         addToast(getErrorMessage(err), 'error');
       } finally {
@@ -489,6 +500,9 @@ function PayrollSettingsTab() {
   };
 
   if (loading) return <div className="text-center py-20"><Loader2 className="animate-spin mx-auto text-emerald-500" size={40} /></div>;
+
+  // حارس أمان: إن تعذّر تحميل الإعدادات (خطأ شبكة) لا نُعطب الصفحة
+  if (!settings) return <div className="text-center py-20 text-slate-400">تعذّر تحميل إعدادات الرواتب. حاول لاحقاً.</div>;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 max-w-2xl">

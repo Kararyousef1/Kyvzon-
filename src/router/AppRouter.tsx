@@ -31,6 +31,7 @@ import { DevLayout } from './layouts/DevLayout';
 import { RequireAuth } from './guards/RequireAuth';
 import { RequireRole } from './guards/RequireRole';
 import { RequireModule } from './guards/RequireModule';
+import { RequirePage } from './guards/RequirePage';
 import { RoleRedirect } from './guards/RoleRedirect';
 
 // legacy
@@ -214,6 +215,8 @@ export function AppRoutes() {
         {/* App: كل باقي الصفحات */}
         <Route path="/app" element={<AppLayout />}>
           <Route element={<RequireModule />}>
+          {/* حارس الصفحات للاشتراك الهجين — يمرّر دون تدخّل لغير الهجين */}
+          <Route element={<RequirePage />}>
           {/* Root: تحويل حسب الدور */}
           <Route index element={<RoleRedirect />} />
 
@@ -363,6 +366,7 @@ export function AppRoutes() {
               <Route path="accounts-payable/aging" element={<APAgingPage />} />
               <Route path="vendor-payments" element={<VendorPaymentsPage />} />
             </Route>
+          </Route>
           </Route>
           </Route>
         </Route>
