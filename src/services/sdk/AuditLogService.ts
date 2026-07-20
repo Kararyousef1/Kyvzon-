@@ -55,7 +55,7 @@ class AuditLogService extends BaseService<AuditLogRecord> {
 
         // إثراء ببيانات profiles في استعلام منفصل
         const actorIds = [...new Set((data || []).map((r: any) => r.actor_id).filter(Boolean))];
-        let profilesMap = new Map<string, any>();
+        const profilesMap = new Map<string, any>();
         if (actorIds.length > 0) {
           const { data: profiles } = await supabase.from('profiles').select('id, full_name, email').in('id', actorIds);
           (profiles || []).forEach((p: any) => profilesMap.set(p.id, p));
@@ -82,7 +82,7 @@ class AuditLogService extends BaseService<AuditLogRecord> {
 
       // إثراء ببيانات profiles
       const actorIds = [...new Set((data || []).map((r: any) => r.actor_id).filter(Boolean))];
-      let profilesMap = new Map<string, any>();
+      const profilesMap = new Map<string, any>();
       if (actorIds.length > 0) {
         const { data: profiles } = await supabase.from('profiles').select('id, full_name, email').in('id', actorIds);
         (profiles || []).forEach((p: any) => profilesMap.set(p.id, p));

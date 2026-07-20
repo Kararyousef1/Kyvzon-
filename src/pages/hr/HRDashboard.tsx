@@ -94,7 +94,7 @@ export default function HRDashboard() {
   });
 
   const fetchData = async (isRefresh = false) => {
-    isRefresh ? setRefreshing(true) : setLoading(true);
+    if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       let profiles: any[] = [];
       let incidents: any[] = [];

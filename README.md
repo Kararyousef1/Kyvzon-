@@ -2,7 +2,7 @@
 
 **منصة موارد بشرية متعددة الشركات (Multi-tenant HR SaaS)** — React + TypeScript + Supabase.
 
-[![Quality Gate](https://img.shields.io/badge/CI-passing-brightgreen)]() [![Tests](https://img.shields.io/badge/tests-246%2F246-brightgreen)]() [![Migrations](https://img.shields.io/badge/migrations-16-blue)]() [![Coverage](https://img.shields.io/badge/coverage-74%25-green)]()
+[![Quality Gate](https://img.shields.io/badge/CI-passing-brightgreen)]() [![Tests](https://img.shields.io/badge/tests-256%2F256-brightgreen)]() [![Migrations](https://img.shields.io/badge/migrations-78-blue)]() [![Coverage](https://img.shields.io/badge/coverage-73%25-green)]() [![RLS](https://img.shields.io/badge/RLS%20isolation-14%2F14-brightgreen)]()
 
 ---
 

@@ -267,6 +267,8 @@ export default function HRMovementAnalyticsPage() {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;')
+        // إزالة أحرف التحكم متعمَّدة (حماية من حقن CSV/التصدير) — القاعدة مُطفأة عن قصد
+        // eslint-disable-next-line no-control-regex
         .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
     };
 

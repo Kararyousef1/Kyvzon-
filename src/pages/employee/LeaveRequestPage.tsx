@@ -172,7 +172,7 @@ export default function LeaveRequestPage() {
     })();
   }, [user]);
 
-  useEffect(() => { if (!user) return; fetchRequests(); fetchPermissions(); /* eslint-disable-next-line */ }, [user, realEmployeeId]);
+  useEffect(() => { if (!user) return; fetchRequests(); fetchPermissions();   }, [user, realEmployeeId]);
 
   useEffect(() => {
     if (formData.start_date && formData.end_date) {

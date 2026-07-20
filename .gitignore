@@ -55,3 +55,7 @@ sql-debug.log
 
 # Test coverage output
 coverage/
+
+# Supabase CLI local state — NEVER commit (leaks project ref / owner / pooler URL)
+supabase/.temp/
+.branches/

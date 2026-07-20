@@ -45,22 +45,55 @@ export interface AdminContext {
 }
 
 // ─── CORS / HTTP helpers ────────────────────────────────────────────────────
-export function headers(req: Request, extra: Record<string, string> = {}): Record<string, string> {
-  const allowedOrigin = Deno.env.get('APP_ORIGIN') || '*';
-  const requestOrigin = req.headers.get('origin') || '';
-  const isLocal = requestOrigin.includes('localhost') || requestOrigin.includes('127.0.0.1');
-  const origin = (allowedOrigin && allowedOrigin !== '*' && requestOrigin === allowedOrigin)
-    ? allowedOrigin
-    : (isLocal ? requestOrigin : allowedOrigin);
+//
+// سياسة CORS مُشدّدة (P1 hardening):
+//   - APP_ORIGIN إلزامي في الإنتاج. يقبل قيمة واحدة أو قائمة مفصولة بفواصل.
+//   - لا نُرجع '*' أبداً عندما يكون هناك بيانات اعتماد (Authorization) في اللعبة.
+//   - في التطوير فقط (DENO_ENV !== 'production') نسمح بأصول localhost.
+//   - إن لم يُطابق الأصل القائمة، لا نُصدر رأس Allow-Origin (المتصفح يمنع الطلب).
+function isProduction(): boolean {
+  return (Deno.env.get('DENO_ENV') || Deno.env.get('APP_ENV') || 'production') === 'production';
+}
 
-  return {
-    'Access-Control-Allow-Origin': origin,
+function allowedOrigins(): string[] {
+  return (Deno.env.get('APP_ORIGIN') || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+}
+
+/** يُحدّد قيمة Access-Control-Allow-Origin الآمنة لهذا الطلب (أو '' للرفض). */
+export function resolveAllowedOrigin(req: Request): string {
+  const requestOrigin = req.headers.get('origin') || '';
+  const allowlist = allowedOrigins();
+  const isLocal =
+    requestOrigin.includes('localhost') || requestOrigin.includes('127.0.0.1');
+
+  // مطابقة صريحة مع القائمة البيضاء
+  if (requestOrigin && allowlist.includes(requestOrigin)) return requestOrigin;
+
+  // localhost مسموح في التطوير فقط
+  if (requestOrigin && isLocal && !isProduction()) return requestOrigin;
+
+  // لا مطابقة → لا نسمح بأي أصل (منع تسريب wildcard مع بيانات الاعتماد)
+  return '';
+}
+
+export function headers(req: Request, extra: Record<string, string> = {}): Record<string, string> {
+  const origin = resolveAllowedOrigin(req);
+
+  const base: Record<string, string> = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-app-name',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Content-Type': 'application/json',
     'Vary': 'Origin',
     ...extra,
   };
+
+  // نُضيف Allow-Origin فقط عند وجود أصل مسموح به (لا wildcard مطلقاً).
+  if (origin) base['Access-Control-Allow-Origin'] = origin;
+
+  return base;
 }
 
 export function json(req: Request, body: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
@@ -75,10 +108,11 @@ export function isUuid(value: unknown): value is string {
 
 // ─── Admin authorization gate ───────────────────────────────────────────────
 export async function requireAdmin(req: Request): Promise<AdminContext | Response> {
-  const allowedOrigin = Deno.env.get('APP_ORIGIN') || '*';
+  // سياسة أصل مُشدّدة: يُرفض أي Origin غير مُدرَج في APP_ORIGIN (أو localhost في التطوير).
   const requestOrigin = req.headers.get('origin');
-  const isLocal = requestOrigin && (requestOrigin.includes('localhost') || requestOrigin.includes('127.0.0.1'));
-  if (requestOrigin && allowedOrigin !== '*' && requestOrigin !== allowedOrigin && !isLocal) return json(req, { error: 'Origin not allowed' }, 403);
+  if (requestOrigin && resolveAllowedOrigin(req) === '') {
+    return json(req, { error: 'Origin not allowed' }, 403);
+  }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');

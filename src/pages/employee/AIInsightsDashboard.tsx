@@ -161,7 +161,7 @@ export default function AIInsightsDashboard() {
     }
   };
 
-  useEffect(() => { fetchInsights(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { fetchInsights();   }, []);
 
   const globalInsights = insights.filter((i) => i.scope === 'global');
   const criticalInsights = insights.filter((i) => i.severity === 'critical');

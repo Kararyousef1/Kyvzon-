@@ -125,10 +125,12 @@ export default function ProfilePage() {
   const [profileGoals, setProfileGoals] = useState<{ id: string; title: string; progress_percent: number; status: string }[]>([]);
   const [profileCertifications, setProfileCertifications] = useState<{ id: string; certification_name?: string; name?: string; issued_by?: string; issuer?: string; expiry_date?: string }[]>([]);
 
-  if (!user) return null;
+  // ملاحظة: لا يجوز الرجوع (return) قبل استدعاء كل الـ hooks —
+  // حارس القيمة الفارغة يوضع قبل JSX فقط (Rules of Hooks).
 
   // ── حفظ الملف الشخصي ─────────────────────────────────────────
   const handleSave = async () => {
+    if (!user) return;
     setSaving(true);
     try {
       if (isLocalUser(user.id)) {
@@ -155,6 +157,7 @@ export default function ProfilePage() {
 
   // ── جلب البيانات الإضافية ─────────────────────────────────────
   useEffect(() => {
+    if (!user) return;
     const fetchExtras = async () => {
       if (isLocalUser(user.id)) {
         setProfileImage('');
@@ -193,10 +196,11 @@ export default function ProfilePage() {
 
     if (user.id) fetchExtras();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.id]);
+  }, [user?.id]);
 
   // ── رفع الصورة ────────────────────────────────────────────────
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) return;
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
@@ -231,6 +235,7 @@ export default function ProfilePage() {
 
   // ── حفظ السيرة الذاتية ────────────────────────────────────────
   const handleSaveCvBuilder = async () => {
+    if (!user) return;
     setSaving(true);
     try {
       if (isLocalUser(user.id)) {
@@ -252,6 +257,7 @@ export default function ProfilePage() {
 
   // ── حذف السيرة الذاتية ────────────────────────────────────────
   const handleDeleteCv = async () => {
+    if (!user) return;
     setCvData({ ...EMPTY_CV });
     if (!isLocalUser(user.id)) {
       try {
@@ -304,6 +310,9 @@ export default function ProfilePage() {
   };
 
   const removeByIndex = <T,>(arr: T[], idx: number): T[] => arr.filter((_, i) => i !== idx);
+
+  // حارس القيمة الفارغة — بعد كل الـ hooks وقبل أي وصول إلى user (Rules of Hooks)
+  if (!user) return null;
 
   // ─── مشتقّات ──────────────────────────────────────────────────
   const roleLabel = user.role === 'admin' ? 'مشرف النظام' : user.role === 'hr' ? 'موارد بشرية' : 'موظف';

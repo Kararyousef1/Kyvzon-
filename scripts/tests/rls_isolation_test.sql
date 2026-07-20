@@ -30,6 +30,9 @@ BEGIN;
 -- Clean slate for repeated runs — order matters (children before parents)
 DELETE FROM public.leaves WHERE reason LIKE 'RLS-TEST-%';
 DELETE FROM public.announcements WHERE title LIKE 'RLS-TEST-%';
+-- Finance (0149) test fixtures — children before parents
+DELETE FROM public.bank_accounts WHERE account_name LIKE 'RLS-TEST-%';
+DELETE FROM public.budgets WHERE budget_name LIKE 'RLS-TEST-%';
 DELETE FROM public.employees WHERE employee_code LIKE 'RLS-%';
 DELETE FROM public.profiles WHERE full_name LIKE 'RLS-TEST-%';
 DELETE FROM auth.users WHERE email LIKE 'rls-test-%@example.com';
@@ -106,10 +109,29 @@ VALUES
    'e2222222-2222-2222-2222-222222222222',
    'سنوية', '2026-08-10', '2026-08-15', 6, 'RLS-TEST-LeaveB', 'انتظار');
 
+-- ─── إنشاء بيانات مالية في كل شركة (تغطية migration 0149) ─────────────────
+-- bank_accounts: 2 لشركة A، 1 لشركة B
+INSERT INTO public.bank_accounts (id, tenant_id, account_name, bank_name)
+VALUES
+  ('f1111111-1111-1111-1111-111111111111',
+   '11111111-1111-1111-1111-111111111111', 'RLS-TEST-BankA1', 'Bank A'),
+  ('f1111111-1111-1111-1111-111111111112',
+   '11111111-1111-1111-1111-111111111111', 'RLS-TEST-BankA2', 'Bank A'),
+  ('f2222222-2222-2222-2222-222222222221',
+   '22222222-2222-2222-2222-222222222222', 'RLS-TEST-BankB1', 'Bank B');
+
+-- budgets: 1 لكل شركة
+INSERT INTO public.budgets (id, tenant_id, budget_name, fiscal_year)
+VALUES
+  ('d1111111-1111-1111-1111-111111111111',
+   '11111111-1111-1111-1111-111111111111', 'RLS-TEST-BudgetA', 2026),
+  ('d2222222-2222-2222-2222-222222222222',
+   '22222222-2222-2222-2222-222222222222', 'RLS-TEST-BudgetB', 2026);
+
 COMMIT;
 
 \echo ''
-\echo '✓ SETUP: أُنشئت 2 tenants + 3 users + 2 employees + 3 announcements + 2 leaves'
+\echo '✓ SETUP: أُنشئت 2 tenants + 3 users + 2 employees + 3 announcements + 2 leaves + 3 bank_accounts + 2 budgets'
 \echo ''
 
 
@@ -320,10 +342,71 @@ SELECT _rls_test(
   2
 );
 
+\echo ''
+\echo '════════════════════════════════════════════════════════════'
+\echo ' Test 11: [0149] UserA يرى bank_accounts شركته فقط (2 لا 3)'
+\echo '════════════════════════════════════════════════════════════'
+SELECT _rls_test(
+  'UserA sees only Company A bank_accounts',
+  'aaaa1111-1111-1111-1111-111111111111'::UUID,
+  'authenticated',
+  'SELECT id FROM public.bank_accounts WHERE account_name LIKE ''RLS-TEST-%''',
+  2
+);
+
+\echo ''
+\echo '════════════════════════════════════════════════════════════'
+\echo ' Test 12: [0149] UserB يرى bank_accounts شركته فقط (1 لا 3)'
+\echo '════════════════════════════════════════════════════════════'
+SELECT _rls_test(
+  'UserB sees only Company B bank_accounts',
+  'bbbb2222-2222-2222-2222-222222222222'::UUID,
+  'authenticated',
+  'SELECT id FROM public.bank_accounts WHERE account_name LIKE ''RLS-TEST-%''',
+  1
+);
+
+\echo ''
+\echo '════════════════════════════════════════════════════════════'
+\echo ' Test 13: [0149] UserA يرى budgets شركته فقط (1 لا 2)'
+\echo '════════════════════════════════════════════════════════════'
+SELECT _rls_test(
+  'UserA sees only Company A budgets',
+  'aaaa1111-1111-1111-1111-111111111111'::UUID,
+  'authenticated',
+  'SELECT id FROM public.budgets WHERE budget_name LIKE ''RLS-TEST-%''',
+  1
+);
+
+\echo ''
+\echo '════════════════════════════════════════════════════════════'
+\echo ' Test 14: [0149] منع الكتابة عبر المستأجرين على bank_accounts'
+\echo '════════════════════════════════════════════════════════════'
+DO $$
+DECLARE
+  v_blocked BOOLEAN := false;
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub', 'aaaa1111-1111-1111-1111-111111111111', true);
+  PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  SET LOCAL ROLE authenticated;
+  BEGIN
+    INSERT INTO public.bank_accounts (tenant_id, account_name)
+    VALUES ('22222222-2222-2222-2222-222222222222', 'RLS-TEST-Evil');
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN
+    v_blocked := true;
+  END;
+  RESET ROLE;
+  IF v_blocked THEN
+    RAISE NOTICE '✓ PASS: cross-tenant bank_accounts INSERT blocked';
+  ELSE
+    RAISE EXCEPTION '✗ FAIL: cross-tenant bank_accounts INSERT succeeded (SECURITY BREACH)';
+  END IF;
+END $$;
+
 -- ─── تنظيف الدالة المساعدة ────────────────────────────────────────────────
 DROP FUNCTION IF EXISTS _rls_test(TEXT, UUID, TEXT, TEXT, INTEGER);
 
 \echo ''
 \echo '════════════════════════════════════════════════════════════'
-\echo ' 🎉 ALL 10 RLS ISOLATION TESTS PASSED'
+\echo ' 🎉 ALL 14 RLS ISOLATION TESTS PASSED (incl. finance 0149)'
 \echo '════════════════════════════════════════════════════════════'
