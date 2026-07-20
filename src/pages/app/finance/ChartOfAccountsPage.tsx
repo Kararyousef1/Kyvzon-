@@ -120,7 +120,7 @@ export default function ChartOfAccountsPage() {
   };
 
   return (
-    <div className="p-6 md:p-8 space-y-6" dir="rtl">
+    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
       <section className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
         <div>
           <p className="text-sm font-bold text-emerald-700">Financial Core · IFRS</p>

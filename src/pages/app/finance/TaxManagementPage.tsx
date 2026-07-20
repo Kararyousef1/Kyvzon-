@@ -50,7 +50,7 @@ export default function TaxManagementPage() {
   const filtered = rows.filter(r => `${r.code} ${r.name}`.toLowerCase().includes(q.toLowerCase()));
 
   return (
-    <div className="p-6 md:p-8 space-y-6" dir="rtl">
+    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
       <div className="flex justify-between flex-wrap gap-3">
         <div>
           <p className="text-sm font-bold text-amber-700 flex items-center gap-2"><ShieldCheck size={14} /> Tax Configuration — Wave 6 (Beta) — لا حسابات مفترضة</p>
@@ -82,7 +82,7 @@ export default function TaxManagementPage() {
         </div>
       )}
 
-      {show && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" onClick={() => !saving && setShow(false)}><form onSubmit={submit} onClick={e => e.stopPropagation()} className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-3"><div className="flex justify-between"><h2 className="font-black text-xl">كود ضريبي جديد — Configuration</h2><button type="button" onClick={() => setShow(false)}><X /></button></div><div className="grid grid-cols-2 gap-3"><input required placeholder="الكود مثل VAT-15" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="border rounded-xl p-2.5" dir="ltr" /><input required type="number" step="0.0001" min="0" max="1" placeholder="النسبة 0.15 = 15%" value={form.rate} onChange={e => setForm(f => ({ ...f, rate: e.target.value }))} className="border rounded-xl p-2.5" dir="ltr" /></div><input required placeholder="الاسم مثل ضريبة القيمة المضافة 15% (معتمد من مستشار)" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full border rounded-xl p-2.5" /><button disabled={saving} className="w-full bg-amber-600 text-white rounded-xl py-3 font-bold">{saving ? 'جارٍ الحفظ...' : 'حفظ كـ configuration'}</button><p className="text-[11px] text-slate-400 text-center">يُحفظ في tax_codes مع rate NUMERIC(5,4) — لا يُستخدم في حساب تلقائي حتى الاعتماد القانوني</p></form></div>}
+      {show && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" onClick={() => !saving && setShow(false)}><form onSubmit={submit} onClick={e => e.stopPropagation()} className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-3"><div className="flex justify-between items-center gap-3 flex-wrap"><h2 className="font-black text-xl">كود ضريبي جديد — Configuration</h2><button type="button" onClick={() => setShow(false)}><X /></button></div><div className="grid grid-cols-2 gap-3"><input required placeholder="الكود مثل VAT-15" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="border rounded-xl p-2.5" dir="ltr" /><input required type="number" step="0.0001" min="0" max="1" placeholder="النسبة 0.15 = 15%" value={form.rate} onChange={e => setForm(f => ({ ...f, rate: e.target.value }))} className="border rounded-xl p-2.5" dir="ltr" /></div><input required placeholder="الاسم مثل ضريبة القيمة المضافة 15% (معتمد من مستشار)" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full border rounded-xl p-2.5" /><button disabled={saving} className="w-full bg-amber-600 text-white rounded-xl py-3 font-bold">{saving ? 'جارٍ الحفظ...' : 'حفظ كـ configuration'}</button><p className="text-[11px] text-slate-400 text-center">يُحفظ في tax_codes مع rate NUMERIC(5,4) — لا يُستخدم في حساب تلقائي حتى الاعتماد القانوني</p></form></div>}
     </div>
   );
 }

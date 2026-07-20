@@ -96,12 +96,12 @@ export default function BiometricDevicesPage() {
 
   return (
     <div className="space-y-6" dir="rtl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-black text-white">إدارة أجهزة البصمة</h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-black text-white truncate">إدارة أجهزة البصمة</h1>
           <p className="text-xs text-slate-500 mt-0.5">{devices.length} جهاز مسجل</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <button onClick={loadDevices} className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-700 text-slate-400 hover:text-slate-200">
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>

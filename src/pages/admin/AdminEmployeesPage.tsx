@@ -660,15 +660,15 @@ export default function AdminEmployeesPage() {
       )}
 
       {/* Header */}
-      <div className="flex justify-between items-start gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-            <Users size={24} className="text-indigo-600" />
+      <div className="flex justify-between items-start gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
+            <Users size={24} className="text-indigo-600 flex-shrink-0" />
             إدارة الموظفين والوصول المؤسسي
           </h2>
           <p className="text-sm text-slate-500 mt-1">إضافة مستخدمين عبر معالج خطوات متسلسل مع دعم صلاحيات الكيانات المالية والبوابات</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button onClick={() => setShowBulk(true)} className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-50">
             <Upload size={14} />استيراد جماعي CSV
           </button>

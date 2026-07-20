@@ -124,4 +124,29 @@ BEGIN
 END $$;
 
 \echo ''
+\echo '=== H. لا يجوز بقاء أي جدول مالي حسّاس بلا RLS (حارس 0149) ==='
+DO $$
+DECLARE
+  v_missing TEXT;
+  v_finance CONSTANT TEXT[] := ARRAY[
+    'bank_accounts','bank_reconciliations','bank_statement_imports','bank_statement_lines',
+    'budgets','budget_lines','budget_variance_reports','cash_forecast_scenarios',
+    'consolidation_entries','depreciation_schedules','financial_report_templates',
+    'fixed_assets','intercompany_transactions','projects','revenue_contracts',
+    'revenue_recognition_schedules','subsidiaries','tax_codes','tax_filing_status'
+  ];
+BEGIN
+  SELECT string_agg(c.relname, ', ') INTO v_missing
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relkind = 'r'
+    AND c.relrowsecurity = false
+    AND c.relname = ANY (v_finance);
+
+  IF v_missing IS NOT NULL THEN
+    RAISE EXCEPTION 'FAILED (regression!): finance tables without RLS: %', v_missing;
+  END IF;
+  RAISE NOTICE 'CHECK H PASSED — كل الجداول المالية الحسّاسة (%) عليها RLS', array_length(v_finance, 1);
+END $$;
+
+\echo ''
 \echo '=== ✅ POST-MIGRATION CHECKS: ALL PASS ==='

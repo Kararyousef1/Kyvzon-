@@ -256,7 +256,7 @@ export default function AttendanceAnalytics() {
             <CheckCircle2 size={15} className="text-emerald-400" />
             ملخص حضور اليوم
           </h3>
-          <div className="grid grid-cols-3 gap-4 mb-5">
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-4 mb-5">
             {[
               { label: 'حضور بوقت', value: summaryStats.present, cls: 'text-emerald-400', bg: 'bg-emerald-900/30 border-emerald-700/40' },
               { label: 'متأخر',     value: summaryStats.late,    cls: 'text-amber-400',   bg: 'bg-amber-900/30 border-amber-700/40'   },

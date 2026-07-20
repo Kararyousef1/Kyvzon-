@@ -23,7 +23,7 @@ export default function IntercompanyPage() {
   useEffect(() => { void load(); }, [load]);
 
   return (
-    <div className="p-6 md:p-8 space-y-6" dir="rtl">
+    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
       <div className="flex justify-between flex-wrap gap-3">
         <div>
           <p className="text-sm font-bold text-violet-700">Intercompany — Wave 3 (Beta) — Real SDK ✅</p>

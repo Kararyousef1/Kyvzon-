@@ -64,15 +64,15 @@ const KpiCard: FC<{
       className={`
         relative overflow-hidden rounded-2xl border ${c.border}
         bg-gradient-to-br ${c.bg}
-        p-5 transition-all duration-200
+        p-3.5 sm:p-4 lg:p-5 transition-all duration-200
         ${onClick ? 'cursor-pointer hover:border-opacity-80 hover:brightness-110' : ''}
       `}
     >
       <div className={`absolute -top-6 -right-6 w-20 h-20 rounded-full opacity-10 blur-2xl ${c.icon.split(' ')[0]}`} />
-      <div className="relative flex items-start justify-between gap-3">
+      <div className="relative flex items-start justify-between gap-2 sm:gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-slate-500 font-medium mb-2 leading-none">{label}</p>
-          <p className={`text-3xl font-black ${c.text} leading-none tracking-tight`}>{value}</p>
+          <p className="text-[11px] sm:text-xs text-slate-500 font-medium mb-1.5 sm:mb-2 leading-none truncate">{label}</p>
+          <p className={`text-2xl sm:text-3xl font-black ${c.text} leading-none tracking-tight truncate`}>{value}</p>
           {sub && <p className="text-xs text-slate-600 mt-1.5 leading-none">{sub}</p>}
           {(trend || trendLabel) && (
             <div className={`flex items-center gap-1 mt-2 ${trendColor}`}>
@@ -318,7 +318,7 @@ export default function TechDashboard() {
       </div>
 
       {/* ─── KPI Row ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2.5 sm:gap-3">
         <KpiCard
           icon={Fingerprint}
           label="إجمالي الأجهزة"
@@ -500,7 +500,7 @@ export default function TechDashboard() {
           <div className="text-center py-8 text-sm text-slate-600">لا توجد سجلات مزامنة</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="text-right">
                   {['المصدر', 'الحالة', 'السجلات', 'الوقت', 'ملاحظات'].map(h => (

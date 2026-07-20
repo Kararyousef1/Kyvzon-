@@ -43,7 +43,10 @@ export function AppLayout() {
       <Sidebar />
       <Header />
 
-      <main className={`${sidebarOpen ? 'lg:mr-64' : 'lg:mr-16'} pt-16 min-h-screen transition-all duration-300`}>
+      <main
+        className={`${sidebarOpen ? 'lg:mr-64' : 'lg:mr-16'} pt-16 min-h-screen transition-all duration-300 overflow-x-hidden`}
+      >
+        {/* overflow-x-hidden يمنع أي تمرير أفقي ناتج عن هوامش/عناصر عريضة داخل الصفحات */}
         <div className="p-4 sm:p-6">
           <AppErrorBoundary componentName="AppLayout">
             <Suspense fallback={<SplashScreen mini />}>

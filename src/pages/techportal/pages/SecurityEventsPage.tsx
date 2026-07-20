@@ -391,7 +391,7 @@ export default function SecurityEventsPage() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[560px]">
                 <thead className="bg-slate-900/80 border-b border-slate-800">
                   <tr className="text-right">
                     {['التهديد', 'نوع الحدث', 'المستخدم', 'IP', 'الوقت', ''].map(h => (

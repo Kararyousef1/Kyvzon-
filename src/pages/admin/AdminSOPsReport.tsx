@@ -134,7 +134,7 @@ export default function AdminSOPsReport() {
 
       // ── 3: جلب قراءات كل الموظفين ──────────────────────────
       const empIds = employees.map(e => e.id);
-      let readQuery = supabase
+      const readQuery = supabase
         .from('sop_readings')
         .select('sop_id, employee_id, completed, approved, time_spent, last_read_at')
         .in('employee_id', empIds);

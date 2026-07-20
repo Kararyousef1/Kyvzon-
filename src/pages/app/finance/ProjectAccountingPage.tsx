@@ -58,7 +58,7 @@ export default function ProjectAccountingPage() {
   const filtered = rows.filter(r => `${r.code} ${r.name_ar}`.toLowerCase().includes(q.toLowerCase()));
 
   return (
-    <div className="p-6 md:p-8 space-y-6" dir="rtl">
+    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
       <div className="flex justify-between flex-wrap gap-3">
         <div>
           <p className="text-sm font-bold text-violet-700">Project Accounting — Wave 3 (Beta) — Real SDK ✅</p>
@@ -86,7 +86,7 @@ export default function ProjectAccountingPage() {
         </div>
       )}
 
-      {show && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" onClick={() => !saving && setShow(false)}><form onSubmit={submit} onClick={e => e.stopPropagation()} className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-3"><div className="flex justify-between"><h2 className="font-black text-xl">مشروع جديد</h2><button type="button" onClick={() => setShow(false)}><X /></button></div><div className="grid grid-cols-2 gap-3"><input required placeholder="كود المشروع *" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="border rounded-xl p-2.5" dir="ltr" /><select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className="border rounded-xl p-2.5"><option value="active">نشط</option><option value="on_hold">معلق</option><option value="closed">مقفل</option></select></div><input required placeholder="اسم المشروع بالعربية *" value={form.name_ar} onChange={e => setForm(f => ({ ...f, name_ar: e.target.value }))} className="w-full border rounded-xl p-2.5" /><button disabled={saving} className="w-full bg-violet-600 text-white rounded-xl py-3 font-bold">{saving ? 'جارٍ الحفظ...' : 'حفظ'}</button></form></div>}
+      {show && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" onClick={() => !saving && setShow(false)}><form onSubmit={submit} onClick={e => e.stopPropagation()} className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-3"><div className="flex justify-between items-center gap-3 flex-wrap"><h2 className="font-black text-xl">مشروع جديد</h2><button type="button" onClick={() => setShow(false)}><X /></button></div><div className="grid grid-cols-2 gap-3"><input required placeholder="كود المشروع *" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="border rounded-xl p-2.5" dir="ltr" /><select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className="border rounded-xl p-2.5"><option value="active">نشط</option><option value="on_hold">معلق</option><option value="closed">مقفل</option></select></div><input required placeholder="اسم المشروع بالعربية *" value={form.name_ar} onChange={e => setForm(f => ({ ...f, name_ar: e.target.value }))} className="w-full border rounded-xl p-2.5" /><button disabled={saving} className="w-full bg-violet-600 text-white rounded-xl py-3 font-bold">{saving ? 'جارٍ الحفظ...' : 'حفظ'}</button></form></div>}
     </div>
   );
 }

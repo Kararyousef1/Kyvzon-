@@ -172,7 +172,7 @@ export default function LeaveRequestPage() {
     })();
   }, [user]);
 
-  useEffect(() => { if (!user) return; fetchRequests(); fetchPermissions(); /* eslint-disable-next-line */ }, [user, realEmployeeId]);
+  useEffect(() => { if (!user) return; fetchRequests(); fetchPermissions();   }, [user, realEmployeeId]);
 
   useEffect(() => {
     if (formData.start_date && formData.end_date) {
@@ -415,7 +415,7 @@ export default function LeaveRequestPage() {
           </div>
 
           {canApprove && (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { label: 'الإجمالي', value: stats.total, color: 'bg-white text-slate-800' },
                 { label: 'قيد المراجعة', value: stats.pending, color: 'bg-amber-50 text-amber-700' },
@@ -531,7 +531,7 @@ export default function LeaveRequestPage() {
           </div>
 
           {canApprove && (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { label: 'الإجمالي', value: permStats.total, color: 'bg-white' },
                 { label: 'قيد المراجعة', value: permStats.pending, color: 'bg-amber-50' },

@@ -1060,14 +1060,6 @@ export default function CompaniesPage({ onNavigate }: { onNavigate?: (page: DevP
           onCreateAdmin={handleCreateAdmin}
         />
       )}
-      {/* Keep old modal as fallback hidden */}
-      {false && (
-        <CompanyDetailModal
-          company={viewing}
-          onClose={() => setViewing(null)}
-          onEdit={handleEdit}
-        />
-      )}
       {wizardOpen && (
         <CompanyCreateWizard
           open={wizardOpen}

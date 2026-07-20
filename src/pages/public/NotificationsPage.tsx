@@ -430,7 +430,7 @@ export default function NotificationsPage() {
         </div>
 
         {/* ── إحصائيات ───────────────────────────────── */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'الكل',   value: stats.total,   color: 'text-indigo-600', bg: 'bg-indigo-50' },
             { label: 'عاجلة',  value: stats.urgent,  color: 'text-red-600',    bg: 'bg-red-50' },
@@ -737,7 +737,7 @@ export default function NotificationsPage() {
               {/* نوع التبليغ */}
               <div>
                 <p className="text-xs font-bold text-slate-700 mb-2">نوع التبليغ</p>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {(['text', 'image', 'video', 'poll'] as const).map(t => {
                     const cfg = TYPE_CFG[t];
                     const Icon = cfg.icon;

@@ -272,16 +272,18 @@ export const PortalLayout: FC<{
         onToggle={() => setCollapsed(!collapsed)}
       />
 
-      {/* Backdrop for mobile */}
-      {!collapsed && window.innerWidth < 1024 && (
+      {/* Backdrop for mobile — يُتحكَّم عبر CSS (lg:hidden) بدل window.innerWidth
+          الذي لا يتحدّث عند تغيير الحجم وقد يفشل في SSR */}
+      {!collapsed && (
         <div
           className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={() => setCollapsed(true)}
+          aria-hidden="true"
         />
       )}
 
       {/* Main Content */}
-      <div className={`transition-all duration-300 ${collapsed ? 'lg:mr-[72px]' : 'lg:mr-64'}`}>
+      <div className={`transition-all duration-300 overflow-x-hidden ${collapsed ? 'lg:mr-[72px]' : 'lg:mr-64'}`}>
         {/* Top Bar */}
         <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-lg border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -304,9 +306,11 @@ export const PortalLayout: FC<{
           </div>
         </header>
 
-        {/* Page Content */}
+        {/* Page Content — حاوية متجاوبة بحد أقصى للعرض على الشاشات العريضة جداً */}
         <main className="p-4 sm:p-6 pb-20">
-          {children}
+          <div className="w-full max-w-[1600px] mx-auto">
+            {children}
+          </div>
         </main>
       </div>
     </div>

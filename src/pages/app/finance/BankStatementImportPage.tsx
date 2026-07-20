@@ -54,7 +54,7 @@ export default function BankStatementImportPage() {
   };
 
   return (
-    <div className="p-6 md:p-8 space-y-6" dir="rtl">
+    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
       <div className="flex justify-between flex-wrap gap-3">
         <div>
           <p className="text-sm font-bold text-emerald-700">Bank — Wave 5 (Beta) — Real SDK ✅</p>

@@ -49,6 +49,9 @@ jobs:
       - name: Type check
         run: npm run type-check
 
+      - name: Lint (ESLint — errors block, warnings tracked)
+        run: npm run lint
+
       - name: Unit and integration tests
         run: npm run test:run -- --reporter=dot
 
