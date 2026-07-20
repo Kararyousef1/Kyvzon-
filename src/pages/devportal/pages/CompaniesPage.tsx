@@ -175,7 +175,13 @@ const PORTAL_PAGES = [
     portalLabel: 'البوابة التقنية (IT)',
     moduleKey: 'tech_portal',
     pages: [
-      { id: 'tech-portal', label: 'البوابة التقنية' },
+      { id: 'tech-dashboard', label: 'لوحة التحكم التقنية' },
+      { id: 'biometric-devices', label: 'إدارة أجهزة البصمة' },
+      { id: 'sync-logs', label: 'سجل المزامنة' },
+      { id: 'attendance-analytics', label: 'تحليلات الحضور التقنية' },
+      { id: 'system-health', label: 'صحة النظام' },
+      { id: 'security-events', label: 'الأحداث الأمنية' },
+      { id: 'tech-settings', label: 'الإعدادات التقنية' },
     ]
   },
   {

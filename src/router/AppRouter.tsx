@@ -141,6 +141,13 @@ const ManagerApprovalsPage  = lazy(() => import('../pages/manager/ManagerApprova
 const ManagerTeamPerformancePage = lazy(() => import('../pages/manager/ManagerTeamPerformancePage'));
 const ManagerWorkloadPage   = lazy(() => import('../pages/manager/ManagerWorkloadPage'));
 const TechPortal            = lazy(() => import('../pages/techportal/TechPortal'));
+const TechDashboard         = lazy(() => import('../pages/techportal/pages/TechDashboard'));
+const BiometricDevicesPage  = lazy(() => import('../pages/techportal/pages/BiometricDevicesPage'));
+const SyncLogsPage          = lazy(() => import('../pages/techportal/pages/SyncLogsPage'));
+const SystemHealthPage      = lazy(() => import('../pages/techportal/pages/SystemHealthPage'));
+const AttendanceAnalytics   = lazy(() => import('../pages/techportal/pages/AttendanceAnalytics'));
+const SecurityEventsPage    = lazy(() => import('../pages/techportal/pages/SecurityEventsPage'));
+const TechSettingsPage      = lazy(() => import('../pages/techportal/pages/TechSettingsPage'));
 const TawathulPortalPage    = lazy(() => import('../modules/tawathul/pages/TawathulPortalPage'));
 const TawathulAdminPage     = lazy(() => import('../modules/tawathul/pages/TawathulAdminPage'));
 const KyvzonDevPortal       = lazy(() => import('../pages/devportal/KyvzonDevPortal'));
@@ -219,7 +226,16 @@ export function AppRoutes() {
 
           {/* Tech Portal */}
           <Route path="tech-portal" element={<RequireRole roles={['it_admin', 'tech', 'admin', 'developer']} />}>
-            <Route index element={<TechPortal />} />
+            <Route element={<TechPortal />}>
+              <Route index element={<TechDashboard />} />
+              <Route path="dashboard" element={<TechDashboard />} />
+              <Route path="biometric" element={<BiometricDevicesPage />} />
+              <Route path="sync-logs" element={<SyncLogsPage />} />
+              <Route path="attendance-analytics" element={<AttendanceAnalytics />} />
+              <Route path="system-health" element={<SystemHealthPage />} />
+              <Route path="security-events" element={<SecurityEventsPage />} />
+              <Route path="settings" element={<TechSettingsPage />} />
+            </Route>
           </Route>
 
           {/* Employee */}

@@ -43,16 +43,31 @@ export function Footer({ landingConfig, publicConfig }: { landingConfig?: Partia
   ];
 
   return (
-    <footer style={{ backgroundColor: 'var(--kv-bg-deep)', borderTop: '1px solid var(--kv-border-soft)' }}>
-      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-16 pb-10">
+    <footer className="relative" style={{ backgroundColor: 'var(--kv-bg-deep)' }}>
+      {/* خط ضوئي متدرج يفصل التذييل */}
+      <div
+        className="absolute top-0 left-0 right-0 h-px"
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(129,140,248,0.5), rgba(34,211,238,0.4), transparent)' }}
+        aria-hidden="true"
+      />
+      {/* توهج سفلي خافت */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] rounded-full bg-indigo-600/06 blur-[100px] pointer-events-none" aria-hidden="true" />
+
+      <div className="relative max-w-7xl mx-auto px-4 md:px-8 pt-16 pb-10">
         <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12">
           {/* Brand column */}
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-sm">K</div>
-              <span className="font-black text-white text-lg">{landingConfig?.logoTextEn || 'KYVZON'}</span>
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="relative">
+                <div className="absolute -inset-1 rounded-xl blur-md opacity-50" style={{ background: 'linear-gradient(135deg, #6366f1, #22d3ee)' }} aria-hidden="true" />
+                <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-indigo-500/40">K</div>
+              </div>
+              <span className="font-black text-white text-lg">
+                {landingConfig?.logoTextEn || 'KYVZON'}
+                <span className="kv-gradient-text">.</span>
+              </span>
             </div>
-            <p style={{ color: 'rgba(180,195,255,0.55)', fontSize: '0.875rem', lineHeight: '1.8', maxWidth: '22rem' }}>
+            <p style={{ color: 'rgba(180,195,255,0.55)', fontSize: '0.875rem', lineHeight: '1.85', maxWidth: '22rem' }}>
               {(landingConfig?.aboutP1Ar || landingConfig?.aboutP1En) || t('footer_tagline')}
             </p>
             <div className="flex items-center gap-2 mt-5">
@@ -66,11 +81,11 @@ export function Footer({ landingConfig, publicConfig }: { landingConfig?: Partia
 
           {/* Product */}
           <div>
-            <div className="text-white font-bold text-sm mb-4">{t('footer_col_product')}</div>
+            <div className="text-white font-black text-sm mb-4 tracking-wide">{t('footer_col_product')}</div>
             <ul className="flex flex-col gap-3">
               {productLinks.map((l) => (
                 <li key={l.label}>
-                  <button onClick={l.action} style={{ color: 'rgba(180,195,255,0.6)', fontSize: '0.85rem' }} className="hover:text-white transition-colors text-start">
+                  <button onClick={l.action} style={{ color: 'rgba(180,195,255,0.6)', fontSize: '0.85rem' }} className="hover:text-white hover:translate-x-0.5 transition-all text-start">
                     {l.label}
                   </button>
                 </li>
@@ -80,11 +95,11 @@ export function Footer({ landingConfig, publicConfig }: { landingConfig?: Partia
 
           {/* Company */}
           <div>
-            <div className="text-white font-bold text-sm mb-4">{t('footer_col_company')}</div>
+            <div className="text-white font-black text-sm mb-4 tracking-wide">{t('footer_col_company')}</div>
             <ul className="flex flex-col gap-3">
               {companyLinks.map((l) => (
                 <li key={l.label}>
-                  <button onClick={() => navigate(l.href)} style={{ color: 'rgba(180,195,255,0.6)', fontSize: '0.85rem' }} className="hover:text-white transition-colors text-start">{l.label}</button>
+                  <button onClick={() => navigate(l.href)} style={{ color: 'rgba(180,195,255,0.6)', fontSize: '0.85rem' }} className="hover:text-white hover:translate-x-0.5 transition-all text-start">{l.label}</button>
                 </li>
               ))}
             </ul>
@@ -92,11 +107,11 @@ export function Footer({ landingConfig, publicConfig }: { landingConfig?: Partia
 
           {/* Resources */}
           <div>
-            <div className="text-white font-bold text-sm mb-4">{t('footer_col_resources')}</div>
+            <div className="text-white font-black text-sm mb-4 tracking-wide">{t('footer_col_resources')}</div>
             <ul className="flex flex-col gap-3">
               {resourceLinks.map((l) => (
                 <li key={l.label}>
-                  <button onClick={() => ('href' in l && l.href ? navigate(l.href) : l.action?.())} style={{ color: 'rgba(180,195,255,0.6)', fontSize: '0.85rem' }} className="hover:text-white transition-colors text-start">{l.label}</button>
+                  <button onClick={() => ('href' in l && l.href ? navigate(l.href) : l.action?.())} style={{ color: 'rgba(180,195,255,0.6)', fontSize: '0.85rem' }} className="hover:text-white hover:translate-x-0.5 transition-all text-start">{l.label}</button>
                 </li>
               ))}
             </ul>
@@ -111,7 +126,7 @@ export function Footer({ landingConfig, publicConfig }: { landingConfig?: Partia
           <div className="text-white/30 text-xs order-3 md:order-1">
             © {new Date().getFullYear()} KYVZON · {t('footer_rights')}
           </div>
-          <div className="flex items-center gap-2 order-2" style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.75rem' }}>
+          <div className="flex items-center gap-2 order-2 px-3 py-1.5 rounded-full" style={{ color: 'rgba(200,210,255,0.5)', fontSize: '0.75rem', fontWeight: 700, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(148,163,255,0.1)' }}>
             🇮🇶 {t('footer_made_in')}
           </div>
           <div className="flex items-center gap-5 order-1 md:order-3">

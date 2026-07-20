@@ -1,4 +1,4 @@
 {
     "geminicodeassist.outlines.automaticOutlineGeneration": true,
-    "CodeGPT.apiKey": "Ollama"
+    "CodeGPT.apiKey": "Anthropic"
 }

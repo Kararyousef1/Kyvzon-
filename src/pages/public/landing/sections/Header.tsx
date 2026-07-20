@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Globe, Menu, X, ChevronDown } from 'lucide-react';
+import { Globe, Menu, X, ChevronDown, Sparkles } from 'lucide-react';
 import { useLang, LANG_OPTIONS } from '../LangContext';
 import type { LandingConfig } from '../../../../shared/types/landing';
 
@@ -24,20 +24,44 @@ export function Header({ onLoginClick, scrolled, activeSection, landingConfig }:
   };
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-400 ${scrolled ? 'glass-header' : 'bg-transparent'}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? 'glass-header' : 'bg-transparent'}`}>
+      {/* خط ضوئي متدرج أعلى الصفحة — لمسة فاخرة تظهر عند التمرير */}
+      <div
+        className={`absolute top-0 left-0 right-0 h-px transition-opacity duration-500 ${scrolled ? 'opacity-100' : 'opacity-0'}`}
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(129,140,248,0.6), rgba(34,211,238,0.5), transparent)' }}
+        aria-hidden="true"
+      />
+
       <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between h-16 md:h-18">
-        {/* Logo */}
+        {/* Logo — حلقة توهج + تدرج ثلاثي */}
         <button
-          className="flex items-center gap-3 cursor-pointer bg-transparent border-none p-0"
+          className="flex items-center gap-3 cursor-pointer bg-transparent border-none p-0 group"
           onClick={() => scrollTo('home')}
           aria-label={lang === 'ar' ? 'الانتقال إلى الرئيسية' : lang === 'en' ? 'Go to homepage' : 'گەڕانەوە بۆ ماڵەوە'}
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-indigo-500/30" style={{ background: landingConfig?.themeColor ? `linear-gradient(135deg, ${landingConfig.themeColor}, ${landingConfig.themeColor}bb)` : undefined }}>{landingConfig?.logoUrl ? <img src={landingConfig.logoUrl} alt="KYVZON" className="w-full h-full rounded-xl object-cover" /> : (landingConfig?.logoSymbol || 'K')}</div>
-          <span className="text-xl font-black tracking-tight text-white">{landingConfig?.logoTextEn || 'KYVZON'}</span>
+          <div className="relative">
+            <div
+              className="absolute -inset-1 rounded-2xl opacity-50 blur-md transition-opacity duration-300 group-hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #22d3ee)' }}
+              aria-hidden="true"
+            />
+            <div
+              className="relative w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-indigo-500/40 transition-transform duration-300 group-hover:scale-105"
+              style={{ background: landingConfig?.themeColor ? `linear-gradient(135deg, ${landingConfig.themeColor}, ${landingConfig.themeColor}bb)` : 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+            >
+              {landingConfig?.logoUrl
+                ? <img src={landingConfig.logoUrl} alt="KYVZON" className="w-full h-full rounded-xl object-cover" />
+                : (landingConfig?.logoSymbol || 'K')}
+            </div>
+          </div>
+          <span className="text-xl font-black tracking-tight text-white">
+            {landingConfig?.logoTextEn || 'KYVZON'}
+            <span className="kv-gradient-text">.</span>
+          </span>
         </button>
 
         {/* Desktop nav */}
-        <nav className="hidden lg:flex items-center gap-1" aria-label={lang === 'ar' ? 'التنقل الرئيسي' : 'Main navigation'}>
+        <nav className="hidden lg:flex items-center gap-1 px-2 py-1.5 rounded-full border border-white/5 bg-white/[0.03]" aria-label={lang === 'ar' ? 'التنقل الرئيسي' : 'Main navigation'}>
           {NAV.map((n) => (
             <button
               key={n.id}
@@ -64,14 +88,14 @@ export function Header({ onLoginClick, scrolled, activeSection, landingConfig }:
               <ChevronDown size={12} />
             </button>
             <div
-              className="absolute top-full mt-2 bg-[#0d1117] border border-white/10 rounded-xl overflow-hidden shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-all z-50 min-w-[130px]"
+              className="absolute top-full mt-2 glass-dark rounded-2xl overflow-hidden shadow-2xl shadow-black/60 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-all z-50 min-w-[140px]"
               style={{ [isRTL ? 'right' : 'left']: 0 }}
             >
               {LANG_OPTIONS.map((lo) => (
                 <button
                   key={lo.code}
                   onClick={() => setLang(lo.code)}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/08 transition-all flex items-center gap-2 ${lang === lo.code ? 'text-indigo-400 font-bold' : 'text-white/70'}`}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-500/15 transition-all flex items-center gap-2 ${lang === lo.code ? 'text-indigo-300 font-bold bg-indigo-500/10' : 'text-white/70'}`}
                   aria-current={lang === lo.code ? 'true' : undefined}
                 >
                   {lo.flag} {lo.label}
@@ -80,7 +104,10 @@ export function Header({ onLoginClick, scrolled, activeSection, landingConfig }:
             </div>
           </div>
 
-          <button onClick={onLoginClick} className="hidden sm:flex btn-primary py-2 px-5 text-sm">{t('login')}</button>
+          <button onClick={onLoginClick} className="hidden sm:flex btn-primary py-2 px-5 text-sm">
+            <Sparkles size={14} />
+            {t('login')}
+          </button>
           <button
             onClick={() => setMenuOpen((v) => !v)}
             className="lg:hidden p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/08 transition-all"

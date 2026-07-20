@@ -25,7 +25,7 @@ import {
   ArrowRightLeft, TrendingUp, Fingerprint, ScrollText, HeartPulse,
   FolderKanban, CalendarClock, Megaphone, ClipboardCheck,
   Receipt, CreditCard, DollarSign, ShieldAlert, FileText,
-  Briefcase, UserPlus, Plus, Cpu, Target,
+  Briefcase, UserPlus, Plus, Cpu, Target, RefreshCw, Server, Shield,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../../core/stores';
 import { VIEW_TO_PATH } from '../../../router/legacyRedirect';
@@ -238,9 +238,15 @@ const NAV_SECTIONS: NavSection[] = [
 
   // ─── 🖥️ IT/TECH PORTAL ───
   {
-    key: 'tech-main', label: 'تقنية المعلومات', roles: ['it_admin'],
+    key: 'tech-main', label: 'تقنية المعلومات', roles: ['it_admin', 'tech'],
     items: [
-      { id: 'tech-portal', label: 'البوابة التقنية', icon: Cpu, roles: ['it_admin'], section: 'tech-main' },
+      { id: 'tech-dashboard', label: 'لوحة التحكم التقنية', icon: LayoutDashboard, roles: ['it_admin', 'tech'], section: 'tech-main' },
+      { id: 'biometric-devices', label: 'إدارة أجهزة البصمة', icon: Fingerprint, roles: ['it_admin', 'tech'], section: 'tech-main' },
+      { id: 'sync-logs', label: 'سجل المزامنة', icon: RefreshCw, roles: ['it_admin', 'tech'], section: 'tech-main' },
+      { id: 'attendance-analytics', label: 'تحليلات الحضور التقنية', icon: BarChart3, roles: ['it_admin', 'tech'], section: 'tech-main' },
+      { id: 'system-health', label: 'صحة النظام', icon: Server, roles: ['it_admin', 'tech'], section: 'tech-main' },
+      { id: 'security-events', label: 'الأحداث الأمنية', icon: Shield, roles: ['it_admin', 'tech'], section: 'tech-main' },
+      { id: 'tech-settings', label: 'الإعدادات التقنية', icon: Settings, roles: ['it_admin', 'tech'], section: 'tech-main' },
     ],
   },
 
@@ -365,6 +371,13 @@ const ITEM_MODULE_MAP: Record<string, string> = {
   'kiosk-mode': 'gatekeeper',
 
   'tech-portal': 'tech_portal',
+  'tech-dashboard': 'tech_portal',
+  'biometric-devices': 'tech_portal',
+  'sync-logs': 'tech_portal',
+  'attendance-analytics': 'tech_portal',
+  'system-health': 'tech_portal',
+  'security-events': 'tech_portal',
+  'tech-settings': 'tech_portal',
   'tawathul-portal': 'tawathul',
   'tawathul-admin': 'tawathul',
   'admin-ai-insights': 'ai',
