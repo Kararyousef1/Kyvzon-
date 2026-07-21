@@ -14,7 +14,7 @@ function isUuid(value: unknown): value is string {
     && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-const TARGET_ROLES = new Set(['employee', 'supervisor', 'manager', 'hr', 'gatekeeper', 'admin']);
+const TARGET_ROLES = new Set(['employee', 'supervisor', 'manager', 'hr', 'gatekeeper', 'admin', 'finance', 'tech', 'marketing']);
 const CALLER_ROLES = new Set(['admin', 'developer', 'it_admin']);
 const PLATFORM_ROLES = new Set(['developer', 'it_admin']);
 
@@ -48,6 +48,10 @@ describe('adminAuth — Role sets', () => {
   it('TARGET_ROLES لا يحوي أدوار منصة', () => {
     expect(TARGET_ROLES.has('developer')).toBe(false);
     expect(TARGET_ROLES.has('it_admin')).toBe(false);
+  });
+
+  it('TARGET_ROLES يشمل دور التسويق (بوابة التسويق)', () => {
+    expect(TARGET_ROLES.has('marketing')).toBe(true);
   });
 
   it('CALLER_ROLES = admin/developer/it_admin', () => {

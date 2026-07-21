@@ -19,7 +19,7 @@ import {
   Calendar, FileText, Send, Clock, Loader, AlertTriangle,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
-import { employeeService, leaveService, leaveBalanceService, permissionRequestService } from '../../services/sdk';
+import { employeeService, leaveService, leaveBalanceService, permissionRequestService, hrApprovalService } from '../../services/sdk';
 import {
   linkLeaveApproval,
   linkLeaveRejection,
@@ -222,7 +222,7 @@ export default function LeaveRequestPage() {
         if (employees.length > 0) targetId = employees[0].id;
       }
 
-      await leaveService.createLeave({
+      const createdLeave = await leaveService.createLeave({
         employee_id: targetId || user.id,
         leave_type: formData.leave_type,
         date_from: formData.start_date,
@@ -230,6 +230,16 @@ export default function LeaveRequestPage() {
         working_days_count: calculatedDays,
         reason: formData.reason,
       });
+
+      // إنشاء سلسلة الموافقة التسلسلية (مشرف → مدير → مدير مباشر).
+      // لا نُفشِل الطلب إن تعذّر إنشاء السلسلة (يبقى الطلب قائماً).
+      if (createdLeave?.id && targetId) {
+        try {
+          await hrApprovalService.createForRequest('leave', createdLeave.id, targetId);
+        } catch (e) {
+          console.warn('تعذّر إنشاء سلسلة الموافقة:', e);
+        }
+      }
       addToast('✅ تم إرسال طلب الإجازة', 'success');
       setShowForm(false);
       fetchRequests();
@@ -289,7 +299,7 @@ export default function LeaveRequestPage() {
         const employees = await employeeService.findAll({ filters: { user_id: user.id }, limit: 1 });
         if (employees.length > 0) targetId = employees[0].id;
       }
-      await permissionRequestService.createRequest({
+      const createdPerm = await permissionRequestService.createRequest({
         employee_id: targetId || user.id,
         employee_name: user.full_name || 'موظف',
         employee_department: user.department || undefined,
@@ -299,6 +309,15 @@ export default function LeaveRequestPage() {
         expected_return_time: permFormData.permission_type === 'مغادرة' ? undefined : permFormData.expected_return_time,
         reason: permFormData.reason,
       });
+
+      // إنشاء سلسلة الموافقة التسلسلية للإذن الزمني
+      if (createdPerm?.id && targetId) {
+        try {
+          await hrApprovalService.createForRequest('permission', createdPerm.id, targetId);
+        } catch (e) {
+          console.warn('تعذّر إنشاء سلسلة موافقة الإذن:', e);
+        }
+      }
       addToast('✅ تم إرسال طلب الزمنية', 'success');
       setPermShowForm(false);
       fetchPermissions();

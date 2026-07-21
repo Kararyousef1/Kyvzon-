@@ -4,6 +4,7 @@ import { useAuthStore, useUIStore } from '../../core/stores';
 import { employeeBreakService, operationalChecklistService, shiftNoteService, teamTaskService, userService } from '../../services/sdk';
 import Card from '../../shared/components/ui/Card';
 import { getErrorMessage } from '../../services/errors';
+import HrApprovalInbox from '../../shared/components/dashboard/HrApprovalInbox';
 
 export default function SupervisorDashboard() {
   const { user } = useAuthStore();
@@ -66,6 +67,9 @@ export default function SupervisorDashboard() {
         { label: 'استراحات نشطة', value: summary.activeBreaks, icon: ArrowRightLeft, color: 'bg-indigo-50 text-indigo-700' },
       ].map(item => { const Icon = item.icon; return <Card key={item.label}><div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${item.color}`}><Icon size={18}/></div><p className="text-2xl font-extrabold text-slate-900">{item.value}</p><p className="text-xs text-slate-500">{item.label}</p></Card>; })}
     </div>
+
+    {/* سلسلة موافقات الإجازات/الأذونات (مرحلة المشرف) */}
+    <HrApprovalInbox />
 
     <div className="grid lg:grid-cols-2 gap-6">
       <Card><h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><ClipboardList size={18}/> آخر مهام الفريق</h3><div className="space-y-2">{tasks.slice(0,5).map(t => <div key={t.id} className="p-3 rounded-xl bg-slate-50 flex items-center justify-between"><div><p className="text-sm font-bold text-slate-800">{t.title}</p><p className="text-xs text-slate-500">{t.priority} • {t.status}</p></div></div>)}{tasks.length===0 && <p className="text-center text-slate-400 py-6">لا توجد مهام</p>}</div></Card>

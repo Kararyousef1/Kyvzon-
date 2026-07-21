@@ -78,6 +78,101 @@ export { managerWorkloadItemService } from './ManagerService';
 export { tenantModuleService, MODULE_CATALOG, PLAN_ALLOWED_MODULES, PLAN_LIMITS, modulesForPlan, isModuleAllowedForPlan, planLimitsForPlan } from './TenantModuleService';
 export type { TenantModuleRecord, ModuleCatalogItem, ModuleKey, PlanLimits } from './TenantModuleService';
 export { currencyService, financeSetupService, legalEntityService, entityMembershipService, fiscalYearService, accountingPeriodService, requireFinanceTenantId } from './FinanceFoundationService';
+// 🆕 وحدة أتمتة التسويق (بوابة التسويق — التقرير 1)
+export {
+  marketingLeadService,
+  leadScoreRuleService,
+  marketingWorkflowService,
+  workflowStepService,
+  workflowEnrollmentService,
+  marketingActionLogService,
+  marketingAnalyticsService,
+  CAMPAIGN_TEMPLATES,
+} from './MarketingAutomationService';
+export type {
+  MarketingLead, MarketingLeadInput, JourneyStage, PipelineStage, LeadTemperature,
+  LeadScoreRule, ScoreRuleType, LeadScoreEvent,
+  MarketingWorkflow, MarketingWorkflowInput, CampaignType, WorkflowStatus, TriggerType,
+  WorkflowStep, WorkflowStepInput, StepType, ActionType,
+  WorkflowEnrollment, EnrollmentStatus, ActionLogEntry, ActionLogStatus,
+  MarketingKpiSummary, CampaignTemplate,
+} from './MarketingAutomationService';
+// 🆕 وحدة البريد الإلكتروني (بوابة التسويق — التقرير 2)
+export {
+  senderDomainService, emailListService, emailSubscriberService, emailSegmentService,
+  emailTemplateService, emailCampaignService, campaignVariantService, emailDeliveryService,
+  BEST_SEND_TIMES, AUTH_DELIVERABILITY, KPI_TARGETS,
+} from './MarketingEmailService';
+export type {
+  SenderDomain, SenderDomainInput, AuthStatus, DmarcPolicy, EmailProvider, WarmupWeek,
+  EmailList, EmailListInput, OptInType,
+  EmailSubscriber, EmailSubscriberInput, SubscriberStatus,
+  EmailSegment, SegmentType,
+  EmailTemplate, EmailTemplateInput,
+  EmailCampaign, EmailCampaignInput, CampaignStatus,
+  CampaignVariant, CampaignVariantInput,
+  EmailEventType, EmailKpis,
+} from './MarketingEmailService';
+// 🆕 وحدة وسائل التواصل الاجتماعي (بوابة التسويق — التقرير 3)
+export {
+  socialAccountService, socialPostService, socialInteractionService,
+  socialUtmService, socialListeningService, socialAnalyticsService,
+  PLATFORM_META, POSTING_FREQUENCY,
+} from './MarketingSocialService';
+export type {
+  SocialPlatform, SocialAccount, SocialAccountInput,
+  ContentType, PostStatus, SocialPost, SocialPostInput,
+  PostTarget, PostTargetInput,
+  InteractionType, InteractionStatus, SocialInteraction, SocialInteractionInput,
+  UtmLink, TermType, ListeningTerm, ListeningMention, SocialKpis,
+} from './MarketingSocialService';
+// 🆕 وحدة الرسائل النصية والواتساب (بوابة التسويق — التقرير 4)
+export {
+  messagingGatewayService, messagingContactService, whatsappTemplateService,
+  smsTemplateService, messagingCampaignService, messagingDeliveryService,
+  SMS_MAX_CHARS, SMS_TYPE_META, SMS_VS_WA, MESSAGING_KPI_TARGETS,
+} from './MarketingMessagingService';
+export type {
+  MessagingChannel, MessagingProvider, MessagingGateway, MessagingGatewayInput,
+  MessagingContact, MessagingContactInput,
+  WaCategory, WaApprovalStatus, WhatsappTemplate, WhatsappTemplateInput,
+  SmsType, SmsTemplate,
+  MessagingCampaignStatus, MessagingCampaign, MessagingCampaignInput,
+  MessageStatus, MessagingMessage, MessagingKpis, WaWarmupWeek,
+} from './MarketingMessagingService';
+// 🆕 وحدة إدارة الفعاليات (بوابة التسويق — التقرير 5)
+export {
+  eventService, eventTicketService, eventPromoService, eventRegistrationService,
+  TICKET_TIER_LABEL, EVENT_TYPE_LABEL, PRE_EVENT_SEQUENCE,
+} from './MarketingEventsService';
+export type {
+  EventType, EventStatus, StreamProvider, MarketingEvent, MarketingEventInput,
+  EventSpeaker, EventSponsor, EventSession,
+  TicketTier, EventTicketType, EventTicketTypeInput,
+  EventPromoCode, EventPromoCodeInput,
+  RegistrationStatus, PaymentStatus, EventRegistration, EventKpis, CheckinResult,
+} from './MarketingEventsService';
+// 🆕 وحدة الاستبيانات والتغذية الراجعة (بوابة التسويق — التقرير 6)
+export {
+  marketingSurveyService, marketingSurveyResponseService,
+  SURVEY_TEMPLATES, NPS_INTERPRETATION, LOOP_PLAYBOOK, SURVEY_TYPE_LABEL,
+} from './MarketingSurveysService';
+export type {
+  SurveyType, SurveyStatus, QuestionType, NpsCategory, LoopStatus, SurveyChannel,
+  MarketingSurvey, MarketingSurveyInput, SurveyQuestion, SurveyQuestionInput,
+  SurveyResponse, SurveyAnswerInput, SurveyCertificate, SurveyKpis, SurveyTemplate,
+} from './MarketingSurveysService';
+// 🆕 نظام المناعة العلائقية (بوابة التسويق — التقرير 7، الطبقة الحاكمة)
+export {
+  relationshipBalanceService, governanceService, culturalCalendarService, immuneService,
+  STATUS_LABEL, STATUS_COLOR, customerFacingStatus, statusFromBalance, POINTS_TABLE, CULTURAL_RULES,
+} from './RelationshipImmuneService';
+export type {
+  RelationshipStatus, PacePreference, GovernanceDecision,
+  RelationshipBalance, LedgerEntry, GovernanceLogEntry,
+  OccasionType, OccasionEffect, CulturalOccasion, CulturalOccasionInput,
+  IncidentType, ImmuneIncident, ImmuneSettings, GovernanceResult, MarketingDebt,
+} from './RelationshipImmuneService';
 export type { CurrencyRecord, LegalEntityRecord, EntityMembershipRecord, FiscalYearRecord, AccountingPeriodRecord, FinanceRole, EntityStatus, FiscalYearStatus, AccountingPeriodStatus } from './FinanceFoundationService';
 export { entitlementService } from './EntitlementService';
 export type { TenantUsageSnapshot } from './EntitlementService';
@@ -106,3 +201,4 @@ export { multiBookService } from './MultiBookService';
 export { fixedAssetService } from './FixedAssetService';
 export { financialReportTemplateService } from './FinancialReportTemplateService';
 export { intercompanyService } from './IntercompanyService';
+export { hrApprovalService } from './HrApprovalService';

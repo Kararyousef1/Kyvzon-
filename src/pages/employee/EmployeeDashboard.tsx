@@ -30,6 +30,8 @@ import { attendanceSummaryService } from '../../services/sdk/AttendanceService';
 import { employeeLoanService, expenseRequestService } from '../../services/sdk/FinanceService';
 import { payrollRecordService } from '../../services/sdk/PayrollService';
 import { employeeGoalService } from '../../services/sdk/EmployeeDevelopmentService';
+import { employeeService } from '../../services/sdk/EmployeeService';
+import { leaveBalanceService } from '../../services/sdk/LeaveService';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Badge from '../../shared/components/ui/Badge';
 import Button from '../../shared/components/ui/Button';
@@ -140,6 +142,11 @@ export default function EmployeeDashboard() {
     currency: 'IQD',
   });
   const [developmentSummary, setDevelopmentSummary] = useState({ activeGoals: 0, averageGoalProgress: 0 });
+  // رصيد الإجازات (سنوي + مرضي)
+  const [leaveBalance, setLeaveBalance] = useState<{
+    annual: { total: number; used: number; pending: number; remaining: number };
+    sick: { total: number; used: number; pending: number; remaining: number };
+  } | null>(null);
 
   const fetchDashboardData = useCallback(async () => {
     if (!user?.id) return;
@@ -213,6 +220,22 @@ export default function EmployeeDashboard() {
   }, [user?.id]);
 
   useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
+
+  // جلب رصيد الإجازات (يتطلب معرّف سجل الموظف من جدول employees)
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      try {
+        const employees = await employeeService.findAll({ filters: { user_id: user.id }, limit: 1 });
+        if (employees.length > 0) {
+          const summary = await leaveBalanceService.getBalanceSummary(employees[0].id);
+          setLeaveBalance({ annual: summary.annual, sick: summary.sick });
+        }
+      } catch {
+        // تجاهل — القسم يظهر فقط عند توفّر البيانات
+      }
+    })();
+  }, [user]);
 
   const quickActions: QuickAction[] = [
     { label: 'بلاغ جديد', icon: Plus, action: () => navigate('/app/employee/problems/new'), color: 'bg-gradient-to-br from-rose-500 to-pink-600' },
@@ -326,6 +349,65 @@ export default function EmployeeDashboard() {
           </CardHeader>
         </Card>
       </div>
+
+      {/* رصيد الإجازات */}
+      {leaveBalance && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <span className="flex items-center gap-2">
+                <Calendar size={18} className="text-emerald-600" />
+                رصيد الإجازات ({new Date().getFullYear()})
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 pt-0">
+            {/* الإجازة السنوية */}
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-bold text-emerald-800">الإجازة السنوية</span>
+                <span className="text-2xl font-black text-emerald-700">{leaveBalance.annual.remaining}</span>
+              </div>
+              <div className="w-full h-2 bg-emerald-100 rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-full bg-emerald-500 rounded-full transition-all"
+                  style={{ width: `${leaveBalance.annual.total > 0 ? Math.min(100, (leaveBalance.annual.remaining / leaveBalance.annual.total) * 100) : 0}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>متبقٍّ: {leaveBalance.annual.remaining}</span>
+                <span>مستخدم: {leaveBalance.annual.used}</span>
+                <span>الإجمالي: {leaveBalance.annual.total}</span>
+              </div>
+              {leaveBalance.annual.pending > 0 && (
+                <p className="text-xs text-amber-600 mt-1.5">قيد الموافقة: {leaveBalance.annual.pending} يوم</p>
+              )}
+            </div>
+
+            {/* الإجازة المرضية */}
+            <div className="rounded-2xl border border-sky-100 bg-sky-50/50 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-bold text-sky-800">الإجازة المرضية</span>
+                <span className="text-2xl font-black text-sky-700">{leaveBalance.sick.remaining}</span>
+              </div>
+              <div className="w-full h-2 bg-sky-100 rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-full bg-sky-500 rounded-full transition-all"
+                  style={{ width: `${leaveBalance.sick.total > 0 ? Math.min(100, (leaveBalance.sick.remaining / leaveBalance.sick.total) * 100) : 0}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>متبقٍّ: {leaveBalance.sick.remaining}</span>
+                <span>مستخدم: {leaveBalance.sick.used}</span>
+                <span>الإجمالي: {leaveBalance.sick.total}</span>
+              </div>
+              {leaveBalance.sick.pending > 0 && (
+                <p className="text-xs text-amber-600 mt-1.5">قيد الموافقة: {leaveBalance.sick.pending} يوم</p>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Financial + Development Self-Service Summary */}
       <div className="grid lg:grid-cols-4 gap-4">

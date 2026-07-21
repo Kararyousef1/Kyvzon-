@@ -31,6 +31,7 @@ import { DevLayout } from './layouts/DevLayout';
 import { RequireAuth } from './guards/RequireAuth';
 import { RequireRole } from './guards/RequireRole';
 import { RequireModule } from './guards/RequireModule';
+import { RequirePage } from './guards/RequirePage';
 import { RoleRedirect } from './guards/RoleRedirect';
 
 // legacy
@@ -148,6 +149,55 @@ const SystemHealthPage      = lazy(() => import('../pages/techportal/pages/Syste
 const AttendanceAnalytics   = lazy(() => import('../pages/techportal/pages/AttendanceAnalytics'));
 const SecurityEventsPage    = lazy(() => import('../pages/techportal/pages/SecurityEventsPage'));
 const TechSettingsPage      = lazy(() => import('../pages/techportal/pages/TechSettingsPage'));
+const MarketingPortal       = lazy(() => import('../pages/marketingportal/MarketingPortal'));
+const MarketingDashboard    = lazy(() => import('../pages/marketingportal/MarketingDashboard'));
+// وحدة أتمتة التسويق (التقرير 1)
+const AutomationLayout      = lazy(() => import('../pages/marketingportal/automation/AutomationLayout'));
+const AutomationOverview    = lazy(() => import('../pages/marketingportal/automation/AutomationOverview'));
+const LeadsPage             = lazy(() => import('../pages/marketingportal/automation/LeadsPage'));
+const ScoringPage           = lazy(() => import('../pages/marketingportal/automation/ScoringPage'));
+const WorkflowsPage         = lazy(() => import('../pages/marketingportal/automation/WorkflowsPage'));
+const ActivityPage          = lazy(() => import('../pages/marketingportal/automation/ActivityPage'));
+// وحدة البريد الإلكتروني (التقرير 2)
+const EmailLayout           = lazy(() => import('../pages/marketingportal/email/EmailLayout'));
+const EmailOverview         = lazy(() => import('../pages/marketingportal/email/EmailOverview'));
+const EmailInfraPage        = lazy(() => import('../pages/marketingportal/email/InfraPage'));
+const EmailListsPage        = lazy(() => import('../pages/marketingportal/email/ListsPage'));
+const EmailTemplatesPage    = lazy(() => import('../pages/marketingportal/email/TemplatesPage'));
+const EmailCampaignsPage    = lazy(() => import('../pages/marketingportal/email/CampaignsPage'));
+const EmailAnalyticsPage    = lazy(() => import('../pages/marketingportal/email/AnalyticsPage'));
+// وحدة وسائل التواصل الاجتماعي (التقرير 3)
+const SocialLayout          = lazy(() => import('../pages/marketingportal/social/SocialLayout'));
+const SocialOverview        = lazy(() => import('../pages/marketingportal/social/SocialOverview'));
+const SocialAccountsPage    = lazy(() => import('../pages/marketingportal/social/AccountsPage'));
+const SocialPostsPage       = lazy(() => import('../pages/marketingportal/social/PostsPage'));
+const SocialCalendarPage    = lazy(() => import('../pages/marketingportal/social/CalendarPage'));
+const SocialInboxPage       = lazy(() => import('../pages/marketingportal/social/InboxPage'));
+const SocialUtmPage         = lazy(() => import('../pages/marketingportal/social/UtmPage'));
+const SocialListeningPage   = lazy(() => import('../pages/marketingportal/social/ListeningPage'));
+const SocialAnalyticsPage   = lazy(() => import('../pages/marketingportal/social/SocialAnalyticsPage'));
+// وحدة الرسائل النصية والواتساب (التقرير 4)
+const MessagingLayout       = lazy(() => import('../pages/marketingportal/messaging/MessagingLayout'));
+const MessagingOverview     = lazy(() => import('../pages/marketingportal/messaging/MessagingOverview'));
+const MessagingGatewaysPage = lazy(() => import('../pages/marketingportal/messaging/GatewaysPage'));
+const MessagingContactsPage = lazy(() => import('../pages/marketingportal/messaging/ContactsPage'));
+const MessagingTemplatesPage = lazy(() => import('../pages/marketingportal/messaging/TemplatesPage'));
+const MessagingCampaignsPage = lazy(() => import('../pages/marketingportal/messaging/CampaignsPage'));
+const MessagingAnalyticsPage = lazy(() => import('../pages/marketingportal/messaging/MessagingAnalyticsPage'));
+// وحدة إدارة الفعاليات (التقرير 5)
+const EventsPage            = lazy(() => import('../pages/marketingportal/events/EventsPage'));
+const EventDetail          = lazy(() => import('../pages/marketingportal/events/EventDetail'));
+// وحدة الاستبيانات والتغذية الراجعة (التقرير 6)
+const SurveysPage          = lazy(() => import('../pages/marketingportal/surveys/SurveysPage'));
+const SurveyDetail         = lazy(() => import('../pages/marketingportal/surveys/SurveyDetail'));
+// وحدة نظام المناعة العلائقية (التقرير 7 — الطبقة الحاكمة)
+const ImmuneLayout         = lazy(() => import('../pages/marketingportal/immune/ImmuneLayout'));
+const ImmuneOverview       = lazy(() => import('../pages/marketingportal/immune/ImmuneOverview'));
+const ImmuneBalancesPage   = lazy(() => import('../pages/marketingportal/immune/BalancesPage'));
+const ImmuneGovernancePage = lazy(() => import('../pages/marketingportal/immune/GovernancePage'));
+const ImmuneCulturalPage   = lazy(() => import('../pages/marketingportal/immune/CulturalPage'));
+const ImmuneImmunityPage   = lazy(() => import('../pages/marketingportal/immune/ImmunityPage'));
+const ImmuneCustomerPage   = lazy(() => import('../pages/marketingportal/immune/CustomerViewPage'));
 const TawathulPortalPage    = lazy(() => import('../modules/tawathul/pages/TawathulPortalPage'));
 const TawathulAdminPage     = lazy(() => import('../modules/tawathul/pages/TawathulAdminPage'));
 const KyvzonDevPortal       = lazy(() => import('../pages/devportal/KyvzonDevPortal'));
@@ -214,6 +264,8 @@ export function AppRoutes() {
         {/* App: كل باقي الصفحات */}
         <Route path="/app" element={<AppLayout />}>
           <Route element={<RequireModule />}>
+          {/* حارس الصفحات للاشتراك الهجين — يمرّر دون تدخّل لغير الهجين */}
+          <Route element={<RequirePage />}>
           {/* Root: تحويل حسب الدور */}
           <Route index element={<RoleRedirect />} />
 
@@ -223,6 +275,76 @@ export function AppRoutes() {
 
           {/* Insights (متاح لعدة أدوار) */}
           <Route path="insights" element={<AIInsightsDashboard />} />
+
+          {/*
+            صفحات أساسية متاحة لكل الأدوار وكل البوابات — بنفس مساراتها الأصلية
+            (/app/employee/profile و /app/employee/problems) لكن خارج قيد دور الموظف.
+            يحلّ "حسابي/البلاغات لا تعمل" لغير الموظف (HR/admin/الاشتراك الهجين).
+            صلاحية "نشر بلاغ" تبقى محكومة داخل ProblemsList (permKey new-problem).
+          */}
+          <Route path="employee/profile" element={<ProfilePage />} />
+          <Route path="employee/problems" element={<ProblemsList isHR={false} />} />
+          <Route path="employee/problems/new" element={<NewProblemPage />} />
+          <Route path="employee/problems/:id" element={<ProblemDetail />} />
+
+          {/* Marketing Portal — بوابة التسويق (تُفعَّل كوحدة marketing) */}
+          <Route path="marketing" element={<RequireRole roles={['marketing', 'admin', 'developer']} />}>
+            <Route element={<MarketingPortal />}>
+              <Route index element={<MarketingDashboard />} />
+              {/* الوحدة 1 — أتمتة التسويق (تُبنى الوحدات تدريجياً حسب ترتيب التقارير) */}
+              <Route path="automation" element={<AutomationLayout />}>
+                <Route index element={<AutomationOverview />} />
+                <Route path="leads" element={<LeadsPage />} />
+                <Route path="scoring" element={<ScoringPage />} />
+                <Route path="workflows" element={<WorkflowsPage />} />
+                <Route path="activity" element={<ActivityPage />} />
+              </Route>
+              {/* الوحدة 2 — البريد الإلكتروني */}
+              <Route path="email" element={<EmailLayout />}>
+                <Route index element={<EmailOverview />} />
+                <Route path="infra" element={<EmailInfraPage />} />
+                <Route path="lists" element={<EmailListsPage />} />
+                <Route path="templates" element={<EmailTemplatesPage />} />
+                <Route path="campaigns" element={<EmailCampaignsPage />} />
+                <Route path="analytics" element={<EmailAnalyticsPage />} />
+              </Route>
+              {/* الوحدة 3 — وسائل التواصل الاجتماعي */}
+              <Route path="social" element={<SocialLayout />}>
+                <Route index element={<SocialOverview />} />
+                <Route path="accounts" element={<SocialAccountsPage />} />
+                <Route path="posts" element={<SocialPostsPage />} />
+                <Route path="calendar" element={<SocialCalendarPage />} />
+                <Route path="inbox" element={<SocialInboxPage />} />
+                <Route path="utm" element={<SocialUtmPage />} />
+                <Route path="listening" element={<SocialListeningPage />} />
+                <Route path="analytics" element={<SocialAnalyticsPage />} />
+              </Route>
+              {/* الوحدة 5 — إدارة الفعاليات */}
+              <Route path="events" element={<EventsPage />} />
+              <Route path="events/:eventId" element={<EventDetail />} />
+              {/* الوحدة 6 — الاستبيانات والتغذية الراجعة */}
+              <Route path="surveys" element={<SurveysPage />} />
+              <Route path="surveys/:surveyId" element={<SurveyDetail />} />
+              {/* الوحدة 7 — نظام المناعة العلائقية (الطبقة الحاكمة) */}
+              <Route path="immune-system" element={<ImmuneLayout />}>
+                <Route index element={<ImmuneOverview />} />
+                <Route path="balances" element={<ImmuneBalancesPage />} />
+                <Route path="governance" element={<ImmuneGovernancePage />} />
+                <Route path="cultural" element={<ImmuneCulturalPage />} />
+                <Route path="immunity" element={<ImmuneImmunityPage />} />
+                <Route path="customer" element={<ImmuneCustomerPage />} />
+              </Route>
+              {/* الوحدة 4 — الرسائل النصية والواتساب */}
+              <Route path="messaging" element={<MessagingLayout />}>
+                <Route index element={<MessagingOverview />} />
+                <Route path="gateways" element={<MessagingGatewaysPage />} />
+                <Route path="contacts" element={<MessagingContactsPage />} />
+                <Route path="templates" element={<MessagingTemplatesPage />} />
+                <Route path="campaigns" element={<MessagingCampaignsPage />} />
+                <Route path="analytics" element={<MessagingAnalyticsPage />} />
+              </Route>
+            </Route>
+          </Route>
 
           {/* Tech Portal */}
           <Route path="tech-portal" element={<RequireRole roles={['it_admin', 'tech', 'admin', 'developer']} />}>
@@ -241,16 +363,13 @@ export function AppRoutes() {
           {/* Employee */}
           <Route path="employee" element={<RequireRole roles={['employee', 'supervisor', 'manager']} />}>
             <Route index element={<EmployeeDashboard />} />
-            <Route path="problems" element={<ProblemsList isHR={false} />} />
-            <Route path="problems/new" element={<NewProblemPage />} />
-            <Route path="problems/:id" element={<ProblemDetail />} />
+            {/* ملاحظة: problems و profile نُقلت للمنطقة العامة (متاحة لكل الأدوار) أعلاه */}
             <Route path="wellness" element={<WellnessPage />} />
             <Route path="ai-chat" element={<AIChatPage />} />
             <Route path="survey" element={<SurveyPage />} />
             <Route path="training" element={<TrainingPage />} />
             <Route path="goals" element={<MyGoalsPage />} />
             <Route path="sops" element={<SOPsPage />} />
-            <Route path="profile" element={<ProfilePage />} />
             <Route path="contact" element={<ContactPage />} />
             <Route path="attendance" element={<MyAttendancePage />} />
             <Route path="leave-requests" element={<LeaveRequestPage />} />
@@ -363,6 +482,7 @@ export function AppRoutes() {
               <Route path="accounts-payable/aging" element={<APAgingPage />} />
               <Route path="vendor-payments" element={<VendorPaymentsPage />} />
             </Route>
+          </Route>
           </Route>
           </Route>
         </Route>

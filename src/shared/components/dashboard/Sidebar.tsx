@@ -79,9 +79,8 @@ const NAV_SECTIONS: NavSection[] = [
     key: 'work', label: 'العمل', roles: ['employee'],
     items: [
       { id: 'employee-problems', label: 'البلاغات', icon: FolderKanban, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'problems' },
-      { id: 'new-problem', label: 'بلاغ جديد', icon: Plus, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'new-problem' },
       { id: 'employee-attendance', label: 'سجل الحضور', icon: Clock, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'my-attendance' },
-      { id: 'employee-requests', label: 'طلباتي', icon: CalendarClock, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'my-leave-requests' },
+      { id: 'employee-requests', label: 'طلباتي وإجازاتي', icon: CalendarClock, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'my-leave-requests' },
     ],
   },
   {
@@ -399,6 +398,7 @@ const ROLE_CONFIG: Record<UserRole, { label: string; portalName: string; gradien
   it_admin:    { label: 'تقنية معلومات', portalName: 'البوابة التقنية', gradient: 'from-cyan-600 to-blue-700',    bg: 'from-cyan-50 to-blue-50',      text: 'text-cyan-600' },
   tech:        { label: 'تقني',          portalName: 'البوابة التقنية', gradient: 'from-cyan-600 to-teal-700',   bg: 'from-cyan-50 to-teal-50',   text: 'text-cyan-600' },
   finance:     { label: 'مالية',        portalName: 'بوابة المالية', gradient: 'from-emerald-600 to-emerald-800', bg: 'from-emerald-50 to-emerald-100', text: 'text-emerald-600' },
+  marketing:   { label: 'تسويق',        portalName: 'بوابة التسويق', gradient: 'from-fuchsia-600 to-purple-700', bg: 'from-fuchsia-50 to-purple-50', text: 'text-fuchsia-600' },
 };
 
 // ════════════════════════════════════════════════════════════════

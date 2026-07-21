@@ -14,6 +14,7 @@ import { reviewService } from '../../services/sdk/ReviewService';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Badge from '../../shared/components/ui/Badge';
 import Button from '../../shared/components/ui/Button';
+import HrApprovalInbox from '../../shared/components/dashboard/HrApprovalInbox';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -296,6 +297,9 @@ export default function HRDashboard() {
           </div>
         </div>
       </div>
+
+      {/* سلسلة موافقات الإجازات/الأذونات (للمدير المباشر) */}
+      <HrApprovalInbox />
 
       {/* ── الإجراءات السريعة ── */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">

@@ -48,6 +48,7 @@ const ROLES: { value: string; label: string; color: string }[] = [
   { value: 'admin',      label: 'مدير نظام',     color: 'bg-rose-100 text-rose-700'   },
   { value: 'finance',    label: 'مسؤول مالية',   color: 'bg-violet-100 text-violet-700'},
   { value: 'tech',       label: 'تقني / IT',     color: 'bg-cyan-100 text-cyan-700'   },
+  { value: 'marketing',  label: 'تسويق',         color: 'bg-fuchsia-100 text-fuchsia-700'},
 ];
 
 const ROLE_LABELS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r.value, r.label]));
@@ -55,6 +56,7 @@ const ROLE_LABELS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r
 const ROLE_MODULE_MAP: Record<string, string> = {
   employee: 'employee', supervisor: 'supervisor', manager: 'manager',
   hr: 'hr', gatekeeper: 'gatekeeper', admin: 'admin', finance: 'finance', tech: 'tech_portal',
+  marketing: 'marketing',
 };
 
 const PORTAL_PAGES = [
@@ -151,6 +153,19 @@ const PORTAL_PAGES = [
     pages: [
       { id: 'tawathul-portal', label: 'بوابة التواصل' },
       { id: 'tawathul-admin', label: 'إعدادات التواصل' },
+    ],
+  },
+  {
+    portalLabel: 'بوابة التسويق (Marketing)', moduleKey: 'marketing',
+    pages: [
+      { id: 'marketing-dashboard', label: 'لوحة التسويق' },
+      { id: 'marketing-automation', label: 'أتمتة التسويق' },
+      { id: 'marketing-email', label: 'البريد الإلكتروني' },
+      { id: 'marketing-social', label: 'وسائل التواصل' },
+      { id: 'marketing-messaging', label: 'SMS / واتساب' },
+      { id: 'marketing-events', label: 'الفعاليات' },
+      { id: 'marketing-surveys', label: 'الاستبيانات' },
+      { id: 'marketing-immune', label: 'المناعة العلائقية' },
     ],
   },
 ];

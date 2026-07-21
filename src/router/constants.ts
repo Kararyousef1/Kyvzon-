@@ -16,6 +16,7 @@ export const ROLE_DEFAULT_PATH: Record<string, string> = {
   it_admin:   '/app/tech-portal',
   tech:       '/app/tech-portal',
   finance:    '/app/finance',
+  marketing:  '/app/marketing',
 };
 
 /** الحصول على المسار الافتراضي لدور */

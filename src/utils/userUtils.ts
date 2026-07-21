@@ -302,6 +302,7 @@ export function getUserRoleBadge(role: UserRole): string {
     it_admin: 'تقنية معلومات',
     tech: 'تقنية',
     finance: 'مالية',
+    marketing: 'تسويق',
   };
   return roleBadges[role] || 'موظف';
 }

@@ -394,6 +394,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'notifications',
     'profile',
   ],
+  marketing: [
+    'dashboard',
+    'notifications',
+    'my-notifications',
+    'profile',
+  ],
 };
 
 /**

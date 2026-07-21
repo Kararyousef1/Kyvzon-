@@ -33,6 +33,7 @@ import Button from '../../shared/components/ui/Button';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { usePagePermission } from '../../shared/hooks/usePagePermission';
 
 // ════════════════════════════════════════════════════════════════
 //  الأنواع والثوابت
@@ -113,6 +114,9 @@ export default function ProblemsList({ isHR: isHRProp = false }: ProblemsListPro
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  // صلاحية نشر بلاغ — يتحكّم بها الـ admin من بوابة الإدارة (permKey: new-problem).
+  // الصفحة متاحة للجميع (قراءة)، لكن زر "رفع بلاغ" يظهر فقط لمن يملك الصلاحية.
+  const canCreateProblem = usePagePermission('new-problem');
   // نستخدم مسار HR للتفاصيل عندما نكون في /app/hr/problems، وإلا مسار employee
   const detailsBase = location.pathname.startsWith('/app/hr/')
     ? '/app/hr/problems'
@@ -270,13 +274,15 @@ export default function ProblemsList({ isHR: isHRProp = false }: ProblemsListPro
             {filteredProblems.length} من {problems.length} بلاغ
           </p>
         </div>
-        <Button
-          onClick={() => navigate('/app/employee/problems/new')}
-          className="bg-gradient-to-br from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800"
-          icon={<Plus size={18} />}
-        >
-          رفع بلاغ جديد (متطور)
-        </Button>
+        {canCreateProblem && (
+          <Button
+            onClick={() => navigate('/app/employee/problems/new')}
+            className="bg-gradient-to-br from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800"
+            icon={<Plus size={18} />}
+          >
+            رفع بلاغ جديد (متطور)
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -409,11 +415,13 @@ export default function ProblemsList({ isHR: isHRProp = false }: ProblemsListPro
                 {activeTab === 'all' ? 'لا توجد بلاغات' : `لا توجد بلاغات ${emptyStatusText}`}
               </h3>
               <p className="text-sm text-slate-500 mb-6">
-                {search ? 'جرب تغيير كلمة البحث' : 'ابدأ برفع بلاغ جديد'}
+                {search ? 'جرب تغيير كلمة البحث' : (canCreateProblem ? 'ابدأ برفع بلاغ جديد' : 'لا توجد بلاغات لعرضها')}
               </p>
-              <Button onClick={() => navigate('/app/employee/problems/new')} variant="outline" icon={<Plus size={18} />}>
-                رفع بلاغ جديد
-              </Button>
+              {canCreateProblem && (
+                <Button onClick={() => navigate('/app/employee/problems/new')} variant="outline" icon={<Plus size={18} />}>
+                  رفع بلاغ جديد
+                </Button>
+              )}
             </div>
           </Card>
         ) : (

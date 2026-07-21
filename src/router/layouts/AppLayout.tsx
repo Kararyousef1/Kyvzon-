@@ -12,15 +12,34 @@
  */
 import { Suspense, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { useUIStore } from '../../core/stores';
+import { useUIStore, useAuthStore } from '../../core/stores';
 import Sidebar from '../../shared/components/dashboard/Sidebar';
+import HybridSidebar from '../../pages/hybridportal/HybridSidebar';
+import MarketingSidebar from '../../pages/marketingportal/MarketingSidebar';
 import Header from '../../shared/components/dashboard/Header';
 import SplashScreen from '../../shared/components/ui/SplashScreen';
 import AppErrorBoundary from '../../shared/components/dashboard/developer/ErrorBoundary';
+import { useTenantModules } from '../../shared/hooks/useTenantModules';
 
 export function AppLayout() {
   const { sidebarOpen, setSidebarOpen } = useUIStore();
   const location = useLocation();
+  const { user } = useAuthStore();
+  const { subscriptionPlan } = useTenantModules();
+
+  // الشركات ذات الاشتراك الهجين ترى شريطاً جانبياً مخصّصاً (لا بوابات كاملة).
+  // الأدوار المنصّية (developer/it_admin) تبقى على الشريط العادي.
+  const isPlatformRole = user?.role === 'developer' || user?.role === 'it_admin';
+  const useHybridNav = subscriptionPlan === 'hybrid' && !isPlatformRole;
+
+  // بوابة التسويق لها شريط جانبي مخصّص (عند التصفّح داخل /app/marketing)
+  const inMarketing = location.pathname.startsWith('/app/marketing');
+
+  const SidebarComponent = useHybridNav
+    ? HybridSidebar
+    : inMarketing
+      ? MarketingSidebar
+      : Sidebar;
 
   // إغلاق الـ Sidebar تلقائياً على الموبايل عند تغيير المسار
   useEffect(() => {
@@ -40,7 +59,7 @@ export function AppLayout() {
         />
       )}
 
-      <Sidebar />
+      <SidebarComponent />
       <Header />
 
       <main

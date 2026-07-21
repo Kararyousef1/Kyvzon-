@@ -11,6 +11,7 @@ import { useAuthStore } from '../../core/stores';
 import { tenantModuleService } from '../../services/sdk/TenantModuleService';
 import { supabase } from '../../services/supabase/supabase';
 import { getModuleStatus, isModuleProductionReady } from '../../services/sdk/TenantModuleCatalog';
+import { hybridEnabledModulesForFeatures } from '../../pages/hybridportal/hybridPagesCatalog';
 
 const PLATFORM_ROLES = new Set(['developer', 'it_admin']);
 const STAFF_FALLBACK_MODULES = [
@@ -31,19 +32,6 @@ interface UseTenantModulesResult {
   tenantStatus: string | null;
   isSuspended: boolean;
   reload: () => Promise<void>;
-}
-
-function getModuleForPage(pageId: string): string {
-  if (pageId.startsWith('employee-') || pageId === 'new-problem') return 'employee';
-  if (pageId.startsWith('hr-')) return 'hr';
-  if (pageId.startsWith('admin-')) return 'admin';
-  if (pageId.startsWith('supervisor-')) return 'supervisor';
-  if (pageId.startsWith('manager-')) return 'manager';
-  if (pageId.startsWith('gatekeeper-') || pageId === 'kiosk-mode') return 'gatekeeper';
-  if (pageId === 'tech-portal') return 'tech_portal';
-  if (pageId.startsWith('finance-')) return 'finance';
-  if (pageId.startsWith('tawathul-')) return 'tawathul';
-  return '';
 }
 
 export function useTenantModules(): UseTenantModulesResult {
@@ -107,10 +95,11 @@ export function useTenantModules(): UseTenantModulesResult {
         setEnabledPages(features);
 
         if (plan === 'hybrid') {
-          // إذا كان الاشتراك هجين، نقوم بتفعيل الموديلات المقابلة للصفحات المختارة تلقائياً
-          const enabledModulesFromPages = features.map(getModuleForPage).filter(Boolean);
-          const finalEnabledModules = [...new Set([...enabledModulesFromPages, 'employee', 'tawathul'])];
-          setEnabledModules(finalEnabledModules);
+          // الاشتراك الهجين: نُفعّل الوحدات المقابلة للصفحات المختارة تلقائياً.
+          // نستخدم المصدر الموحّد hybridEnabledModulesForFeatures (يدمج الوحدة
+          // العامة + الوحدة الدقيقة من المسار) لضمان تطابق كامل مع RequireModule
+          // وتفادي "البوابة غير مفعلة".
+          setEnabledModules(hybridEnabledModulesForFeatures(features as string[]));
         } else {
           // 1) جلب modules المفعلة
           const rows = await tenantModuleService.getTenantModules(tenantId);
