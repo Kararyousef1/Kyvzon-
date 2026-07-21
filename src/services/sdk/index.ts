@@ -106,3 +106,4 @@ export { multiBookService } from './MultiBookService';
 export { fixedAssetService } from './FixedAssetService';
 export { financialReportTemplateService } from './FinancialReportTemplateService';
 export { intercompanyService } from './IntercompanyService';
+export { hrApprovalService } from './HrApprovalService';

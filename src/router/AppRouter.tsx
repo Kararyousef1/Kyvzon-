@@ -227,6 +227,17 @@ export function AppRoutes() {
           {/* Insights (متاح لعدة أدوار) */}
           <Route path="insights" element={<AIInsightsDashboard />} />
 
+          {/*
+            صفحات أساسية متاحة لكل الأدوار وكل البوابات — بنفس مساراتها الأصلية
+            (/app/employee/profile و /app/employee/problems) لكن خارج قيد دور الموظف.
+            يحلّ "حسابي/البلاغات لا تعمل" لغير الموظف (HR/admin/الاشتراك الهجين).
+            صلاحية "نشر بلاغ" تبقى محكومة داخل ProblemsList (permKey new-problem).
+          */}
+          <Route path="employee/profile" element={<ProfilePage />} />
+          <Route path="employee/problems" element={<ProblemsList isHR={false} />} />
+          <Route path="employee/problems/new" element={<NewProblemPage />} />
+          <Route path="employee/problems/:id" element={<ProblemDetail />} />
+
           {/* Tech Portal */}
           <Route path="tech-portal" element={<RequireRole roles={['it_admin', 'tech', 'admin', 'developer']} />}>
             <Route element={<TechPortal />}>
@@ -244,16 +255,13 @@ export function AppRoutes() {
           {/* Employee */}
           <Route path="employee" element={<RequireRole roles={['employee', 'supervisor', 'manager']} />}>
             <Route index element={<EmployeeDashboard />} />
-            <Route path="problems" element={<ProblemsList isHR={false} />} />
-            <Route path="problems/new" element={<NewProblemPage />} />
-            <Route path="problems/:id" element={<ProblemDetail />} />
+            {/* ملاحظة: problems و profile نُقلت للمنطقة العامة (متاحة لكل الأدوار) أعلاه */}
             <Route path="wellness" element={<WellnessPage />} />
             <Route path="ai-chat" element={<AIChatPage />} />
             <Route path="survey" element={<SurveyPage />} />
             <Route path="training" element={<TrainingPage />} />
             <Route path="goals" element={<MyGoalsPage />} />
             <Route path="sops" element={<SOPsPage />} />
-            <Route path="profile" element={<ProfilePage />} />
             <Route path="contact" element={<ContactPage />} />
             <Route path="attendance" element={<MyAttendancePage />} />
             <Route path="leave-requests" element={<LeaveRequestPage />} />

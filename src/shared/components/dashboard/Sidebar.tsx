@@ -79,9 +79,8 @@ const NAV_SECTIONS: NavSection[] = [
     key: 'work', label: 'العمل', roles: ['employee'],
     items: [
       { id: 'employee-problems', label: 'البلاغات', icon: FolderKanban, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'problems' },
-      { id: 'new-problem', label: 'بلاغ جديد', icon: Plus, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'new-problem' },
       { id: 'employee-attendance', label: 'سجل الحضور', icon: Clock, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'my-attendance' },
-      { id: 'employee-requests', label: 'طلباتي', icon: CalendarClock, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'my-leave-requests' },
+      { id: 'employee-requests', label: 'طلباتي وإجازاتي', icon: CalendarClock, roles: ['employee', 'supervisor', 'manager'], section: 'work', permKey: 'my-leave-requests' },
     ],
   },
   {

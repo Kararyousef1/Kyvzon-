@@ -139,9 +139,10 @@ describe('hybridPagesCatalog', () => {
       expect(getHybridLandingPath(FEATURES, null)).toBeNull();
     });
 
-    it('يوجّه للأساسية (الحساب) إن لم تُخصّص أي صفحة', () => {
+    it('يوجّه لصفحة أساسية إن لم تُخصّص أي صفحة (البلاغات أو الحساب)', () => {
       const landing = getHybridLandingPath([], 'employee');
-      expect(landing).toBe('/app/employee/profile');
+      // بلا features، الهبوط يكون على إحدى الصفحات الأساسية الدائمة
+      expect(['/app/employee/problems', '/app/employee/profile']).toContain(landing);
     });
   });
 

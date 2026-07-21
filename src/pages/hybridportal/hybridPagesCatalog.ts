@@ -174,15 +174,24 @@ const RAW_CATALOG: HybridPageMeta[] = [
  * ملاحظة: "الإشعارات" لا تُدرَج هنا لأنها تُعرَض بتصميم خاص في الـ footer
  * (مع عدّاد unreadCount)؛ إدراجها هنا كان يُظهرها مرتين.
  */
+const ALL_ROLES: UserRole[] = ['employee','supervisor','manager','hr','admin','gatekeeper','it_admin','tech','finance'];
 export const HYBRID_ALWAYS_ON: HybridPageMeta[] = [
-  { id: 'employee-profile', label: 'حسابي', icon: User, module: 'employee', group: 'personal', roles: ['employee','supervisor','manager','hr','admin','gatekeeper','it_admin','tech','finance'] },
+  { id: 'employee-problems', label: 'البلاغات', icon: FolderKanban, module: 'employee', group: 'work',     roles: ALL_ROLES },
+  { id: 'employee-profile',  label: 'حسابي',    icon: User,         module: 'employee', group: 'personal', roles: ALL_ROLES },
 ];
 
 /** الكتالوج النهائي مع حقن المسار (path) تلقائياً من VIEW_TO_PATH */
-export const HYBRID_CATALOG: HybridPageMeta[] = [...RAW_CATALOG, ...HYBRID_ALWAYS_ON].map((p) => ({
-  ...p,
-  path: p.path ?? VIEW_TO_PATH[p.id] ?? '',
-}));
+// دمج الكتالوج الأساسي مع الصفحات الدائمة، مع إزالة التكرار حسب id
+// (الأولوية للنسخة الدائمة ALWAYS_ON لأنها بأدوار أوسع).
+export const HYBRID_CATALOG: HybridPageMeta[] = (() => {
+  const byId = new Map<string, HybridPageMeta>();
+  for (const p of RAW_CATALOG) byId.set(p.id, p);
+  for (const p of HYBRID_ALWAYS_ON) byId.set(p.id, p); // يتجاوز أي تكرار
+  return [...byId.values()].map((p) => ({
+    ...p,
+    path: p.path ?? VIEW_TO_PATH[p.id] ?? '',
+  }));
+})();
 
 /** خريطة سريعة id → meta */
 export const HYBRID_CATALOG_MAP: Record<string, HybridPageMeta> =
@@ -250,6 +259,7 @@ export const HYBRID_ALWAYS_ALLOWED_PATHS: string[] = [
   '/app/notifications',
   '/app/my-notifications',
   '/app/employee/profile',
+  '/app/employee/problems',
   '/billing',
 ];
 

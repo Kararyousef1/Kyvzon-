@@ -195,4 +195,34 @@ BEGIN
 END $$;
 
 \echo ''
+\echo '=== K. أعمدة أدوار الهيكل التنظيمي في departments ==='
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='departments' AND column_name='supervisor_id') THEN
+    RAISE EXCEPTION 'FAILED: departments.supervisor_id missing';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='departments' AND column_name='direct_manager_id') THEN
+    RAISE EXCEPTION 'FAILED: departments.direct_manager_id missing';
+  END IF;
+  RAISE NOTICE 'CHECK K PASSED — departments supervisor_id + direct_manager_id موجودة';
+END $$;
+
+\echo ''
+\echo '=== L. نظام سلسلة موافقات HR (جداول + دوال) ==='
+DO $$
+BEGIN
+  IF to_regclass('public.hr_approval_requests') IS NULL OR to_regclass('public.hr_approval_steps') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: hr_approval tables missing';
+  END IF;
+  IF to_regprocedure('public.create_hr_approval(text,uuid,uuid)') IS NULL
+     OR to_regprocedure('public.decide_hr_approval_step(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.resolve_department_chain(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: hr_approval functions missing';
+  END IF;
+  RAISE NOTICE 'CHECK L PASSED — نظام سلسلة موافقات HR مكتمل';
+END $$;
+
+\echo ''
 \echo '=== ✅ POST-MIGRATION CHECKS: ALL PASS ==='

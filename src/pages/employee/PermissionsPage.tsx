@@ -17,7 +17,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Clock, FileText, Send, CheckCircle, XCircle, Loader, Search, Filter } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
-import { employeeService, permissionRequestService } from '../../services/sdk';
+import { employeeService, permissionRequestService, hrApprovalService } from '../../services/sdk';
 import { notifyUser, notifyRole } from '../../services/notifications/notificationService';
 import { addNotification } from '../../services/notifications/notificationManager';
 import { getErrorMessage } from '../../services/errors';
@@ -138,7 +138,7 @@ export default function PermissionsPage() {
         }
       }
 
-      await permissionRequestService.createRequest({
+      const createdPerm = await permissionRequestService.createRequest({
         employee_id: targetId || user.id,
         employee_name: user.full_name || 'موظف',
         employee_department: user.department || undefined,
@@ -148,6 +148,15 @@ export default function PermissionsPage() {
         expected_return_time: formData.permission_type === 'مغادرة' ? undefined : formData.expected_return_time,
         reason: formData.reason,
       });
+
+      // سلسلة الموافقة التسلسلية (مشرف → مدير → مدير مباشر)
+      if (createdPerm?.id && targetId) {
+        try {
+          await hrApprovalService.createForRequest('permission', createdPerm.id, targetId);
+        } catch (e) {
+          console.warn('تعذّر إنشاء سلسلة موافقة الإذن:', e);
+        }
+      }
 
       // إشعار للمدير المباشر أو HR
       const managerId = user.manager_id || null;

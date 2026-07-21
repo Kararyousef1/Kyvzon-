@@ -64,6 +64,8 @@ export interface DepartmentRecord {
   name_ar: string;
   name_en?: string;
   manager_id?: string;
+  supervisor_id?: string;
+  direct_manager_id?: string;
   parent_department_id?: string;
   is_active: boolean;
   created_at: string;
