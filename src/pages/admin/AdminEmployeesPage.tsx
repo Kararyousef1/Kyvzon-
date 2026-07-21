@@ -469,14 +469,30 @@ export default function AdminEmployeesPage() {
     setSaving(true);
     try {
       if (formMode === 'edit' && selectedEmp) {
+        // تحديث بيانات الملف (بلا الدور — الدور يُحدَّث عبر Edge Function آمنة أدناه)
         await userService.updateUser(selectedEmp.id, {
           full_name:  form.full_name,
-          role:       form.role,
           department: form.department,
           position:   form.position,
           phone:      form.phone,
           status:     form.status,
         } as any);
+
+        // ─── تحديث الدور عبر Edge Function admin-update-role (service_role) ─────
+        // لا نغيّر profiles.role مباشرة عبر عميل المستخدم؛ الطريق الموثوق الوحيد
+        // لتغيير الأدوار هو الدالة الإدارية (تتجاوز RLS + تتحقق أمنياً + تسجّل audit).
+        if (form.role !== selectedEmp.role) {
+          const roleResult = await adminUserService.updateUserRole(
+            selectedEmp.id,
+            form.role,
+            currentUser?.id || '',
+          );
+          if (roleResult.error) {
+            addToast('تعذّر تغيير الدور: ' + roleResult.error, 'error');
+            setSaving(false);
+            return;
+          }
+        }
 
         // حفظ custom_permissions
         const currentCustom = selectedEmp.custom_permissions || {};

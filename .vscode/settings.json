@@ -1,4 +1,16 @@
 {
     "geminicodeassist.outlines.automaticOutlineGeneration": true,
-    "CodeGPT.apiKey": "Anthropic"
+    "CodeGPT.apiKey": "Anthropic",
+
+    "//": "تفعيل Deno فقط لمجلد Edge Functions — يمنع أخطاء المحرّر الوهمية (Deno / imports من URL). بقية المشروع تبقى على Node/tsserver.",
+    "deno.enable": false,
+    "deno.enablePaths": [
+        "./supabase/functions"
+    ],
+    "deno.unstable": true,
+
+    "//2": "استبعاد supabase/functions من فحص tsserver الخاص بالمشروع (فهي بيئة Deno لا Node).",
+    "typescript.tsserver.exclude": [
+        "supabase/functions/**"
+    ]
 }

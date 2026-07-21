@@ -211,7 +211,7 @@ export function normalizeRole(role: string | undefined | null): UserRole {
 
   const normalizedRole = roleMap[role.toLowerCase()] || (role.toLowerCase() as UserRole);
 
-  const validRoles: UserRole[] = ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'tech', 'finance'];
+  const validRoles: UserRole[] = ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'tech', 'finance', 'it_admin', 'marketing'];
 
   return validRoles.includes(normalizedRole) ? normalizedRole : 'employee';
 }
