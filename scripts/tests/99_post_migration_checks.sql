@@ -526,4 +526,27 @@ BEGIN
 END $$;
 
 \echo ''
+\echo '=== Z. توصيل المزوّدين + الربط المالي (البريد/الرسائل/المالية) ==='
+DO $$
+BEGIN
+  -- عمود تتبّع البريد (0171)
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_events' AND column_name='provider_message_id') THEN
+    RAISE EXCEPTION 'FAILED: email_events.provider_message_id missing (0171)';
+  END IF;
+  -- عمود تتبّع الرسائل (0172)
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messaging_messages' AND column_name='provider_message_id') THEN
+    RAISE EXCEPTION 'FAILED: messaging_messages.provider_message_id missing (0172)';
+  END IF;
+  -- resend مزوّد مدعوم (0171)
+  IF NOT EXISTS (SELECT 1 FROM information_schema.check_constraints WHERE constraint_name='email_sender_domains_provider_check' AND check_clause LIKE '%resend%') THEN
+    RAISE EXCEPTION 'FAILED: resend not in email provider constraint (0171)';
+  END IF;
+  -- الربط المالي (0173)
+  IF to_regprocedure('public.crm_link_deal_to_finance(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: crm_link_deal_to_finance missing (0173)';
+  END IF;
+  RAISE NOTICE 'CHECK Z PASSED — توصيل البريد/الرسائل + الربط المالي جاهز (0171+0172+0173)';
+END $$;
+
+\echo ''
 \echo '=== ✅ POST-MIGRATION CHECKS: ALL PASS ==='

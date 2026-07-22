@@ -33,8 +33,19 @@ export default function DealDetailPage() {
   const [edit, setEdit] = useState(false);
   const [form, setForm] = useState<Partial<CrmDeal>>({});
   const [busy, setBusy] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [linkMsg, setLinkMsg] = useState<string | null>(null);
 
   const accName = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a.name])), [accounts]);
+
+  const linkFinance = async () => {
+    setLinking(true); setLinkMsg(null);
+    try {
+      const cid = await crmDealService.linkToFinance(id);
+      if (cid) { setLinkMsg('✅ تم إنشاء/ربط عميل مالي بنجاح'); deal.reload(); }
+      else setLinkMsg('لا كيان قانوني افتراضي — أنشئ كياناً في النظام المالي أولاً.');
+    } catch (e) { setLinkMsg(e instanceof Error ? e.message : 'تعذّر الربط'); } finally { setLinking(false); }
+  };
 
   const startEdit = () => { if (deal.data) { setForm({ ...deal.data }); setEdit(true); } };
   const saveEdit = async () => {
@@ -85,6 +96,14 @@ export default function DealDetailPage() {
             <p className="text-[11px] text-slate-400 mt-1">إغلاق متوقع: {d.expected_close_date}</p>
             {d.status === 'open' && (
               <button onClick={() => setShowClose(true)} className="mt-2 inline-flex items-center gap-1.5 text-xs bg-slate-800 text-white px-3 py-1.5 rounded-lg hover:bg-slate-900"><Trophy size={13} /> إغلاق الصفقة</button>
+            )}
+            {d.status === 'won' && (
+              <div className="mt-2">
+                {d.finance_customer_id
+                  ? <span className="inline-flex items-center gap-1.5 text-[11px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-2.5 py-1 rounded-lg"><Trophy size={12} /> مربوطة بالنظام المالي ✓</span>
+                  : <button onClick={linkFinance} disabled={linking} className="inline-flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-60"><Trophy size={13} /> {linking ? 'جارٍ الربط…' : 'ربط بالنظام المالي'}</button>}
+                {linkMsg && <p className="text-[11px] text-slate-500 mt-1">{linkMsg}</p>}
+              </div>
             )}
           </div>
         </div>

@@ -1,5 +1,5 @@
 /**
- * CampaignsPage — حملات SMS (عداد 160) / واتساب (قالب معتمد) + إرسال (محاكاة) للموافقين.
+ * CampaignsPage — حملات SMS (عداد 160) / واتساب (قالب معتمد) + إرسال فعلي (Twilio، مع رجوع آمن للمحاكاة) للموافقين.
  */
 import { useState } from 'react';
 import { Plus, X, Send, CheckCircle2 } from 'lucide-react';
@@ -41,10 +41,29 @@ export default function CampaignsPage() {
       const eligible = contacts.filter((c) => {
         if (channel === 'sms') return c.sms_consent && !c.sms_opted_out;
         return c.wa_consent && !c.wa_opted_out;
-      }).map((c) => c.id);
-      const n = await messagingDeliveryService.sendCampaign(id, channel, body, eligible);
-      await messagingCampaignService.setStatus(id, 'sent');
-      setMsg(`تمت محاكاة إرسال ${n} رسالة للموافقين فقط (احترام الموافقة و opt-out). الإرسال الفعلي بمفتاح المزوّد.`);
+      });
+      if (eligible.length === 0) { setMsg('لا جهات اتصال موافقة لهذه القناة.'); return; }
+
+      let live = 0; let simulated = false;
+      for (const c of eligible) {
+        try {
+          const res = await messagingDeliveryService.sendLive({
+            contactId: c.id, phone: c.phone, channel, body, campaignId: id, source: 'campaign',
+          });
+          if (res.mode === 'live' && res.ok) { live++; }
+          else { simulated = true; break; }
+        } catch { simulated = true; break; }
+      }
+
+      if (simulated) {
+        // لا مفاتيح مزوّد → أكمل بالمحاكاة (احترام الموافقة/opt-out)
+        const n = await messagingDeliveryService.sendCampaign(id, channel, body, eligible.map((c) => c.id));
+        await messagingCampaignService.setStatus(id, 'sent');
+        setMsg(`لا مفاتيح مزوّد مضبوطة — تمت محاكاة إرسال ${n} رسالة للموافقين فقط. أضف مفاتيح Twilio للإرسال الفعلي.`);
+      } else {
+        await messagingCampaignService.setStatus(id, 'sent');
+        setMsg(`✅ تم الإرسال الفعلي إلى ${live} جهة اتصال عبر المزوّد (Twilio) — للموافقين فقط.`);
+      }
       reload();
     } catch (e) { setMsg(e instanceof Error ? e.message : 'تعذّر الإرسال'); } finally { setBusy(false); }
   };
@@ -70,7 +89,7 @@ export default function CampaignsPage() {
               </div>
               <h3 className="font-black text-slate-800 mt-2">{c.name}</h3>
               <p className="text-xs text-slate-500 mt-1 line-clamp-2 min-h-[2rem]">{c.body || '(قالب واتساب)'}</p>
-              {c.status !== 'sent' && <button onClick={() => send(c.id, c.channel, c.body)} disabled={busy} className="w-full mt-3 text-sm bg-fuchsia-600 text-white rounded-xl py-2 hover:bg-fuchsia-700 flex items-center justify-center gap-1.5"><Send size={14} /> إرسال (محاكاة)</button>}
+              {c.status !== 'sent' && <button onClick={() => send(c.id, c.channel, c.body)} disabled={busy} className="w-full mt-3 text-sm bg-fuchsia-600 text-white rounded-xl py-2 hover:bg-fuchsia-700 flex items-center justify-center gap-1.5"><Send size={14} /> إرسال الحملة</button>}
             </div>
           ))}
         </div>

@@ -185,6 +185,31 @@ class MessagingDeliveryService {
     return n;
   }
 
+  /**
+   * إرسال فعلي عبر المزوّد (Twilio) — عبر Edge Function marketing-send-sms.
+   *   - يتحقق من الموافقة/opt-out أولاً عبر send_messaging (يسجّل الرسالة).
+   *   - ثم يحاول الإرسال الفعلي عبر Twilio؛ إن غاب المفتاح → mode='simulated'.
+   *
+   * تُرجع: { mode, ok?, sid?, messageId } — استخدم mode==='live' && ok للتأكد من الإرسال الفعلي.
+   */
+  async sendLive(params: {
+    contactId: string; phone: string; channel: MessagingChannel; body: string;
+    campaignId?: string | null; source?: 'campaign' | 'automation' | 'transactional' | 'reply'; workflowId?: string | null;
+  }): Promise<{ mode: 'live' | 'simulated'; ok?: boolean; sid?: string | null; messageId: string; message?: string }> {
+    // 1) تسجيل الرسالة (يفرض الموافقة و opt-out) — يعيد معرّف الرسالة
+    const messageId = await this.send({
+      contactId: params.contactId, channel: params.channel, body: params.body,
+      campaignId: params.campaignId ?? null, source: params.source ?? 'campaign', workflowId: params.workflowId ?? null,
+    });
+    // 2) محاولة الإرسال الفعلي عبر المزوّد
+    const { data, error } = await supabase.functions.invoke('marketing-send-sms', {
+      body: { to: params.phone, body: params.body, channel: params.channel, message_id: messageId },
+    });
+    if (error) throw new Error(error.message);
+    const res = data as { mode: 'live' | 'simulated'; ok?: boolean; sid?: string | null; message?: string };
+    return { ...res, messageId };
+  }
+
   /** سجل محادثة لجهة اتصال (كل الرسائل) */
   async conversation(contactId: string): Promise<MessagingMessage[]> {
     const tenantId = getCurrentTenantId();

@@ -143,6 +143,16 @@ class CrmDealService extends BaseService<CrmDeal> {
     if (error) throw new Error(error.message);
   }
 
+  /**
+   * ربط صفقة فائزة بالنظام المالي يدوياً (للصفقات القديمة).
+   * الفوز الجديد يربط تلقائياً. يعيد معرّف العميل المالي أو null.
+   */
+  async linkToFinance(dealId: string): Promise<string | null> {
+    const { data, error } = await supabase.rpc('crm_link_deal_to_finance', { p_deal_id: dealId });
+    if (error) throw new Error(error.message);
+    return (data as string) ?? null;
+  }
+
   /** مقياس سرعة الصفقة (Deal Velocity) */
   async velocity(pipelineId?: string): Promise<DealVelocity> {
     const { data, error } = await supabase.rpc('crm_deal_velocity', { p_pipeline_id: pipelineId ?? null });
