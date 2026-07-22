@@ -188,6 +188,16 @@ function RegistrationsTab({ eventId, tickets, regs, reload, busy, setBusy, setMs
     try { await eventRegistrationService.register({ eventId, ticketTypeId: form.ticket_type_id || null, fullName: form.full_name, email: form.email, promoCode: form.promo_code || null }); setShow(false); setForm({ full_name: '', email: '', ticket_type_id: '', promo_code: '' }); reload(); setMsg('تم التسجيل (حالة تلقائية: مسجّل أو قائمة انتظار حسب السعة) + QR فريد.'); }
     catch (e) { setMsg(e instanceof Error ? e.message : 'تعذّر التسجيل'); } finally { setBusy(false); }
   };
+
+  // إنشاء جلسة دفع Stripe (يفتح رابط الدفع؛ أو يخبر بالمحاكاة إن غاب المفتاح)
+  const pay = async (regId: string) => {
+    setBusy(true); setMsg(null);
+    try {
+      const res = await eventRegistrationService.createPaymentSession(regId);
+      if (res.mode === 'live' && res.ok && res.url) { window.open(res.url, '_blank'); setMsg('تم فتح صفحة الدفع (Stripe) في تبويب جديد.'); }
+      else setMsg(res.message || 'الدفع بوضع محاكاة — أضف STRIPE_SECRET_KEY للتفعيل الفعلي.');
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'تعذّر إنشاء الدفع'); } finally { setBusy(false); }
+  };
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between"><p className="text-sm text-slate-500">{regs.length} تسجيل</p><button onClick={() => setShow(true)} className="flex items-center gap-1.5 bg-fuchsia-600 text-white text-sm px-4 py-2 rounded-xl hover:bg-fuchsia-700"><Plus size={16} /> تسجيل يدوي</button></div>
@@ -200,7 +210,11 @@ function RegistrationsTab({ eventId, tickets, regs, reload, busy, setBusy, setMs
                 <tr key={r.id} className="hover:bg-slate-50/60">
                   <td className="px-4 py-3"><p className="font-semibold text-slate-800">{r.full_name}</p><p className="text-xs text-slate-400">{r.email}</p></td>
                   <td className="px-4 py-3 text-center"><span className={`text-[10px] font-bold border px-2 py-0.5 rounded-full ${REG_STATUS_COLOR[r.status]}`}>{REG_STATUS_LABEL[r.status]}</span></td>
-                  <td className="px-4 py-3 text-center text-xs text-slate-500">{PAYMENT_LABEL[r.payment_status]}</td>
+                  <td className="px-4 py-3 text-center text-xs text-slate-500">
+                    {r.payment_status === 'pending'
+                      ? <button onClick={() => pay(r.id)} disabled={busy} className="text-[11px] bg-emerald-600 text-white px-2.5 py-1 rounded-lg hover:bg-emerald-700 disabled:opacity-60">دفع</button>
+                      : PAYMENT_LABEL[r.payment_status]}
+                  </td>
                   <td className="px-4 py-3 text-center">{r.checked_in ? <span className="text-emerald-600 text-xs font-bold">حضر ✓</span> : <span className="text-slate-300 text-xs">—</span>}</td>
                 </tr>
               ))}

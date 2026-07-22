@@ -151,6 +151,20 @@ class EventRegistrationService extends BaseService<EventRegistration> {
   markPaid(id: string, amount: number) {
     return this.update(id, { payment_status: 'paid', amount_paid: amount } as Partial<EventRegistration>);
   }
+
+  /**
+   * إنشاء جلسة دفع Stripe لتسجيل — عبر Edge Function event-create-payment.
+   *   - إن كان STRIPE_SECRET_KEY مضبوطاً → يعيد رابط دفع (url) لتوجيه العميل.
+   *   - إن لم يُضبط → mode='simulated' (لا يفشل).
+   */
+  async createPaymentSession(registrationId: string): Promise<{ mode: 'live' | 'simulated'; ok?: boolean; url?: string; sessionId?: string; message?: string; error?: string }> {
+    const { data, error } = await supabase.functions.invoke('event-create-payment', {
+      body: { registration_id: registrationId },
+    });
+    if (error) throw new Error(error.message);
+    return data as { mode: 'live' | 'simulated'; ok?: boolean; url?: string; sessionId?: string; message?: string; error?: string };
+  }
+
   /** ربط تسجيل بعميل (الوحدة 1) */
   linkLead(id: string, leadId: string) { return this.update(id, { lead_id: leadId } as Partial<EventRegistration>); }
 

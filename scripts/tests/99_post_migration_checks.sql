@@ -545,7 +545,13 @@ BEGIN
   IF to_regprocedure('public.crm_link_deal_to_finance(uuid)') IS NULL THEN
     RAISE EXCEPTION 'FAILED: crm_link_deal_to_finance missing (0173)';
   END IF;
-  RAISE NOTICE 'CHECK Z PASSED — توصيل البريد/الرسائل + الربط المالي جاهز (0171+0172+0173)';
+  -- دفع الفعاليات (0174)
+  IF to_regclass('public.event_payments') IS NULL
+     OR to_regprocedure('public.mkt_record_event_payment_intent(uuid,text,numeric,text)') IS NULL
+     OR to_regprocedure('public.mkt_confirm_event_payment(text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: event payments (Stripe) objects missing (0174)';
+  END IF;
+  RAISE NOTICE 'CHECK Z PASSED — توصيل البريد/الرسائل + الربط المالي + دفع الفعاليات جاهز (0171→0174)';
 END $$;
 
 \echo ''
