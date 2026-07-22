@@ -65,7 +65,7 @@ serve(async (req: Request) => {
   });
   const { data: authData, error: authError } = await userClient.auth.getUser();
   if (authError || !authData.user) return json(req, { error: 'جلسة غير صالحة' }, 401);
-  const { data: profile } = await userClient.from('profiles').select('role').eq('id', authData.user.id).single();
+  const { data: profile } = await userClient.from('profiles').select('role, tenant_id').eq('id', authData.user.id).single();
   if (!profile || !['marketing', 'admin', 'developer', 'it_admin'].includes(String(profile.role))) {
     return json(req, { error: 'غير مخوّل — يتطلب صلاحية تسويق' }, 403);
   }
@@ -79,11 +79,26 @@ serve(async (req: Request) => {
     .from('marketing_events').select('id, name, starts_at').eq('id', eventId).single();
   if (evErr || !ev) return json(req, { error: 'الفعالية غير موجودة' }, 404);
 
-  const accountId = Deno.env.get('ZOOM_ACCOUNT_ID');
-  const clientId = Deno.env.get('ZOOM_CLIENT_ID');
-  const clientSecret = Deno.env.get('ZOOM_CLIENT_SECRET');
+  // ─── مفاتيح Zoom: مفتاح الشركة أولاً (BYOK)، ثم مفتاح المنصة، ثم محاكاة ────
+  let accountId = Deno.env.get('ZOOM_ACCOUNT_ID');
+  let clientId = Deno.env.get('ZOOM_CLIENT_ID');
+  let clientSecret = Deno.env.get('ZOOM_CLIENT_SECRET');
+  if (serviceKey && profile.tenant_id) {
+    try {
+      const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+      const { data: cred } = await admin.rpc('get_tenant_provider_secret', {
+        p_tenant_id: profile.tenant_id, p_channel: 'streaming', p_provider: 'zoom',
+      });
+      const row = Array.isArray(cred) ? cred[0] : cred;
+      if (row?.secret_value) {
+        clientSecret = row.secret_value;                       // Client Secret = السرّ
+        if (row.config?.account_id) accountId = String(row.config.account_id);
+        if (row.config?.client_id) clientId = String(row.config.client_id);
+      }
+    } catch (e) { console.warn('tenant cred lookup failed:', e instanceof Error ? e.message : String(e)); }
+  }
   if (!accountId || !clientId || !clientSecret) {
-    return json(req, { mode: 'simulated', message: 'لم تُضبط مفاتيح Zoom — استخدم الرابط اليدوي. أضف ZOOM_* للإنشاء التلقائي.' }, 200);
+    return json(req, { mode: 'simulated', message: 'لم تُضبط مفاتيح Zoom (لا للشركة ولا للمنصة) — استخدم الرابط اليدوي. أضف المفاتيح للإنشاء التلقائي.' }, 200);
   }
 
   try {

@@ -49,10 +49,10 @@ async function signState(payload: Record<string, unknown>, secret: string): Prom
   return `${data}.${hex}`;
 }
 
-const PROVIDER_CONFIG: Record<string, { authUrl: string; scope: string; appIdEnv: string }> = {
-  facebook: { authUrl: 'https://www.facebook.com/v19.0/dialog/oauth', scope: 'pages_manage_posts,pages_read_engagement', appIdEnv: 'META_APP_ID' },
-  instagram: { authUrl: 'https://www.facebook.com/v19.0/dialog/oauth', scope: 'instagram_basic,instagram_content_publish', appIdEnv: 'META_APP_ID' },
-  linkedin: { authUrl: 'https://www.linkedin.com/oauth/v2/authorization', scope: 'w_member_social', appIdEnv: 'LINKEDIN_CLIENT_ID' },
+const PROVIDER_CONFIG: Record<string, { authUrl: string; scope: string; appIdEnv: string; credProvider: string }> = {
+  facebook: { authUrl: 'https://www.facebook.com/v19.0/dialog/oauth', scope: 'pages_manage_posts,pages_read_engagement', appIdEnv: 'META_APP_ID', credProvider: 'meta' },
+  instagram: { authUrl: 'https://www.facebook.com/v19.0/dialog/oauth', scope: 'instagram_basic,instagram_content_publish', appIdEnv: 'META_APP_ID', credProvider: 'meta' },
+  linkedin: { authUrl: 'https://www.linkedin.com/oauth/v2/authorization', scope: 'w_member_social', appIdEnv: 'LINKEDIN_CLIENT_ID', credProvider: 'linkedin' },
 };
 
 serve(async (req: Request) => {
@@ -83,7 +83,20 @@ serve(async (req: Request) => {
   const cfg = PROVIDER_CONFIG[provider];
   if (!cfg) return json(req, { error: 'منصة غير مدعومة' }, 400);
 
-  const appId = Deno.env.get(cfg.appIdEnv);
+  // ─── معرّف التطبيق: مفتاح الشركة أولاً (BYOK)، ثم مفتاح المنصة ────────────
+  let appId = Deno.env.get(cfg.appIdEnv);
+  const serviceKeyForCreds = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (serviceKeyForCreds && profile.tenant_id) {
+    try {
+      const admin = createClient(supabaseUrl, serviceKeyForCreds, { auth: { persistSession: false } });
+      const { data: cred } = await admin.rpc('get_tenant_provider_secret', {
+        p_tenant_id: profile.tenant_id, p_channel: 'social', p_provider: cfg.credProvider,
+      });
+      const row = Array.isArray(cred) ? cred[0] : cred;
+      // السرّ = app_secret (يُستخدم في callback)؛ هنا نحتاج app_id من config
+      if (row?.config?.app_id) appId = String(row.config.app_id);
+    } catch (e) { console.warn('tenant cred lookup failed:', e instanceof Error ? e.message : String(e)); }
+  }
   const redirectBase = Deno.env.get('OAUTH_REDIRECT_BASE');
   const stateSecret = Deno.env.get('OAUTH_STATE_SECRET');
   if (!appId || !redirectBase || !stateSecret) {

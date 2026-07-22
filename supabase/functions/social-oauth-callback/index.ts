@@ -58,8 +58,23 @@ serve(async (req: Request) => {
   const payload = await verifyState(state, stateSecret);
   if (!payload) return fail('invalid_state');
 
-  const appId = Deno.env.get(provider === 'linkedin' ? 'LINKEDIN_CLIENT_ID' : 'META_APP_ID');
-  const appSecret = Deno.env.get(provider === 'linkedin' ? 'LINKEDIN_CLIENT_SECRET' : 'META_APP_SECRET');
+  // ─── مفاتيح التطبيق: مفتاح الشركة أولاً (BYOK)، ثم مفتاح المنصة ───────────
+  const credProvider = provider === 'linkedin' ? 'linkedin' : 'meta';
+  let appId = Deno.env.get(provider === 'linkedin' ? 'LINKEDIN_CLIENT_ID' : 'META_APP_ID');
+  let appSecret = Deno.env.get(provider === 'linkedin' ? 'LINKEDIN_CLIENT_SECRET' : 'META_APP_SECRET');
+  const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+  if (payload.tenant_id) {
+    try {
+      const { data: cred } = await admin.rpc('get_tenant_provider_secret', {
+        p_tenant_id: payload.tenant_id, p_channel: 'social', p_provider: credProvider,
+      });
+      const row = Array.isArray(cred) ? cred[0] : cred;
+      if (row?.secret_value) {
+        appSecret = row.secret_value;                          // App Secret = السرّ
+        if (row.config?.app_id) appId = String(row.config.app_id);
+      }
+    } catch (e) { console.warn('tenant cred lookup failed:', e instanceof Error ? e.message : String(e)); }
+  }
   if (!appId || !appSecret) return fail('app_keys_missing');
 
   const redirectUri = `${redirectBase}?provider=${provider}`;
@@ -82,8 +97,7 @@ serve(async (req: Request) => {
 
     const expiresAt = tokenData.expires_in ? new Date(Date.now() + Number(tokenData.expires_in) * 1000).toISOString() : null;
 
-    // تخزين الرمز بأمان (service role)
-    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+    // تخزين الرمز بأمان (service role — نفس عميل admin المُنشأ أعلاه)
     await admin.rpc('store_social_oauth_token', {
       p_tenant_id: payload.tenant_id, p_provider: provider,
       p_account_name: `حساب ${provider}`, p_account_handle: `@${provider}_${String(payload.user_id).slice(0, 6)}`,

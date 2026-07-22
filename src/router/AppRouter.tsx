@@ -198,6 +198,7 @@ const CrmForecastPage       = lazy(() => import('../pages/crmportal/analytics/Fo
 const CrmIntelligencePage   = lazy(() => import('../pages/crmportal/analytics/IntelligencePage'));
 const CrmRevenuePage        = lazy(() => import('../pages/crmportal/analytics/RevenuePage'));
 const MarketingDashboard    = lazy(() => import('../pages/marketingportal/MarketingDashboard'));
+const IntegrationsPage      = lazy(() => import('../pages/marketingportal/IntegrationsPage'));
 // وحدة أتمتة التسويق (التقرير 1)
 const AutomationLayout      = lazy(() => import('../pages/marketingportal/automation/AutomationLayout'));
 const AutomationOverview    = lazy(() => import('../pages/marketingportal/automation/AutomationOverview'));
@@ -372,6 +373,8 @@ export function AppRoutes() {
               {/* الوحدة 6 — الاستبيانات والتغذية الراجعة */}
               <Route path="surveys" element={<SurveysPage />} />
               <Route path="surveys/:surveyId" element={<SurveyDetail />} />
+              {/* ربط المزوّدين — مفاتيح خاصة بالشركة (BYOK) */}
+              <Route path="integrations" element={<IntegrationsPage />} />
               {/* الوحدة 7 — نظام المناعة العلائقية (الطبقة الحاكمة) */}
               <Route path="immune-system" element={<ImmuneLayout />}>
                 <Route index element={<ImmuneOverview />} />

@@ -571,7 +571,17 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_policies WHERE tablename IN ('social_oauth_tokens','crm_email_oauth_tokens')) THEN
     RAISE EXCEPTION 'SECURITY: OAuth token tables must have NO authenticated policies (0177)';
   END IF;
-  RAISE NOTICE 'CHECK Z PASSED — توصيل كل المزوّدين: بريد/رسائل/مالي/دفع/إثراء/توقيع/بث/OAuth (0171→0177) + الرموز محميّة';
+  -- مفاتيح المزوّدين لكل شركة BYOK (0178) + تأكيد حماية الأسرار
+  IF to_regclass('public.tenant_provider_credentials') IS NULL
+     OR to_regprocedure('public.tenant_set_provider_credential(text,text,text,jsonb)') IS NULL
+     OR to_regprocedure('public.tenant_list_provider_status()') IS NULL
+     OR to_regprocedure('public.get_tenant_provider_secret(uuid,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: tenant provider credentials (BYOK) missing (0178)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE tablename='tenant_provider_credentials') THEN
+    RAISE EXCEPTION 'SECURITY: tenant_provider_credentials must have NO direct policies (0178)';
+  END IF;
+  RAISE NOTICE 'CHECK Z PASSED — كل المزوّدين + مفاتيح لكل شركة BYOK (0171→0178) + الأسرار محميّة بالكامل';
 END $$;
 
 \echo ''

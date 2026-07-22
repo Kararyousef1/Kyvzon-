@@ -95,13 +95,31 @@ serve(async (req: Request) => {
     return json(req, { error: 'الحقول المطلوبة: to, body, channel (sms|whatsapp)' }, 400);
   }
 
-  // ─── مفاتيح Twilio ───────────────────────────────────────────────────────
-  const sid = Deno.env.get('TWILIO_ACCOUNT_SID');
-  const token = Deno.env.get('TWILIO_AUTH_TOKEN');
-  const smsFrom = Deno.env.get('TWILIO_SMS_FROM');
-  const waFrom = Deno.env.get('TWILIO_WHATSAPP_FROM');
+  // ─── مفاتيح Twilio: مفتاح الشركة أولاً (BYOK)، ثم مفتاح المنصة، ثم محاكاة ──
+  let sid = Deno.env.get('TWILIO_ACCOUNT_SID');
+  let token = Deno.env.get('TWILIO_AUTH_TOKEN');
+  let smsFrom = Deno.env.get('TWILIO_SMS_FROM');
+  let waFrom = Deno.env.get('TWILIO_WHATSAPP_FROM');
 
-  // بلا مفاتيح → وضع محاكاة (لا يفشل)
+  // 1) مفتاح الشركة الخاص (النموذج ب) — عبر service role
+  const serviceKeyForCreds = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (serviceKeyForCreds && profile.tenant_id) {
+    try {
+      const admin = createClient(supabaseUrl, serviceKeyForCreds, { auth: { persistSession: false } });
+      const { data: cred } = await admin.rpc('get_tenant_provider_secret', {
+        p_tenant_id: profile.tenant_id, p_channel: 'sms', p_provider: 'twilio',
+      });
+      const row = Array.isArray(cred) ? cred[0] : cred;
+      if (row?.secret_value) {
+        token = row.secret_value;                          // Auth Token = السرّ
+        if (row.config?.account_sid) sid = String(row.config.account_sid);
+        if (row.config?.sms_from) smsFrom = String(row.config.sms_from);
+        if (row.config?.whatsapp_from) waFrom = String(row.config.whatsapp_from);
+      }
+    } catch (e) { console.warn('tenant cred lookup failed:', e instanceof Error ? e.message : String(e)); }
+  }
+
+  // بلا مفاتيح (لا شركة ولا منصة) → وضع محاكاة (لا يفشل)
   if (!sid || !token || (channel === 'sms' && !smsFrom) || (channel === 'whatsapp' && !waFrom)) {
     return json(req, {
       mode: 'simulated',

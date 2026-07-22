@@ -279,3 +279,6 @@ export { fixedAssetService } from './FixedAssetService';
 export { financialReportTemplateService } from './FinancialReportTemplateService';
 export { intercompanyService } from './IntercompanyService';
 export { hrApprovalService } from './HrApprovalService';
+// 🆕 مفاتيح المزوّدين لكل شركة (BYOK — النموذج ب)
+export { tenantProviderService, SUPPORTED_PROVIDERS } from './TenantProviderService';
+export type { ProviderChannel, ProviderStatus, ProviderMeta } from './TenantProviderService';

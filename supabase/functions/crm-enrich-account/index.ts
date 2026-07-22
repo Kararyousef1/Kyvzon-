@@ -62,7 +62,7 @@ serve(async (req: Request) => {
   });
   const { data: authData, error: authError } = await userClient.auth.getUser();
   if (authError || !authData.user) return json(req, { error: 'جلسة غير صالحة' }, 401);
-  const { data: profile } = await userClient.from('profiles').select('role').eq('id', authData.user.id).single();
+  const { data: profile } = await userClient.from('profiles').select('role, tenant_id').eq('id', authData.user.id).single();
   if (!profile || !['sales', 'marketing', 'admin', 'developer', 'it_admin'].includes(String(profile.role))) {
     return json(req, { error: 'غير مخوّل — يتطلب صلاحية مبيعات/إدارة' }, 403);
   }
@@ -77,7 +77,19 @@ serve(async (req: Request) => {
     .from('crm_accounts').select('id, name, website').eq('id', accountId).single();
   if (accErr || !acc) return json(req, { error: 'الحساب غير موجود' }, 404);
 
-  const clearbitKey = Deno.env.get('CLEARBIT_API_KEY');
+  // ─── مفتاح Clearbit: مفتاح الشركة أولاً (BYOK)، ثم مفتاح المنصة، ثم محاكاة ─
+  let clearbitKey: string | undefined;
+  if (serviceKey && profile.tenant_id) {
+    try {
+      const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+      const { data: cred } = await admin.rpc('get_tenant_provider_secret', {
+        p_tenant_id: profile.tenant_id, p_channel: 'enrichment', p_provider: 'clearbit',
+      });
+      const row = Array.isArray(cred) ? cred[0] : cred;
+      if (row?.secret_value) clearbitKey = row.secret_value;
+    } catch (e) { console.warn('tenant cred lookup failed:', e instanceof Error ? e.message : String(e)); }
+  }
+  if (!clearbitKey) clearbitKey = Deno.env.get('CLEARBIT_API_KEY');
   if (!clearbitKey) {
     // لا مفتاح → نستدعي دالة المحاكاة القديمة (تعلّم simulated) عبر عميل المستخدم
     try { await userClient.rpc('crm_enrich_account', { p_account_id: accountId, p_provider: 'clearbit' }); } catch { /* noop */ }

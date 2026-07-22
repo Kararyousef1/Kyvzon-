@@ -96,16 +96,36 @@ serve(async (req: Request) => {
     return json(req, { error: 'الحقول المطلوبة: to, subject, و (html أو text)' }, 400);
   }
 
-  // ─── مفتاح المزوّد ───────────────────────────────────────────────────────
-  const resendKey = Deno.env.get('RESEND_API_KEY');
-  const fromDefault = Deno.env.get('RESEND_FROM') || 'onboarding@resend.dev';
+  // ─── مفتاح المزوّد: مفتاح الشركة أولاً (BYOK)، ثم مفتاح المنصة، ثم محاكاة ───
+  const serviceKeyForCreds = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  let resendKey: string | undefined;
+  let fromDefault = Deno.env.get('RESEND_FROM') || 'onboarding@resend.dev';
+
+  // 1) مفتاح الشركة الخاص (النموذج ب) — عبر service role
+  if (serviceKeyForCreds && profile.tenant_id) {
+    try {
+      const admin = createClient(supabaseUrl, serviceKeyForCreds, { auth: { persistSession: false } });
+      const { data: cred } = await admin.rpc('get_tenant_provider_secret', {
+        p_tenant_id: profile.tenant_id, p_channel: 'email', p_provider: 'resend',
+      });
+      const row = Array.isArray(cred) ? cred[0] : cred;
+      if (row?.secret_value) {
+        resendKey = row.secret_value;
+        if (row.config?.from_email) fromDefault = String(row.config.from_email);
+      }
+    } catch (e) { console.warn('tenant cred lookup failed:', e instanceof Error ? e.message : String(e)); }
+  }
+
+  // 2) مفتاح المنصة كاحتياطي (النموذج أ)
+  if (!resendKey) resendKey = Deno.env.get('RESEND_API_KEY');
+
   const from = String(payload.from || fromDefault);
 
-  // بلا مفتاح → وضع محاكاة (توافق عكسي، لا يفشل)
+  // بلا مفتاح (لا شركة ولا منصة) → وضع محاكاة (توافق عكسي، لا يفشل)
   if (!resendKey) {
     return json(req, {
       mode: 'simulated',
-      message: 'لم يُضبط RESEND_API_KEY — تم تسجيل الإرسال كمحاكاة. أضف المفتاح للإرسال الفعلي.',
+      message: 'لم يُضبط مفتاح Resend (لا للشركة ولا للمنصة) — تم تسجيل الإرسال كمحاكاة.',
     }, 200);
   }
 

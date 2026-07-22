@@ -61,7 +61,7 @@ serve(async (req: Request) => {
   });
   const { data: authData, error: authError } = await userClient.auth.getUser();
   if (authError || !authData.user) return json(req, { error: 'جلسة غير صالحة' }, 401);
-  const { data: profile } = await userClient.from('profiles').select('role').eq('id', authData.user.id).single();
+  const { data: profile } = await userClient.from('profiles').select('role, tenant_id').eq('id', authData.user.id).single();
   if (!profile || !['marketing', 'admin', 'developer', 'it_admin'].includes(String(profile.role))) {
     return json(req, { error: 'غير مخوّل — يتطلب صلاحية تسويق' }, 403);
   }
@@ -87,9 +87,22 @@ serve(async (req: Request) => {
   }
   if (amount <= 0) return json(req, { error: 'لا مبلغ مستحق (تذكرة مجانية)' }, 400);
 
-  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+  // ─── مفتاح Stripe: مفتاح الشركة أولاً (BYOK)، ثم مفتاح المنصة، ثم محاكاة ───
+  let stripeKey: string | undefined;
+  const serviceKeyForCreds = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (serviceKeyForCreds && profile.tenant_id) {
+    try {
+      const admin = createClient(supabaseUrl, serviceKeyForCreds, { auth: { persistSession: false } });
+      const { data: cred } = await admin.rpc('get_tenant_provider_secret', {
+        p_tenant_id: profile.tenant_id, p_channel: 'payment', p_provider: 'stripe',
+      });
+      const row = Array.isArray(cred) ? cred[0] : cred;
+      if (row?.secret_value) stripeKey = row.secret_value;
+    } catch (e) { console.warn('tenant cred lookup failed:', e instanceof Error ? e.message : String(e)); }
+  }
+  if (!stripeKey) stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
   if (!stripeKey) {
-    return json(req, { mode: 'simulated', message: 'لم يُضبط STRIPE_SECRET_KEY — الدفع بوضع محاكاة. أضف المفتاح للتفعيل.' }, 200);
+    return json(req, { mode: 'simulated', message: 'لم يُضبط مفتاح Stripe (لا للشركة ولا للمنصة) — الدفع بوضع محاكاة. أضف المفتاح للتفعيل.' }, 200);
   }
 
   const appOrigin = (Deno.env.get('APP_ORIGIN') || requestOrigin || 'http://localhost:5173').split(',')[0].trim();

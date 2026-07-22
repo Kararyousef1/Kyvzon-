@@ -54,11 +54,14 @@ function b64url(data: string | Uint8Array): string {
   const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
-async function getDocusignToken(): Promise<string | null> {
-  const integrationKey = Deno.env.get('DOCUSIGN_INTEGRATION_KEY');
-  const userId = Deno.env.get('DOCUSIGN_USER_ID');
-  const privateKey = Deno.env.get('DOCUSIGN_PRIVATE_KEY');
-  const oauthBase = Deno.env.get('DOCUSIGN_OAUTH_BASE') || 'account-d.docusign.com';
+interface DocusignCreds {
+  integrationKey?: string; userId?: string; privateKey?: string; oauthBase?: string;
+}
+async function getDocusignToken(override?: DocusignCreds): Promise<string | null> {
+  const integrationKey = override?.integrationKey || Deno.env.get('DOCUSIGN_INTEGRATION_KEY');
+  const userId = override?.userId || Deno.env.get('DOCUSIGN_USER_ID');
+  const privateKey = override?.privateKey || Deno.env.get('DOCUSIGN_PRIVATE_KEY');
+  const oauthBase = override?.oauthBase || Deno.env.get('DOCUSIGN_OAUTH_BASE') || 'account-d.docusign.com';
   if (!integrationKey || !userId || !privateKey) return null;
 
   const now = Math.floor(Date.now() / 1000);
@@ -100,7 +103,7 @@ serve(async (req: Request) => {
   });
   const { data: authData, error: authError } = await userClient.auth.getUser();
   if (authError || !authData.user) return json(req, { error: 'جلسة غير صالحة' }, 401);
-  const { data: profile } = await userClient.from('profiles').select('role').eq('id', authData.user.id).single();
+  const { data: profile } = await userClient.from('profiles').select('role, tenant_id').eq('id', authData.user.id).single();
   if (!profile || !['sales', 'admin', 'developer', 'it_admin'].includes(String(profile.role))) {
     return json(req, { error: 'غير مخوّل — يتطلب صلاحية مبيعات/إدارة' }, 403);
   }
@@ -116,11 +119,33 @@ serve(async (req: Request) => {
     .from('crm_quotes').select('id, title, quote_number, total, currency').eq('id', quoteId).single();
   if (qErr || !quote) return json(req, { error: 'العرض غير موجود' }, 404);
 
-  const token = await getDocusignToken();
-  const accountId = Deno.env.get('DOCUSIGN_ACCOUNT_ID');
-  const baseUri = Deno.env.get('DOCUSIGN_BASE_URI') || 'https://demo.docusign.net';
+  // ─── مفاتيح DocuSign: مفتاح الشركة أولاً (BYOK)، ثم مفتاح المنصة، ثم محاكاة ─
+  let tenantOverride: DocusignCreds | undefined;
+  let accountId = Deno.env.get('DOCUSIGN_ACCOUNT_ID');
+  let baseUri = Deno.env.get('DOCUSIGN_BASE_URI') || 'https://demo.docusign.net';
+  const serviceKeyForCreds = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (serviceKeyForCreds && profile.tenant_id) {
+    try {
+      const admin = createClient(supabaseUrl, serviceKeyForCreds, { auth: { persistSession: false } });
+      const { data: cred } = await admin.rpc('get_tenant_provider_secret', {
+        p_tenant_id: profile.tenant_id, p_channel: 'esignature', p_provider: 'docusign',
+      });
+      const row = Array.isArray(cred) ? cred[0] : cred;
+      if (row?.secret_value) {
+        tenantOverride = {
+          privateKey: row.secret_value,                          // Private Key (PEM) = السرّ
+          integrationKey: row.config?.integration_key ? String(row.config.integration_key) : undefined,
+          userId: row.config?.user_id ? String(row.config.user_id) : undefined,
+          oauthBase: row.config?.oauth_base ? String(row.config.oauth_base) : undefined,
+        };
+        if (row.config?.account_id) accountId = String(row.config.account_id);
+        if (row.config?.base_uri) baseUri = String(row.config.base_uri);
+      }
+    } catch (e) { console.warn('tenant cred lookup failed:', e instanceof Error ? e.message : String(e)); }
+  }
+  const token = await getDocusignToken(tenantOverride);
   if (!token || !accountId) {
-    return json(req, { mode: 'simulated', message: 'لم تُضبط مفاتيح DocuSign — استخدم التوقيع الداخلي. أضف DOCUSIGN_* للتوقيع عن بُعد.' }, 200);
+    return json(req, { mode: 'simulated', message: 'لم تُضبط مفاتيح DocuSign (لا للشركة ولا للمنصة) — استخدم التوقيع الداخلي. أضف المفاتيح للتوقيع عن بُعد.' }, 200);
   }
 
   try {
