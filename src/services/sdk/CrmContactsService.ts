@@ -152,11 +152,18 @@ class CrmAccountService extends BaseService<CrmAccount> {
   }
 
   /** إثراء البيانات (محاكاة حتى إدخال مفاتيح Clearbit/Apollo) */
-  async enrich(accountId: string, provider = 'clearbit'): Promise<void> {
-    const { error } = await supabase.rpc('crm_enrich_account', {
-      p_account_id: accountId, p_provider: provider,
+  /**
+   * إثراء بيانات الحساب عبر الوسيط (Clearbit) — Edge Function crm-enrich-account.
+   *   - مع مفتاح CLEARBIT_API_KEY → إثراء فعلي (يملأ الفراغات: قطاع/موظفون/إيراد/موقع...).
+   *   - بلا مفتاح → mode='simulated' (لا يفشل، يعلّم الحساب simulated).
+   * تُرجع وضع التشغيل لإخبار المستخدم.
+   */
+  async enrich(accountId: string): Promise<{ mode: 'live' | 'simulated'; ok?: boolean; message?: string; error?: string }> {
+    const { data, error } = await supabase.functions.invoke('crm-enrich-account', {
+      body: { account_id: accountId },
     });
     if (error) throw new Error(error.message);
+    return data as { mode: 'live' | 'simulated'; ok?: boolean; message?: string; error?: string };
   }
 }
 

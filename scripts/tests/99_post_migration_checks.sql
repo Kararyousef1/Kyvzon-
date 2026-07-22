@@ -551,7 +551,11 @@ BEGIN
      OR to_regprocedure('public.mkt_confirm_event_payment(text,text)') IS NULL THEN
     RAISE EXCEPTION 'FAILED: event payments (Stripe) objects missing (0174)';
   END IF;
-  RAISE NOTICE 'CHECK Z PASSED — توصيل البريد/الرسائل + الربط المالي + دفع الفعاليات جاهز (0171→0174)';
+  -- إثراء البيانات (0175)
+  IF to_regprocedure('public.crm_apply_enrichment(uuid,text,text,integer,numeric,text,text,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: crm_apply_enrichment missing (0175)';
+  END IF;
+  RAISE NOTICE 'CHECK Z PASSED — توصيل البريد/الرسائل + الربط المالي + دفع الفعاليات + إثراء البيانات جاهز (0171→0175)';
 END $$;
 
 \echo ''
