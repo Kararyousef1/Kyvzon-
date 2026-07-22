@@ -338,6 +338,39 @@ class EmailDeliveryService {
   }
 
   /**
+   * إرسال بريد فعلي عبر المزوّد (Resend) — عبر Edge Function marketing-send-email.
+   *
+   * السلوك:
+   *   - إن كان المفتاح مضبوطاً على Supabase (RESEND_API_KEY) → إرسال حقيقي (mode='live').
+   *   - إن لم يُضبط → تُرجع الدالة mode='simulated' دون فشل (توافق عكسي).
+   *
+   * تُرجع: { mode, ok?, id?, message? } — استخدم `mode === 'live' && ok` للتأكد من الإرسال الفعلي.
+   */
+  async sendEmailLive(params: {
+    to: string;
+    subject: string;
+    html?: string;
+    text?: string;
+    from?: string;
+    campaignId?: string | null;
+    subscriberId?: string | null;
+  }): Promise<{ mode: 'live' | 'simulated'; ok?: boolean; id?: string | null; message?: string; error?: string }> {
+    const { data, error } = await supabase.functions.invoke('marketing-send-email', {
+      body: {
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+        from: params.from,
+        campaign_id: params.campaignId ?? null,
+        subscriber_id: params.subscriberId ?? null,
+      },
+    });
+    if (error) throw new Error(error.message);
+    return data as { mode: 'live' | 'simulated'; ok?: boolean; id?: string | null; message?: string; error?: string };
+  }
+
+  /**
    * إرسال حملة (محاكاة): يسجّل sent+delivered لكل مشترك مؤكّد في القائمة.
    * الإرسال الفعلي عبر المزوّد يُضاف كطبقة في نفس الدالة عند توفر المفتاح.
    */
