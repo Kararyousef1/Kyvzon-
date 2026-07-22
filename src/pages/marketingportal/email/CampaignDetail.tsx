@@ -1,5 +1,5 @@
 /**
- * CampaignDetail — تفاصيل الحملة: النسخ (A/B) + إرسال (محاكاة) + KPIs + محاكاة فتح/نقر + حسم A/B.
+ * CampaignDetail — تفاصيل الحملة: النسخ (A/B) + إرسال فعلي (Resend، مع رجوع للمحاكاة إن غاب المفتاح) + KPIs + محاكاة فتح/نقر + حسم A/B.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Send, Eye, MousePointerClick, Trophy, Beaker, CheckCircle2 } from 'lucide-react';
@@ -33,13 +33,46 @@ export default function CampaignDetail({ campaign }: { campaign: EmailCampaign }
   const confirmedIds = subs.map((s) => s.id);
 
   const send = async () => {
-    if (confirmedIds.length === 0) { setMsg('لا مشتركين مؤكّدين لإرسال الحملة إليهم.'); return; }
+    if (subs.length === 0) { setMsg('لا مشتركين مؤكّدين لإرسال الحملة إليهم.'); return; }
     setBusy(true); setMsg(null);
     try {
-      const primary = variants[0]?.id;
-      const n = await emailDeliveryService.sendCampaign(campaign.id, confirmedIds, primary);
-      await emailCampaignService.setStatus(campaign.id, 'sent'); setStatus('sent');
-      setMsg(`تمت محاكاة إرسال ${n} رسالة (سُجّلت sent+delivered). الإرسال الفعلي يُفعَّل بمفتاح المزوّد.`);
+      const primary = variants[0];
+      const subject = primary?.subject || campaign.name;
+      const html = primary?.html || `<p>${campaign.name}</p>`;
+
+      // محاولة الإرسال الفعلي عبر المزوّد (Resend) لأول مشترك للتحقق من وضع التشغيل
+      let liveCount = 0;
+      let simulated = false;
+      for (const s of subs) {
+        try {
+          const res = await emailDeliveryService.sendEmailLive({
+            to: s.email, subject, html,
+            campaignId: campaign.id, subscriberId: s.id,
+          });
+          if (res.mode === 'live' && res.ok) {
+            liveCount++;
+            // تسجيل التسليم الفعلي في KPIs
+            await emailDeliveryService.recordEvent({ subscriberId: s.id, eventType: 'delivered', campaignId: campaign.id, variantId: primary?.id, source: 'campaign', deliveryMode: 'live' });
+          } else {
+            // لا مفتاح مزوّد → رجوع للمحاكاة
+            simulated = true;
+            break;
+          }
+        } catch {
+          simulated = true;
+          break;
+        }
+      }
+
+      // إن لم يوجد مفتاح مزوّد: نُكمل بالمحاكاة (توافق عكسي — لا يتعطّل)
+      if (simulated) {
+        const n = await emailDeliveryService.sendCampaign(campaign.id, confirmedIds, primary?.id);
+        await emailCampaignService.setStatus(campaign.id, 'sent'); setStatus('sent');
+        setMsg(`لا مفتاح مزوّد مضبوط — تمت محاكاة إرسال ${n} رسالة (سُجّلت sent+delivered). أضف RESEND_API_KEY للإرسال الفعلي.`);
+      } else {
+        await emailCampaignService.setStatus(campaign.id, 'sent'); setStatus('sent');
+        setMsg(`✅ تم الإرسال الفعلي إلى ${liveCount} مشترك عبر المزوّد (Resend).`);
+      }
       await load();
     } catch (e) { setMsg(e instanceof Error ? e.message : 'تعذّر الإرسال'); } finally { setBusy(false); }
   };
@@ -70,7 +103,7 @@ export default function CampaignDetail({ campaign }: { campaign: EmailCampaign }
           <p className="text-xs text-slate-400 mt-1">{confirmedIds.length} مشترك مؤكّد جاهز للاستلام</p>
         </div>
         <div className="flex gap-2">
-          {status !== 'sent' && <button onClick={send} disabled={busy} className="flex items-center gap-1.5 bg-fuchsia-600 text-white text-sm px-4 py-2 rounded-xl hover:bg-fuchsia-700 disabled:opacity-60"><Send size={15} /> إرسال (محاكاة)</button>}
+          {status !== 'sent' && <button onClick={send} disabled={busy} className="flex items-center gap-1.5 bg-fuchsia-600 text-white text-sm px-4 py-2 rounded-xl hover:bg-fuchsia-700 disabled:opacity-60"><Send size={15} /> إرسال الحملة</button>}
           {status === 'sent' && (
             <>
               <button onClick={() => simulate('opened')} disabled={busy} className="flex items-center gap-1.5 text-sm border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-50"><Eye size={14} /> محاكاة فتح</button>
