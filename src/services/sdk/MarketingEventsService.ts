@@ -82,6 +82,24 @@ class EventService extends BaseService<MarketingEvent> {
   createEvent(input: MarketingEventInput) { return this.create(input as Partial<MarketingEvent>); }
   setStatus(id: string, status: EventStatus) { return this.update(id, { status } as Partial<MarketingEvent>); }
 
+  /** ضبط رابط البث يدوياً (المسار الأبسط — يعمل فوراً بلا مفتاح) */
+  setStream(id: string, provider: StreamProvider, url: string) {
+    return this.update(id, { stream_provider: provider, stream_url: url } as Partial<MarketingEvent>);
+  }
+
+  /**
+   * إنشاء اجتماع بث تلقائياً عبر مزوّد (Zoom) — Edge Function event-create-stream.
+   *   - مع مفتاح ZOOM_* → ينشئ اجتماعاً ويحفظ رابطه على الفعالية.
+   *   - بلا مفتاح → mode='simulated' (استخدم setStream اليدوي).
+   */
+  async createStream(eventId: string): Promise<{ mode: 'live' | 'simulated'; ok?: boolean; url?: string; message?: string; error?: string }> {
+    const { data, error } = await supabase.functions.invoke('event-create-stream', {
+      body: { event_id: eventId },
+    });
+    if (error) throw new Error(error.message);
+    return data as { mode: 'live' | 'simulated'; ok?: boolean; url?: string; message?: string; error?: string };
+  }
+
   private async listChild<T>(table: string, eventId: string): Promise<T[]> {
     const tenantId = getCurrentTenantId();
     let q = supabase.from(table).select('*').eq('event_id', eventId);

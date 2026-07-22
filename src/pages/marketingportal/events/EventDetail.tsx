@@ -6,13 +6,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, Plus, X, Mic, Ticket, Percent, QrCode, ScanLine, CheckCircle2,
-  Users, DollarSign, TrendingUp, UserPlus, Clock,
+  Users, DollarSign, TrendingUp, UserPlus, Clock, Video, Sparkles,
 } from 'lucide-react';
 import {
   eventService, eventTicketService, eventPromoService, eventRegistrationService,
   TICKET_TIER_LABEL, EVENT_TYPE_LABEL,
   type MarketingEvent, type EventSpeaker, type EventTicketType, type EventPromoCode,
-  type EventRegistration, type EventKpis, type TicketTier, type CheckinResult,
+  type EventRegistration, type EventKpis, type TicketTier, type CheckinResult, type StreamProvider,
 } from '../../../services/sdk';
 import { MARKETING_BASE } from '../marketingCatalog';
 import { EVENT_STATUS_LABEL, EVENT_STATUS_COLOR, REG_STATUS_LABEL, REG_STATUS_COLOR, PAYMENT_LABEL } from './useEvents';
@@ -79,7 +79,7 @@ export default function EventDetail() {
 
       {msg && <div className="text-sm text-fuchsia-700 bg-fuchsia-50 border border-fuchsia-200 rounded-xl px-4 py-2 flex items-center gap-2"><CheckCircle2 size={15} /> {msg}</div>}
 
-      {tab === 'page' && <PageTab eventId={event.id} speakers={speakers} reload={load} setBusy={setBusy} busy={busy} />}
+      {tab === 'page' && <PageTab event={event} speakers={speakers} reload={load} setBusy={setBusy} busy={busy} setMsg={setMsg} />}
       {tab === 'tickets' && <TicketsTab eventId={event.id} tickets={tickets} promos={promos} reload={load} busy={busy} setBusy={setBusy} />}
       {tab === 'registrations' && <RegistrationsTab eventId={event.id} tickets={tickets} regs={regs} reload={load} busy={busy} setBusy={setBusy} setMsg={setMsg} />}
       {tab === 'checkin' && <CheckinTab regs={regs} reload={load} setMsg={setMsg} />}
@@ -89,15 +89,54 @@ export default function EventDetail() {
 }
 
 // ── صفحة الحدث: المتحدثون ────────────────────────────────────────────────────
-function PageTab({ eventId, speakers, reload, busy, setBusy }: { eventId: string; speakers: EventSpeaker[]; reload: () => void; busy: boolean; setBusy: (b: boolean) => void }) {
+function PageTab({ event, speakers, reload, busy, setBusy, setMsg }: { event: MarketingEvent; speakers: EventSpeaker[]; reload: () => void; busy: boolean; setBusy: (b: boolean) => void; setMsg: (m: string | null) => void }) {
+  const eventId = event.id;
   const [show, setShow] = useState(false);
   const [form, setForm] = useState({ name: '', title: '', bio: '', linkedin_url: '' });
+  const [streamProvider, setStreamProvider] = useState<StreamProvider>(event.stream_provider || 'zoom');
+  const [streamUrl, setStreamUrl] = useState(event.stream_url || '');
   const add = async () => {
     if (!form.name.trim()) return; setBusy(true);
     try { await eventService.addSpeaker({ event_id: eventId, name: form.name, title: form.title || null, bio: form.bio || null, photo_url: null, linkedin_url: form.linkedin_url || null }); setShow(false); setForm({ name: '', title: '', bio: '', linkedin_url: '' }); reload(); }
     catch { /* noop */ } finally { setBusy(false); }
   };
+  const saveStream = async () => {
+    if (!streamUrl.trim()) { setMsg('أدخل رابط البث'); return; }
+    setBusy(true); setMsg(null);
+    try { await eventService.setStream(eventId, streamProvider, streamUrl); setMsg('✅ تم حفظ رابط البث — سيظهر للمسجّلين.'); reload(); }
+    catch (e) { setMsg(e instanceof Error ? e.message : 'تعذّر الحفظ'); } finally { setBusy(false); }
+  };
+  const autoCreate = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const res = await eventService.createStream(eventId);
+      if (res.mode === 'live' && res.ok && res.url) { setStreamUrl(res.url); setMsg('✅ أُنشئ اجتماع بث تلقائياً عبر المزوّد.'); reload(); }
+      else setMsg(res.message || 'الإنشاء التلقائي بوضع محاكاة — استخدم الرابط اليدوي (أضف مفتاح Zoom للتفعيل).');
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'تعذّر الإنشاء'); } finally { setBusy(false); }
+  };
+  const isVirtual = event.event_type === 'virtual' || event.event_type === 'hybrid';
   return (
+    <div className="space-y-4">
+    {isVirtual && (
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex items-center gap-2 mb-3"><Video size={18} className="text-fuchsia-600" /><h3 className="font-black text-slate-800">البث المباشر (للفعالية الافتراضية)</h3></div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div><label className="text-xs text-slate-500">المزوّد</label>
+            <select value={streamProvider} onChange={(e) => setStreamProvider(e.target.value as StreamProvider)} className="w-full mt-1 px-3 py-2 text-sm rounded-xl border border-slate-200 outline-none">
+              <option value="zoom">Zoom</option><option value="teams">Microsoft Teams</option><option value="youtube">YouTube</option><option value="vimeo">Vimeo</option><option value="other">أخرى</option>
+            </select>
+          </div>
+          <div className="sm:col-span-2"><label className="text-xs text-slate-500">رابط البث</label>
+            <input value={streamUrl} onChange={(e) => setStreamUrl(e.target.value)} placeholder="https://zoom.us/j/..." className="w-full mt-1 px-3 py-2 text-sm rounded-xl border border-slate-200 outline-none font-mono" />
+          </div>
+        </div>
+        <div className="flex gap-2 mt-3">
+          <button onClick={saveStream} disabled={busy} className="flex items-center gap-1.5 bg-fuchsia-600 text-white text-sm px-4 py-2 rounded-xl hover:bg-fuchsia-700 disabled:opacity-60"><Video size={14} /> حفظ الرابط</button>
+          <button onClick={autoCreate} disabled={busy} className="flex items-center gap-1.5 bg-slate-100 text-slate-600 text-sm px-4 py-2 rounded-xl hover:bg-slate-200 disabled:opacity-60"><Sparkles size={14} /> إنشاء تلقائي (Zoom)</button>
+        </div>
+        {event.stream_url && <p className="text-[11px] text-emerald-600 mt-2">رابط محفوظ حالياً ✓ ({EVENT_TYPE_LABEL[event.event_type]})</p>}
+      </div>
+    )}
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
       <div className="flex items-center justify-between mb-4"><div className="flex items-center gap-2"><Mic size={18} className="text-fuchsia-600" /><h3 className="font-black text-slate-800">المتحدثون</h3></div><button onClick={() => setShow(true)} className="flex items-center gap-1.5 text-sm border border-slate-200 px-3 py-1.5 rounded-xl hover:bg-slate-50"><Plus size={15} /> متحدث</button></div>
       {speakers.length === 0 ? <p className="text-sm text-slate-400">لا متحدثين — أضف بطاقات المتحدثين لصفحة الحدث.</p>
@@ -120,6 +159,7 @@ function PageTab({ eventId, speakers, reload, busy, setBusy }: { eventId: string
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }
