@@ -399,6 +399,7 @@ const ROLE_CONFIG: Record<UserRole, { label: string; portalName: string; gradien
   tech:        { label: 'تقني',          portalName: 'البوابة التقنية', gradient: 'from-cyan-600 to-teal-700',   bg: 'from-cyan-50 to-teal-50',   text: 'text-cyan-600' },
   finance:     { label: 'مالية',        portalName: 'بوابة المالية', gradient: 'from-emerald-600 to-emerald-800', bg: 'from-emerald-50 to-emerald-100', text: 'text-emerald-600' },
   marketing:   { label: 'تسويق',        portalName: 'بوابة التسويق', gradient: 'from-fuchsia-600 to-purple-700', bg: 'from-fuchsia-50 to-purple-50', text: 'text-fuchsia-600' },
+  sales:       { label: 'مبيعات',       portalName: 'بوابة CRM',     gradient: 'from-cyan-600 to-blue-700',    bg: 'from-cyan-50 to-blue-50',      text: 'text-cyan-600' },
 };
 
 // ════════════════════════════════════════════════════════════════

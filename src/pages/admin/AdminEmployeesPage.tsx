@@ -49,6 +49,7 @@ const ROLES: { value: string; label: string; color: string }[] = [
   { value: 'finance',    label: 'مسؤول مالية',   color: 'bg-violet-100 text-violet-700'},
   { value: 'tech',       label: 'تقني / IT',     color: 'bg-cyan-100 text-cyan-700'   },
   { value: 'marketing',  label: 'تسويق',         color: 'bg-fuchsia-100 text-fuchsia-700'},
+  { value: 'sales',      label: 'مبيعات',        color: 'bg-cyan-100 text-cyan-700'   },
 ];
 
 const ROLE_LABELS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r.value, r.label]));
@@ -56,7 +57,7 @@ const ROLE_LABELS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r
 const ROLE_MODULE_MAP: Record<string, string> = {
   employee: 'employee', supervisor: 'supervisor', manager: 'manager',
   hr: 'hr', gatekeeper: 'gatekeeper', admin: 'admin', finance: 'finance', tech: 'tech_portal',
-  marketing: 'marketing',
+  marketing: 'marketing', sales: 'crm',
 };
 
 const PORTAL_PAGES = [
@@ -166,6 +167,18 @@ const PORTAL_PAGES = [
       { id: 'marketing-events', label: 'الفعاليات' },
       { id: 'marketing-surveys', label: 'الاستبيانات' },
       { id: 'marketing-immune', label: 'المناعة العلائقية' },
+    ],
+  },
+  {
+    portalLabel: 'بوابة CRM (المبيعات)', moduleKey: 'crm',
+    pages: [
+      { id: 'crm-dashboard', label: 'لوحة CRM' },
+      { id: 'crm-contacts', label: 'جهات الاتصال والحسابات' },
+      { id: 'crm-pipeline', label: 'خط الأنابيب والصفقات' },
+      { id: 'crm-activities', label: 'الأنشطة والمهام' },
+      { id: 'crm-quotes', label: 'العروض والعقود' },
+      { id: 'crm-support', label: 'الدعم والتذاكر' },
+      { id: 'crm-analytics', label: 'التحليلات والتنبؤ' },
     ],
   },
 ];

@@ -26,6 +26,7 @@ export const TARGET_ROLES = new Set([
   'finance',
   'tech',
   'marketing',
+  'sales',
 ]);
 
 /** الأدوار المسموح لها باستدعاء Admin Functions */

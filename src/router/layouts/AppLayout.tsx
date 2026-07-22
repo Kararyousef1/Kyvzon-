@@ -16,6 +16,7 @@ import { useUIStore, useAuthStore } from '../../core/stores';
 import Sidebar from '../../shared/components/dashboard/Sidebar';
 import HybridSidebar from '../../pages/hybridportal/HybridSidebar';
 import MarketingSidebar from '../../pages/marketingportal/MarketingSidebar';
+import CrmSidebar from '../../pages/crmportal/CrmSidebar';
 import Header from '../../shared/components/dashboard/Header';
 import SplashScreen from '../../shared/components/ui/SplashScreen';
 import AppErrorBoundary from '../../shared/components/dashboard/developer/ErrorBoundary';
@@ -32,14 +33,17 @@ export function AppLayout() {
   const isPlatformRole = user?.role === 'developer' || user?.role === 'it_admin';
   const useHybridNav = subscriptionPlan === 'hybrid' && !isPlatformRole;
 
-  // بوابة التسويق لها شريط جانبي مخصّص (عند التصفّح داخل /app/marketing)
+  // بوابة التسويق و CRM لهما شريط جانبي مخصّص (حسب المسار)
   const inMarketing = location.pathname.startsWith('/app/marketing');
+  const inCrm = location.pathname.startsWith('/app/crm');
 
   const SidebarComponent = useHybridNav
     ? HybridSidebar
     : inMarketing
       ? MarketingSidebar
-      : Sidebar;
+      : inCrm
+        ? CrmSidebar
+        : Sidebar;
 
   // إغلاق الـ Sidebar تلقائياً على الموبايل عند تغيير المسار
   useEffect(() => {

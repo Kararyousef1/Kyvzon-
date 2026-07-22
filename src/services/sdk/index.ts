@@ -173,6 +173,83 @@ export type {
   OccasionType, OccasionEffect, CulturalOccasion, CulturalOccasionInput,
   IncidentType, ImmuneIncident, ImmuneSettings, GovernanceResult, MarketingDebt,
 } from './RelationshipImmuneService';
+// 🆕 بوابة CRM — الوحدة 1: جهات الاتصال والحسابات (التقرير 01)
+export {
+  crmAccountService, crmContactService, crmActivityService, crmAuditService,
+  listConvertibleLeads,
+  ACCOUNT_TYPE_LABEL, ACCOUNT_TYPE_COLOR, ACCOUNT_TIER_LABEL,
+  DECISION_ROLE_LABEL, DECISION_ROLE_COLOR, TEMPERATURE_LABEL, TEMPERATURE_COLOR,
+  ACTIVITY_TYPE_LABEL, ACTIVITY_TYPE_ICON, ENRICHMENT_PROVIDERS,
+} from './CrmContactsService';
+export type {
+  AccountType, AccountTier, EnrichmentStatus, CrmAccount, CrmAccountInput,
+  DecisionRole, ContactTemperature, CrmContact, CrmContactInput,
+  ActivityType, ActivityDirection, LoggedVia, CrmActivity, CrmActivityInput,
+  Account360, DuplicateCandidate, CrmMergeLogEntry, CrmAuditEntry,
+} from './CrmContactsService';
+// 🆕 بوابة CRM — الوحدة 2: خط الأنابيب والصفقات (التقرير 02)
+export {
+  crmPipelineService, crmStageService, crmLossReasonService, crmDealService,
+  PIPELINE_TYPE_LABEL, DEAL_VALUE_TYPE_LABEL, DEAL_STATUS_LABEL, DEAL_STATUS_COLOR,
+  ALERT_TYPE_LABEL, ALERT_TYPE_COLOR, STAGE_TYPE_ACCENT,
+} from './CrmPipelineService';
+export type {
+  PipelineType, StageType, DealStatus, DealValueType,
+  CrmPipeline, CrmPipelineInput, CrmStage, CrmStageInput, CrmLossReason,
+  CrmDeal, CrmDealInput, DealVelocity, StagnationAlert,
+} from './CrmPipelineService';
+// 🆕 بوابة CRM — الوحدة 3: الأنشطة والأتمتة (التقرير 03)
+export {
+  crmTaskService, crmSequenceService, crmSequenceStepService, crmEnrollmentService,
+  crmAutomationService, crmAssignmentService,
+  TASK_TYPE_LABEL, TASK_PRIORITY_LABEL, TASK_PRIORITY_COLOR, TASK_STATUS_LABEL,
+  SEQUENCE_TYPE_LABEL, SEQUENCE_ACTION_LABEL,
+  AUTOMATION_TRIGGER_LABEL, AUTOMATION_ACTION_LABEL, ASSIGNMENT_MATCH_LABEL, CALL_OUTCOME_LABEL,
+} from './CrmActivitiesService';
+export type {
+  TaskType, TaskPriority, TaskStatus, TaskOrigin, CrmTask, CrmTaskInput,
+  SequenceType, SequenceActionType, SequenceEnrollmentStatus,
+  CrmSequence, CrmSequenceInput, CrmSequenceStep, CrmSequenceStepInput, CrmSequenceEnrollment,
+  AutomationTrigger, AutomationAction, CrmAutomationRule, CrmAutomationRuleInput,
+  AssignmentMatchType, CrmAssignmentRule, CrmAssignmentRuleInput,
+  ActivityStats, ActivityGap, CallOutcome,
+} from './CrmActivitiesService';
+// 🆕 بوابة CRM — الوحدة 4: العروض والعقود CPQ (التقرير 04)
+export {
+  crmProductService, crmQuoteService, crmQuoteLineItemService, crmApprovalService, crmContractService,
+  PRODUCT_TYPE_LABEL, BILLING_CYCLE_LABEL, QUOTE_STATUS_LABEL, QUOTE_STATUS_COLOR,
+  APPROVAL_LEVEL_LABEL, CONTRACT_STATUS_LABEL, CONTRACT_STATUS_COLOR, RENEWAL_ALERT_LABEL,
+} from './CrmQuotesService';
+export type {
+  ProductType, BillingCycle, CrmProduct, CrmProductInput,
+  QuoteStatus, CrmQuote, CrmQuoteInput, CrmQuoteLineItem, CrmQuoteLineItemInput,
+  ApprovalLevel, ApprovalStatus, CrmDiscountApproval,
+  QuoteEventType, CrmQuoteEvent, ContractStatus, CrmContract,
+  QuoteAnalytics, ContractRenewalAlert,
+} from './CrmQuotesService';
+// 🆕 بوابة CRM — الوحدة 5: الدعم والتذاكر (التقرير 05)
+export {
+  crmTicketService, crmTicketReplyService, crmSlaService, crmCannedService, crmKbService, crmRoutingService,
+  TICKET_TYPE_LABEL, TICKET_PRIORITY_LABEL, TICKET_PRIORITY_COLOR, TICKET_CHANNEL_LABEL,
+  TICKET_STATUS_LABEL, TICKET_STATUS_COLOR, KB_ARTICLE_TYPE_LABEL, ROUTING_STRATEGY_LABEL, SLA_REFERENCE,
+} from './CrmSupportService';
+export type {
+  TicketType, TicketPriority, TicketChannel, TicketStatus, CrmTicket, CrmTicketReply,
+  CrmSlaPolicy, CrmCannedResponse, CrmCannedResponseInput,
+  KbArticleType, CrmKbArticle, CrmKbArticleInput,
+  RoutingStrategy, RoutingMatchType, CrmRoutingRule, CrmRoutingRuleInput,
+  SupportKpis, ChurnRiskAccount,
+} from './CrmSupportService';
+// 🆕 بوابة CRM — الوحدة 6: التحليلات والتنبؤ (التقرير 06)
+export {
+  crmTargetService, crmMrrService, crmAnalytics,
+  FORECAST_CATEGORY_LABEL, HEALTH_WEIGHTS_REFERENCE, healthTier, CRM_KPI_TARGETS,
+} from './CrmAnalyticsService';
+export type {
+  ForecastCategory, CrmSalesTarget, CrmSalesTargetInput, CrmMrrSnapshot, CrmMrrSnapshotInput,
+  WeightedForecastRow, FunnelRow, VelocityRow, CompetitorRow, SegmentRow,
+  MrrMovementRow, RepPerformanceRow, ExecKpis,
+} from './CrmAnalyticsService';
 export type { CurrencyRecord, LegalEntityRecord, EntityMembershipRecord, FiscalYearRecord, AccountingPeriodRecord, FinanceRole, EntityStatus, FiscalYearStatus, AccountingPeriodStatus } from './FinanceFoundationService';
 export { entitlementService } from './EntitlementService';
 export type { TenantUsageSnapshot } from './EntitlementService';

@@ -380,4 +380,150 @@ BEGIN
 END $$;
 
 \echo ''
+\echo '=== T. بوابة CRM — الوحدة 1: جهات الاتصال والحسابات (جداول + دوال) ==='
+DO $$
+BEGIN
+  IF to_regclass('public.crm_accounts') IS NULL
+     OR to_regclass('public.crm_contacts') IS NULL
+     OR to_regclass('public.crm_activities_timeline') IS NULL
+     OR to_regclass('public.crm_merge_log') IS NULL
+     OR to_regclass('public.crm_audit_log') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: CRM contacts/accounts tables missing';
+  END IF;
+  IF to_regprocedure('public.crm_account_360(uuid)') IS NULL
+     OR to_regprocedure('public.crm_find_duplicate_contacts(uuid)') IS NULL
+     OR to_regprocedure('public.crm_merge_contacts(uuid,uuid)') IS NULL
+     OR to_regprocedure('public.crm_convert_lead(uuid)') IS NULL
+     OR to_regprocedure('public.crm_enrich_account(uuid,text)') IS NULL
+     OR to_regprocedure('public.crm_gdpr_erase_contact(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: CRM contacts/accounts functions missing';
+  END IF;
+  RAISE NOTICE 'CHECK T PASSED — وحدة جهات الاتصال والحسابات مكتملة (5 جداول + 6 دوال)';
+END $$;
+
+\echo ''
+\echo '=== U. بوابة CRM — الوحدة 2: خط الأنابيب والصفقات (جداول + دوال) ==='
+DO $$
+BEGIN
+  IF to_regclass('public.crm_pipelines') IS NULL
+     OR to_regclass('public.crm_stages') IS NULL
+     OR to_regclass('public.crm_deal_loss_reasons') IS NULL
+     OR to_regclass('public.crm_deals') IS NULL
+     OR to_regclass('public.crm_deal_stage_history') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: CRM pipeline/deals tables missing';
+  END IF;
+  IF to_regprocedure('public.crm_move_deal_stage(uuid,uuid)') IS NULL
+     OR to_regprocedure('public.crm_close_deal(uuid,text,uuid,text,text)') IS NULL
+     OR to_regprocedure('public.crm_deal_velocity(uuid)') IS NULL
+     OR to_regprocedure('public.crm_deal_stagnation_alerts()') IS NULL
+     OR to_regprocedure('public.crm_seed_default_pipeline()') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: CRM pipeline/deals functions missing';
+  END IF;
+  RAISE NOTICE 'CHECK U PASSED — وحدة خط الأنابيب والصفقات مكتملة (5 جداول + 5 دوال)';
+END $$;
+
+\echo ''
+\echo '=== V. بوابة CRM — الوحدة 3: الأنشطة والأتمتة (جداول + دوال) ==='
+DO $$
+BEGIN
+  IF to_regclass('public.crm_tasks') IS NULL
+     OR to_regclass('public.crm_sequences') IS NULL
+     OR to_regclass('public.crm_sequence_steps') IS NULL
+     OR to_regclass('public.crm_sequence_enrollments') IS NULL
+     OR to_regclass('public.crm_automation_rules') IS NULL
+     OR to_regclass('public.crm_automation_log') IS NULL
+     OR to_regclass('public.crm_assignment_rules') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: CRM activities/automation tables missing';
+  END IF;
+  IF to_regprocedure('public.crm_log_call(uuid,uuid,uuid,integer,text,text,text,timestamptz)') IS NULL
+     OR to_regprocedure('public.crm_complete_task(uuid)') IS NULL
+     OR to_regprocedure('public.crm_enroll_in_sequence(uuid,uuid,uuid,uuid)') IS NULL
+     OR to_regprocedure('public.crm_advance_sequence(uuid)') IS NULL
+     OR to_regprocedure('public.crm_apply_assignment(uuid)') IS NULL
+     OR to_regprocedure('public.crm_activity_stats(integer)') IS NULL
+     OR to_regprocedure('public.crm_activity_gaps(integer)') IS NULL
+     OR to_regprocedure('public.crm_seed_default_sequences()') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: CRM activities/automation functions missing';
+  END IF;
+  RAISE NOTICE 'CHECK V PASSED — وحدة الأنشطة والأتمتة مكتملة (7 جداول + 8 دوال)';
+END $$;
+
+\echo ''
+\echo '=== W. بوابة CRM — الوحدة 4: العروض والعقود CPQ (جداول + دوال) ==='
+DO $$
+BEGIN
+  IF to_regclass('public.crm_products') IS NULL
+     OR to_regclass('public.crm_pricing_rules') IS NULL
+     OR to_regclass('public.crm_quotes') IS NULL
+     OR to_regclass('public.crm_quote_line_items') IS NULL
+     OR to_regclass('public.crm_discount_approvals') IS NULL
+     OR to_regclass('public.crm_quote_events') IS NULL
+     OR to_regclass('public.crm_contracts') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: CRM quotes/CPQ tables missing';
+  END IF;
+  IF to_regprocedure('public.crm_discount_level(numeric)') IS NULL
+     OR to_regprocedure('public.crm_recalc_quote(uuid)') IS NULL
+     OR to_regprocedure('public.crm_submit_quote(uuid,text)') IS NULL
+     OR to_regprocedure('public.crm_decide_approval(uuid,boolean,text)') IS NULL
+     OR to_regprocedure('public.crm_send_quote(uuid)') IS NULL
+     OR to_regprocedure('public.crm_track_quote_event(uuid,text,jsonb,text,text)') IS NULL
+     OR to_regprocedure('public.crm_sign_quote(uuid,text,text,text)') IS NULL
+     OR to_regprocedure('public.crm_contract_renewal_alerts()') IS NULL
+     OR to_regprocedure('public.crm_quote_analytics()') IS NULL
+     OR to_regprocedure('public.crm_seed_default_products()') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: CRM quotes/CPQ functions missing';
+  END IF;
+  RAISE NOTICE 'CHECK W PASSED — وحدة العروض والعقود CPQ مكتملة (7 جداول + 10 دوال)';
+END $$;
+
+\echo ''
+\echo '=== X. بوابة CRM — الوحدة 5: الدعم والتذاكر (جداول + دوال) ==='
+DO $$
+BEGIN
+  IF to_regclass('public.crm_sla_policies') IS NULL
+     OR to_regclass('public.crm_tickets') IS NULL
+     OR to_regclass('public.crm_ticket_replies') IS NULL
+     OR to_regclass('public.crm_canned_responses') IS NULL
+     OR to_regclass('public.crm_kb_articles') IS NULL
+     OR to_regclass('public.crm_routing_rules') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: CRM support/ticketing tables missing';
+  END IF;
+  IF to_regprocedure('public.crm_create_ticket(text,text,uuid,uuid,text,text,text,text)') IS NULL
+     OR to_regprocedure('public.crm_add_ticket_reply(uuid,text,boolean,text)') IS NULL
+     OR to_regprocedure('public.crm_set_ticket_status(uuid,text)') IS NULL
+     OR to_regprocedure('public.crm_submit_csat(uuid,integer,text)') IS NULL
+     OR to_regprocedure('public.crm_support_churn_risk()') IS NULL
+     OR to_regprocedure('public.crm_support_kpis()') IS NULL
+     OR to_regprocedure('public.crm_seed_default_sla()') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: CRM support/ticketing functions missing';
+  END IF;
+  RAISE NOTICE 'CHECK X PASSED — وحدة الدعم والتذاكر مكتملة (6 جداول + 7 دوال)';
+END $$;
+
+\echo ''
+\echo '=== Y. بوابة CRM — الوحدة 6: التحليلات والتنبؤ (جداول + دوال) ==='
+DO $$
+BEGIN
+  IF to_regclass('public.crm_sales_targets') IS NULL
+     OR to_regclass('public.crm_deal_forecast') IS NULL
+     OR to_regclass('public.crm_mrr_snapshots') IS NULL
+     OR to_regclass('public.crm_health_weights') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: CRM analytics tables missing';
+  END IF;
+  IF to_regprocedure('public.crm_weighted_forecast(uuid)') IS NULL
+     OR to_regprocedure('public.crm_conversion_funnel(uuid)') IS NULL
+     OR to_regprocedure('public.crm_pipeline_velocity_report(uuid)') IS NULL
+     OR to_regprocedure('public.crm_winloss_by_competitor()') IS NULL
+     OR to_regprocedure('public.crm_segmentation()') IS NULL
+     OR to_regprocedure('public.crm_account_health_score(uuid)') IS NULL
+     OR to_regprocedure('public.crm_mrr_movement()') IS NULL
+     OR to_regprocedure('public.crm_rep_performance(date)') IS NULL
+     OR to_regprocedure('public.crm_exec_kpis()') IS NULL
+     OR to_regprocedure('public.crm_seed_health_weights()') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: CRM analytics functions missing';
+  END IF;
+  RAISE NOTICE 'CHECK Y PASSED — وحدة التحليلات والتنبؤ مكتملة (4 جداول + 10 دوال) — بوابة CRM كاملة 6/6';
+END $$;
+
+\echo ''
 \echo '=== ✅ POST-MIGRATION CHECKS: ALL PASS ==='

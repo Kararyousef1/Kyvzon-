@@ -1,4 +1,4 @@
-export type ModuleKey = 'finance' | 'employee' | 'hr' | 'admin' | 'manager' | 'supervisor' | 'gatekeeper' | 'movement' | 'tawathul' | 'tech_portal' | 'ai' | 'reports' | 'health_safety' | 'succession' | 'contracts' | 'marketing';
+export type ModuleKey = 'finance' | 'employee' | 'hr' | 'admin' | 'manager' | 'supervisor' | 'gatekeeper' | 'movement' | 'tawathul' | 'tech_portal' | 'ai' | 'reports' | 'health_safety' | 'succession' | 'contracts' | 'marketing' | 'crm';
 
 export type ModuleStatus = 'planned' | 'in_build' | 'beta' | 'production';
 export type ModuleCategory = 'core' | 'people' | 'operations' | 'platform' | 'advanced';
@@ -52,6 +52,7 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
   { key: 'succession', label: 'تخطيط التعاقب', description: 'المناصب الحرجة والمرشحون والخطط التطويرية', category: 'advanced', minPlan: 'enterprise', status: 'beta', wave: 2 },
   { key: 'contracts', label: 'عقود الموظفين', description: 'عقود العمل والتنبيهات والتجديد', category: 'advanced', minPlan: 'professional', status: 'production', wave: 1 },
   { key: 'marketing', label: 'بوابة التسويق', description: 'أتمتة التسويق، البريد، وسائل التواصل، SMS/واتساب، الفعاليات، الاستبيانات، ونظام المناعة العلائقية', category: 'advanced', minPlan: 'professional', status: 'beta', wave: 2 },
+  { key: 'crm', label: 'بوابة CRM', description: 'إدارة جهات الاتصال والحسابات، خط الأنابيب والصفقات، الأنشطة والأتمتة، العروض والعقود، الدعم والتذاكر، والتحليلات والتنبؤ', category: 'advanced', minPlan: 'professional', status: 'beta', wave: 2 },
   // finance — wave breakdown per FINANCE_REMEDIATION_EXECUTION_PLAN
   { 
     key: 'finance', 
@@ -122,7 +123,7 @@ export const FINANCE_SUBMODULES: Record<FinanceSubModuleKey, { label: string, st
 
 export const PLAN_ALLOWED_MODULES: Record<string, ModuleKey[]> = {
   basic: ['employee', 'hr', 'finance'],
-  professional: ['employee', 'hr', 'admin', 'finance', 'manager', 'supervisor', 'gatekeeper', 'movement', 'tawathul', 'reports', 'contracts', 'marketing'],
+  professional: ['employee', 'hr', 'admin', 'finance', 'manager', 'supervisor', 'gatekeeper', 'movement', 'tawathul', 'reports', 'contracts', 'marketing', 'crm'],
   enterprise: ['employee', 'hr', 'finance', ...MODULE_CATALOG.map(m => m.key)],
   custom: MODULE_CATALOG.map(m => m.key),
 };

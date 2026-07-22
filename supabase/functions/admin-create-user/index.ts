@@ -13,6 +13,7 @@ const TARGET_ROLES = new Set([
   'finance',
   'tech',
   'marketing',
+  'sales',
 ]);
 const CALLER_ROLES = new Set(['admin', 'developer', 'it_admin']);
 

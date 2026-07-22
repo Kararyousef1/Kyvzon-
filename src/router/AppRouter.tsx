@@ -150,6 +150,53 @@ const AttendanceAnalytics   = lazy(() => import('../pages/techportal/pages/Atten
 const SecurityEventsPage    = lazy(() => import('../pages/techportal/pages/SecurityEventsPage'));
 const TechSettingsPage      = lazy(() => import('../pages/techportal/pages/TechSettingsPage'));
 const MarketingPortal       = lazy(() => import('../pages/marketingportal/MarketingPortal'));
+// بوابة CRM
+const CrmPortal             = lazy(() => import('../pages/crmportal/CrmPortal'));
+const CrmDashboard          = lazy(() => import('../pages/crmportal/CrmDashboard'));
+// بوابة CRM — الوحدة 1: جهات الاتصال والحسابات (التقرير 01)
+const ContactsLayout        = lazy(() => import('../pages/crmportal/contacts/ContactsLayout'));
+const ContactsOverview      = lazy(() => import('../pages/crmportal/contacts/ContactsOverview'));
+const CrmAccountsPage       = lazy(() => import('../pages/crmportal/contacts/AccountsPage'));
+const CrmAccountDetailPage  = lazy(() => import('../pages/crmportal/contacts/AccountDetailPage'));
+const CrmPeoplePage         = lazy(() => import('../pages/crmportal/contacts/PeoplePage'));
+const CrmContactDetailPage  = lazy(() => import('../pages/crmportal/contacts/ContactDetailPage'));
+const CrmConvertPage        = lazy(() => import('../pages/crmportal/contacts/ConvertPage'));
+const CrmAuditPage          = lazy(() => import('../pages/crmportal/contacts/AuditPage'));
+// بوابة CRM — الوحدة 2: خط الأنابيب والصفقات (التقرير 02)
+const PipelineLayout        = lazy(() => import('../pages/crmportal/pipeline/PipelineLayout'));
+const PipelineOverview      = lazy(() => import('../pages/crmportal/pipeline/PipelineOverview'));
+const KanbanBoard           = lazy(() => import('../pages/crmportal/pipeline/KanbanBoard'));
+const CrmDealsListPage      = lazy(() => import('../pages/crmportal/pipeline/DealsListPage'));
+const CrmDealDetailPage     = lazy(() => import('../pages/crmportal/pipeline/DealDetailPage'));
+const CrmWinLossPage        = lazy(() => import('../pages/crmportal/pipeline/WinLossPage'));
+// بوابة CRM — الوحدة 3: الأنشطة والأتمتة (التقرير 03)
+const ActivitiesLayout      = lazy(() => import('../pages/crmportal/activities/ActivitiesLayout'));
+const ActivitiesOverview    = lazy(() => import('../pages/crmportal/activities/ActivitiesOverview'));
+const CrmMyTasksPage        = lazy(() => import('../pages/crmportal/activities/MyTasksPage'));
+const CrmSequencesPage      = lazy(() => import('../pages/crmportal/activities/SequencesPage'));
+const CrmAutomationPage     = lazy(() => import('../pages/crmportal/activities/AutomationPage'));
+const CrmAssignmentPage     = lazy(() => import('../pages/crmportal/activities/AssignmentPage'));
+// بوابة CRM — الوحدة 4: العروض والعقود CPQ (التقرير 04)
+const QuotesLayout          = lazy(() => import('../pages/crmportal/quotes/QuotesLayout'));
+const QuotesOverview        = lazy(() => import('../pages/crmportal/quotes/QuotesOverview'));
+const CrmCatalogPage        = lazy(() => import('../pages/crmportal/quotes/CatalogPage'));
+const CrmQuotesListPage     = lazy(() => import('../pages/crmportal/quotes/QuotesListPage'));
+const CrmQuoteDetailPage    = lazy(() => import('../pages/crmportal/quotes/QuoteDetailPage'));
+const CrmApprovalsPage      = lazy(() => import('../pages/crmportal/quotes/ApprovalsPage'));
+const CrmContractsPage      = lazy(() => import('../pages/crmportal/quotes/ContractsPage'));
+// بوابة CRM — الوحدة 5: الدعم والتذاكر (التقرير 05)
+const SupportLayout         = lazy(() => import('../pages/crmportal/support/SupportLayout'));
+const SupportOverview       = lazy(() => import('../pages/crmportal/support/SupportOverview'));
+const CrmTicketsPage        = lazy(() => import('../pages/crmportal/support/TicketsPage'));
+const CrmTicketDetailPage   = lazy(() => import('../pages/crmportal/support/TicketDetailPage'));
+const CrmKnowledgeBasePage  = lazy(() => import('../pages/crmportal/support/KnowledgeBasePage'));
+const CrmSupportSettingsPage = lazy(() => import('../pages/crmportal/support/SupportSettingsPage'));
+// بوابة CRM — الوحدة 6: التحليلات والتنبؤ (التقرير 06)
+const AnalyticsLayout       = lazy(() => import('../pages/crmportal/analytics/AnalyticsLayout'));
+const CrmExecOverview       = lazy(() => import('../pages/crmportal/analytics/ExecOverview'));
+const CrmForecastPage       = lazy(() => import('../pages/crmportal/analytics/ForecastPage'));
+const CrmIntelligencePage   = lazy(() => import('../pages/crmportal/analytics/IntelligencePage'));
+const CrmRevenuePage        = lazy(() => import('../pages/crmportal/analytics/RevenuePage'));
 const MarketingDashboard    = lazy(() => import('../pages/marketingportal/MarketingDashboard'));
 // وحدة أتمتة التسويق (التقرير 1)
 const AutomationLayout      = lazy(() => import('../pages/marketingportal/automation/AutomationLayout'));
@@ -342,6 +389,63 @@ export function AppRoutes() {
                 <Route path="templates" element={<MessagingTemplatesPage />} />
                 <Route path="campaigns" element={<MessagingCampaignsPage />} />
                 <Route path="analytics" element={<MessagingAnalyticsPage />} />
+              </Route>
+            </Route>
+          </Route>
+
+          {/* CRM Portal — بوابة CRM (تُفعَّل كوحدة crm) */}
+          <Route path="crm" element={<RequireRole roles={['sales', 'admin', 'developer']} />}>
+            <Route element={<CrmPortal />}>
+              <Route index element={<CrmDashboard />} />
+              {/* الوحدة 1: جهات الاتصال والحسابات (التقرير 01) */}
+              <Route path="contacts" element={<ContactsLayout />}>
+                <Route index element={<ContactsOverview />} />
+                <Route path="accounts" element={<CrmAccountsPage />} />
+                <Route path="accounts/:id" element={<CrmAccountDetailPage />} />
+                <Route path="people" element={<CrmPeoplePage />} />
+                <Route path="people/:id" element={<CrmContactDetailPage />} />
+                <Route path="convert" element={<CrmConvertPage />} />
+                <Route path="audit" element={<CrmAuditPage />} />
+              </Route>
+              {/* الوحدة 2: خط الأنابيب والصفقات (التقرير 02) */}
+              <Route path="pipeline" element={<PipelineLayout />}>
+                <Route index element={<PipelineOverview />} />
+                <Route path="board" element={<KanbanBoard />} />
+                <Route path="list" element={<CrmDealsListPage />} />
+                <Route path="deals/:id" element={<CrmDealDetailPage />} />
+                <Route path="winloss" element={<CrmWinLossPage />} />
+              </Route>
+              {/* الوحدة 3: الأنشطة والأتمتة (التقرير 03) */}
+              <Route path="activities" element={<ActivitiesLayout />}>
+                <Route index element={<ActivitiesOverview />} />
+                <Route path="tasks" element={<CrmMyTasksPage />} />
+                <Route path="sequences" element={<CrmSequencesPage />} />
+                <Route path="automation" element={<CrmAutomationPage />} />
+                <Route path="assignment" element={<CrmAssignmentPage />} />
+              </Route>
+              {/* الوحدة 4: العروض والعقود CPQ (التقرير 04) */}
+              <Route path="quotes" element={<QuotesLayout />}>
+                <Route index element={<QuotesOverview />} />
+                <Route path="catalog" element={<CrmCatalogPage />} />
+                <Route path="list" element={<CrmQuotesListPage />} />
+                <Route path="detail/:id" element={<CrmQuoteDetailPage />} />
+                <Route path="approvals" element={<CrmApprovalsPage />} />
+                <Route path="contracts" element={<CrmContractsPage />} />
+              </Route>
+              {/* الوحدة 5: الدعم والتذاكر (التقرير 05) */}
+              <Route path="support" element={<SupportLayout />}>
+                <Route index element={<SupportOverview />} />
+                <Route path="tickets" element={<CrmTicketsPage />} />
+                <Route path="tickets/:id" element={<CrmTicketDetailPage />} />
+                <Route path="kb" element={<CrmKnowledgeBasePage />} />
+                <Route path="settings" element={<CrmSupportSettingsPage />} />
+              </Route>
+              {/* الوحدة 6: التحليلات والتنبؤ (التقرير 06) — بوابة CRM كاملة 6/6 */}
+              <Route path="analytics" element={<AnalyticsLayout />}>
+                <Route index element={<CrmExecOverview />} />
+                <Route path="forecast" element={<CrmForecastPage />} />
+                <Route path="intelligence" element={<CrmIntelligencePage />} />
+                <Route path="revenue" element={<CrmRevenuePage />} />
               </Route>
             </Route>
           </Route>
