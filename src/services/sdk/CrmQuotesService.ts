@@ -160,6 +160,19 @@ class CrmQuoteService extends BaseService<CrmQuote> {
     return data as string;
   }
 
+  /**
+   * إرسال العرض للتوقيع عن بُعد عبر DocuSign — Edge Function crm-send-signature.
+   *   - مع مفاتيح DOCUSIGN_* → يُنشئ ظرفاً ويُرسل للعميل ليوقّع عن بُعد.
+   *   - بلا مفاتيح → mode='simulated' (استخدم sign() الداخلي).
+   */
+  async sendForSignature(params: { quoteId: string; signerEmail: string; signerName: string }): Promise<{ mode: 'live' | 'simulated'; ok?: boolean; envelopeId?: string; message?: string; error?: string }> {
+    const { data, error } = await supabase.functions.invoke('crm-send-signature', {
+      body: { quote_id: params.quoteId, signer_email: params.signerEmail, signer_name: params.signerName },
+    });
+    if (error) throw new Error(error.message);
+    return data as { mode: 'live' | 'simulated'; ok?: boolean; envelopeId?: string; message?: string; error?: string };
+  }
+
   async analytics(): Promise<QuoteAnalytics> {
     const { data, error } = await supabase.rpc('crm_quote_analytics');
     if (error) throw new Error(error.message);

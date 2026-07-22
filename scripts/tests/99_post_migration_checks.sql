@@ -555,7 +555,13 @@ BEGIN
   IF to_regprocedure('public.crm_apply_enrichment(uuid,text,text,integer,numeric,text,text,text,text)') IS NULL THEN
     RAISE EXCEPTION 'FAILED: crm_apply_enrichment missing (0175)';
   END IF;
-  RAISE NOTICE 'CHECK Z PASSED — توصيل البريد/الرسائل + الربط المالي + دفع الفعاليات + إثراء البيانات جاهز (0171→0175)';
+  -- التوقيع الإلكتروني عن بُعد (0176)
+  IF to_regclass('public.crm_signature_requests') IS NULL
+     OR to_regprocedure('public.crm_record_signature_request(uuid,text,text,text)') IS NULL
+     OR to_regprocedure('public.crm_confirm_signature(text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: e-signature (DocuSign) objects missing (0176)';
+  END IF;
+  RAISE NOTICE 'CHECK Z PASSED — توصيل المزوّدين كامل: بريد/رسائل/ربط مالي/دفع/إثراء/توقيع (0171→0176)';
 END $$;
 
 \echo ''
