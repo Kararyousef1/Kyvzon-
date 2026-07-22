@@ -169,6 +169,24 @@ class SocialAccountService extends BaseService<SocialAccount> {
     return this.update(id, { is_connected: true, connected_at: new Date().toISOString() } as Partial<SocialAccount>);
   }
   disconnect(id: string) { return this.update(id, { is_connected: false } as Partial<SocialAccount>); }
+
+  /**
+   * بدء تدفّق OAuth الحقيقي لربط منصة — Edge Function social-oauth-start.
+   *   - مع مفاتيح تطبيق المنصة → يعيد authorize_url لتوجيه المستخدم إليه.
+   *   - بلا مفاتيح → mode='simulated' (استخدم connect() للمحاكاة).
+   */
+  async startOAuth(provider: SocialPlatform): Promise<{ mode: 'live' | 'simulated'; ok?: boolean; authorizeUrl?: string; message?: string }> {
+    const { data, error } = await supabase.functions.invoke('social-oauth-start', { body: { provider } });
+    if (error) throw new Error(error.message);
+    const r = data as { mode: 'live' | 'simulated'; ok?: boolean; authorize_url?: string; message?: string };
+    return { mode: r.mode, ok: r.ok, authorizeUrl: r.authorize_url, message: r.message };
+  }
+
+  /** فكّ ربط حساب اجتماعي (يحذف الرمز السرّي عبر دالة DB) */
+  async disconnectOAuth(accountId: string): Promise<void> {
+    const { error } = await supabase.rpc('disconnect_social_account', { p_account_id: accountId });
+    if (error) throw new Error(error.message);
+  }
 }
 
 class SocialPostService extends BaseService<SocialPost> {

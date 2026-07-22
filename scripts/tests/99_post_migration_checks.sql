@@ -561,7 +561,17 @@ BEGIN
      OR to_regprocedure('public.crm_confirm_signature(text,text)') IS NULL THEN
     RAISE EXCEPTION 'FAILED: e-signature (DocuSign) objects missing (0176)';
   END IF;
-  RAISE NOTICE 'CHECK Z PASSED — توصيل المزوّدين كامل: بريد/رسائل/ربط مالي/دفع/إثراء/توقيع (0171→0176)';
+  -- تكاملات OAuth (0177) + تأكيد أمان الرموز
+  IF to_regclass('public.social_oauth_tokens') IS NULL
+     OR to_regclass('public.crm_email_oauth_tokens') IS NULL
+     OR to_regprocedure('public.store_social_oauth_token(uuid,text,text,text,text,text,text,text,timestamptz)') IS NULL
+     OR to_regprocedure('public.disconnect_social_account(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: OAuth integration objects missing (0177)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE tablename IN ('social_oauth_tokens','crm_email_oauth_tokens')) THEN
+    RAISE EXCEPTION 'SECURITY: OAuth token tables must have NO authenticated policies (0177)';
+  END IF;
+  RAISE NOTICE 'CHECK Z PASSED — توصيل كل المزوّدين: بريد/رسائل/مالي/دفع/إثراء/توقيع/بث/OAuth (0171→0177) + الرموز محميّة';
 END $$;
 
 \echo ''
