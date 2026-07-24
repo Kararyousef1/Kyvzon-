@@ -14,6 +14,7 @@ import './landing/styles.css';
 
 import { LangProvider, useLang } from './landing/LangContext';
 import { useScrollMeta, useScrollSpy } from './landing/hooks';
+import { useThemeInjector } from './landing/ThemeInjector';
 
 import { Header } from './landing/sections/Header';
 import { Hero } from './landing/sections/Hero';
@@ -29,6 +30,7 @@ import { CTABanner } from './landing/sections/CTABanner';
 import { Contact } from './landing/sections/Contact';
 import { Footer } from './landing/sections/Footer';
 import { ScrollChrome } from './landing/sections/ScrollChrome';
+import { ContactFab } from './landing/sections/ContactFab';
 
 import type { LandingPageProps } from './landing/types';
 import type { LandingConfig } from '../../shared/types/landing';
@@ -69,6 +71,17 @@ function LandingPageContent({ onLoginClick, previewMode }: LandingPageProps) {
   const { scrolled, scrollPct, showTop } = useScrollMeta();
   const activeSection = useScrollSpy(SCROLL_SPY_IDS);
   useDocumentMeta();
+  useThemeInjector(publicConfig?.theme);
+
+  // يمرّر لقسم الـ hash عند الوصول من صفحة أخرى (مثل /#services)
+  useEffect(() => {
+    const hash = window.location.hash?.replace('#', '');
+    if (hash) {
+      const scroll = () => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const timers = [300, 800, 1400].map((d) => setTimeout(scroll, d));
+      return () => timers.forEach(clearTimeout);
+    }
+  }, []);
 
 
   useEffect(() => {
@@ -106,6 +119,8 @@ function LandingPageContent({ onLoginClick, previewMode }: LandingPageProps) {
       </main>
 
       <Footer landingConfig={landingConfig} publicConfig={publicConfig} />
+
+      <ContactFab publicConfig={publicConfig} />
     </div>
   );
 }

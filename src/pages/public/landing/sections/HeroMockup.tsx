@@ -1,148 +1,123 @@
 import React from 'react';
-import { TrendingUp, Bell, Search } from 'lucide-react';
+import { TrendingUp, Bell, Search, Users, Clock, CheckCircle2, BarChart3 } from 'lucide-react';
 import { useLang } from '../LangContext';
-import { BrowserFrame } from '../ui/DeviceFrame';
-import { DAY_LABELS, WEEKLY_ATTENDANCE, KPI_CARDS, ACTIVITY_FEED } from '../mockupData';
 
-/** Mockup للوحة التحكم — مبني بالكامل بـ CSS/SVG وليس صورة حقيقية، لضمان اتساقه مع هوية KYVZON */
+/**
+ * HeroMockup — لوحة تحكم توضيحية بثيم فاتح داخل إطار جهاز أنيق.
+ * مبنية بالكامل بـ CSS لضمان الاتساق مع هوية KYVZON. (الصور الحقيقية تُدار
+ * لاحقاً من بوابة المطوّر — صفحة إدارة الزوّار.)
+ */
 export function HeroMockup() {
-  const { lang, t } = useLang();
-  const days = DAY_LABELS[lang];
+  const { lang } = useLang();
+
+  const kpis = [
+    { icon: Users, label: { ar: 'الموظفون', en: 'Employees', ku: 'کارمەند' }, value: '248', delta: '+3.2%', color: '#1466d8' },
+    { icon: CheckCircle2, label: { ar: 'الحضور اليوم', en: 'Attendance', ku: 'ئامادەبوون' }, value: '96%', delta: '+1.1%', color: '#16a34a' },
+    { icon: Clock, label: { ar: 'طلبات معلّقة', en: 'Pending', ku: 'چاوەڕوان' }, value: '12', delta: '-4', color: '#ea580c' },
+  ];
+  const bars = [42, 58, 50, 74, 63, 80, 55];
 
   return (
     <div className="relative w-full max-w-[560px] mx-auto">
-      {/* توهّج خلفي خلف الإطار */}
-      <div
-        className="absolute -inset-6 rounded-[32px] pointer-events-none"
-        style={{ background: 'radial-gradient(circle at 30% 20%, rgba(99,102,241,0.35), transparent 60%)', filter: 'blur(30px)' }}
-        aria-hidden="true"
-      />
+      {/* هالة خلفية ناعمة */}
+      <div className="kv-glow-orb" style={{ inset: '-8% -6% auto auto', width: '55%', height: '55%', background: 'rgba(56,166,240,0.25)' }} aria-hidden="true" />
 
-      <BrowserFrame url="app.kyvzon.com/dashboard" className="relative anim-float" >
-        <div style={{ padding: 18, background: 'linear-gradient(180deg, #0d1020, #0a0c18)' }}>
-          {/* Topbar داخل التطبيق */}
+      <div className="kv-device relative anim-float">
+        {/* شريط المتصفح */}
+        <div className="kv-device-bar">
+          <span className="kv-device-dot" style={{ background: '#ef4444' }} />
+          <span className="kv-device-dot" style={{ background: '#f59e0b' }} />
+          <span className="kv-device-dot" style={{ background: '#22c55e' }} />
+          <div className="flex-1 mx-3">
+            <div style={{ background: '#fff', border: '1px solid var(--kv-border)', borderRadius: 8, padding: '4px 10px', fontSize: '0.65rem', color: 'var(--kv-text-muted)', textAlign: 'center', direction: 'ltr' }}>
+              app.kyvzon.com/dashboard
+            </div>
+          </div>
+        </div>
+
+        {/* جسم اللوحة (فاتح) */}
+        <div style={{ padding: 18, background: '#fbfcfe' }}>
+          {/* رأس */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <div className="text-white font-black text-sm">
-                {lang === 'ar' ? 'مرحباً، عمر 👋' : lang === 'en' ? 'Welcome, Omar 👋' : 'بەخێربێیت، عومەر 👋'}
+              <div style={{ color: 'var(--kv-text-hi)', fontWeight: 800, fontSize: '0.9rem' }}>
+                {lang === 'ar' ? 'مرحباً، عمر 👋' : lang === 'en' ? 'Welcome, Omar 👋' : 'بەخێربێیت 👋'}
               </div>
-              <div style={{ color: 'rgba(180,195,255,0.5)', fontSize: '0.7rem', marginTop: 2 }}>
-                {lang === 'ar' ? 'إليك ملخص اليوم' : lang === 'en' ? "Here's today's summary" : 'ئەمە کورتەی ئەمڕۆیە'}
+              <div style={{ color: 'var(--kv-text-muted)', fontSize: '0.7rem', marginTop: 2 }}>
+                {lang === 'ar' ? 'إليك ملخص اليوم' : lang === 'en' ? "Today's summary" : 'کورتەی ئەمڕۆ'}
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="badge" style={{ padding: '4px 10px', fontSize: '0.65rem' }}>
-                <span className="glow-dot" />
-                {t('hero_mockup_live')}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, background: 'var(--kv-accent-soft)', color: 'var(--kv-accent-2)', fontSize: '0.62rem', fontWeight: 700 }}>
+                <span style={{ width: 6, height: 6, borderRadius: 999, background: '#16a34a' }} />
+                {lang === 'ar' ? 'مباشر' : lang === 'en' ? 'Live' : 'ڕاستەوخۆ'}
               </span>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Bell size={12} style={{ color: 'rgba(255,255,255,0.5)' }} />
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: '#fff', border: '1px solid var(--kv-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Bell size={12} style={{ color: 'var(--kv-text-muted)' }} />
               </div>
             </div>
           </div>
 
-          {/* شريط بحث زخرفي */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 16 }}>
-            <Search size={12} style={{ color: 'rgba(255,255,255,0.3)' }} />
-            <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.72rem' }}>
-              {lang === 'ar' ? 'ابحث عن موظف، تقرير، طلب...' : lang === 'en' ? 'Search employee, report, request...' : 'گەڕان بۆ کارمەند، ڕاپۆرت...'}
+          {/* بحث */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid var(--kv-border)', borderRadius: 10, padding: '8px 12px', marginBottom: 14 }}>
+            <Search size={13} style={{ color: 'var(--kv-text-faint)' }} />
+            <span style={{ fontSize: '0.7rem', color: 'var(--kv-text-faint)' }}>
+              {lang === 'ar' ? 'ابحث عن موظف، تقرير، طلب…' : lang === 'en' ? 'Search…' : 'گەڕان…'}
             </span>
           </div>
 
-          {/* KPI cards */}
-          <div className="grid grid-cols-3 gap-2.5 mb-4">
-            {KPI_CARDS.map((k, i) => (
-              <div key={i} className="mockup-kpi">
-                <div style={{ color: 'rgba(180,195,255,0.55)', fontSize: '0.62rem', marginBottom: 6, lineHeight: 1.3 }}>{k.label[lang]}</div>
-                <div className="flex items-end justify-between">
-                  <span className="text-white font-black" style={{ fontSize: '1.05rem' }}>{k.value}</span>
-                  <span style={{ fontSize: '0.6rem', fontWeight: 700, color: k.positive ? '#34d399' : '#f87171' }}>{k.delta}</span>
+          {/* بطاقات KPI */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
+            {kpis.map((k, i) => {
+              const Icon = k.icon;
+              return (
+                <div key={i} style={{ background: '#fff', border: '1px solid var(--kv-border)', borderRadius: 12, padding: 12 }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 7, background: `${k.color}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                    <Icon size={13} style={{ color: k.color }} />
+                  </div>
+                  <div style={{ color: 'var(--kv-text-hi)', fontWeight: 900, fontSize: '1.05rem', lineHeight: 1 }}>{k.value}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 5 }}>
+                    <span style={{ color: 'var(--kv-text-muted)', fontSize: '0.55rem' }}>{k.label[lang]}</span>
+                    <span style={{ color: k.delta.startsWith('-') ? '#dc2626' : '#16a34a', fontSize: '0.55rem', fontWeight: 700 }}>{k.delta}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {/* Chart + activity feed */}
-          <div className="grid grid-cols-5 gap-3">
-            <div className="col-span-3 mockup-kpi" style={{ padding: '14px 14px 10px' }}>
-              <div className="flex items-center justify-between mb-3">
-                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>
-                  {lang === 'ar' ? 'الحضور الأسبوعي' : lang === 'en' ? 'Weekly Attendance' : 'ئامادەبوونی هەفتانە'}
+          {/* رسم بياني + قائمة */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 10 }}>
+            <div style={{ background: '#fff', border: '1px solid var(--kv-border)', borderRadius: 12, padding: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <BarChart3 size={12} style={{ color: 'var(--kv-accent-1)' }} />
+                <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--kv-text-hi)' }}>
+                  {lang === 'ar' ? 'الحضور الأسبوعي' : lang === 'en' ? 'Weekly attendance' : 'ئامادەبوونی هەفتانە'}
                 </span>
-                <TrendingUp size={12} style={{ color: '#818cf8' }} />
               </div>
-              <div className="flex items-end justify-between gap-1.5" style={{ height: 64 }}>
-                {WEEKLY_ATTENDANCE.map((h, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                    <div
-                      className="mockup-bar w-full"
-                      style={{
-                        height: `${h * 0.6}px`,
-                        background: i === 3
-                          ? 'linear-gradient(180deg, #818cf8, #6366f1)'
-                          : 'rgba(99,102,241,0.25)',
-                      }}
-                    />
-                    <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.3)' }}>{days[i]}</span>
-                  </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 70 }}>
+                {bars.map((h, i) => (
+                  <div key={i} style={{ flex: 1, height: `${h}%`, borderRadius: '4px 4px 0 0', background: i === 5 ? 'var(--kv-accent-1)' : 'var(--kv-accent-soft)' }} />
                 ))}
               </div>
             </div>
-
-            <div className="col-span-2 mockup-kpi" style={{ padding: '12px' }}>
-              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)', marginBottom: 8 }}>
-                {lang === 'ar' ? 'آخر النشاطات' : lang === 'en' ? 'Recent Activity' : 'دوایین چالاکی'}
+            <div style={{ background: '#fff', border: '1px solid var(--kv-border)', borderRadius: 12, padding: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <TrendingUp size={12} style={{ color: '#16a34a' }} />
+                <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--kv-text-hi)' }}>
+                  {lang === 'ar' ? 'النشاط' : lang === 'en' ? 'Activity' : 'چالاکی'}
+                </span>
               </div>
-              <div className="flex flex-col gap-2">
-                {ACTIVITY_FEED.map((a, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div
-                      style={{
-                        width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                        background: `${a.color}33`, color: a.color,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '0.5rem', fontWeight: 800,
-                      }}
-                    >
-                      {a.initials}
-                    </div>
-                    <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.3 }}>{a.text[lang]}</span>
+              {[1, 2, 3].map((r) => (
+                <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                  <span style={{ width: 20, height: 20, borderRadius: 6, background: 'var(--kv-bg-alt)', flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ height: 5, borderRadius: 3, background: 'var(--kv-border)', width: `${90 - r * 12}%`, marginBottom: 4 }} />
+                    <div style={{ height: 5, borderRadius: 3, background: 'var(--kv-border-soft)', width: `${60 - r * 8}%` }} />
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      </BrowserFrame>
-
-      {/* بطاقة عائمة علوية */}
-      <div
-        className="hidden md:block absolute glass-dark rounded-2xl px-4 py-3 anim-float"
-        style={{ top: -22, insetInlineStart: -28, animationDelay: '0.4s', animationDuration: '7s' }}
-      >
-        <div className="flex items-center gap-2">
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(16,185,129,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <TrendingUp size={14} style={{ color: '#34d399' }} />
-          </div>
-          <div>
-            <div className="text-white font-black" style={{ fontSize: '0.85rem' }}>+18%</div>
-            <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)' }}>
-              {lang === 'ar' ? 'إنتاجية' : lang === 'en' ? 'Productivity' : 'بەرهەمهێنان'}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* بطاقة عائمة سفلية */}
-      <div
-        className="hidden md:block absolute glass-dark rounded-2xl px-4 py-3 anim-float"
-        style={{ bottom: -18, insetInlineEnd: -20, animationDelay: '1.1s', animationDuration: '6s' }}
-      >
-        <div className="flex items-center gap-2">
-          <span className="glow-dot" />
-          <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
-            {lang === 'ar' ? '٦ بوابات متصلة' : lang === 'en' ? '6 portals connected' : '٦ دەروازە پەیوەستن'}
-          </span>
         </div>
       </div>
     </div>

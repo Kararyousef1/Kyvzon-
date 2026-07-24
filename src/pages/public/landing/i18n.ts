@@ -9,7 +9,7 @@ export const TEXTS: Record<string, Record<Lang, string>> = {
   nav_home:     { ar: 'الرئيسية',   en: 'Home',        ku: 'ماڵەوە' },
   nav_portals:  { ar: 'البوابات',   en: 'Portals',     ku: 'دەروازەکان' },
   nav_services: { ar: 'الخدمات',    en: 'Services',    ku: 'خزمەتگوزاریەکان' },
-  nav_pricing:  { ar: 'الأسعار',    en: 'Pricing',     ku: 'نرخەکان' },
+  nav_pricing:  { ar: 'الخطط',      en: 'Plans',       ku: 'پلانەکان' },
   nav_faq:      { ar: 'الأسئلة الشائعة', en: 'FAQ',     ku: 'پرسیارەکان' },
   nav_contact:  { ar: 'تواصل',      en: 'Contact',     ku: 'پەیوەندی' },
   login:        { ar: 'دخول النظام', en: 'Login',       ku: 'چوونەژوورەوە' },

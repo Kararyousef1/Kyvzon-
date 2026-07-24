@@ -28,7 +28,7 @@ export function Header({ onLoginClick, scrolled, activeSection, landingConfig }:
       {/* خط ضوئي متدرج أعلى الصفحة — لمسة فاخرة تظهر عند التمرير */}
       <div
         className={`absolute top-0 left-0 right-0 h-px transition-opacity duration-500 ${scrolled ? 'opacity-100' : 'opacity-0'}`}
-        style={{ background: 'linear-gradient(90deg, transparent, rgba(129,140,248,0.6), rgba(34,211,238,0.5), transparent)' }}
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(12,141,231,0.4), rgba(0,109,197,0.25), transparent)' }}
         aria-hidden="true"
       />
 
@@ -42,12 +42,12 @@ export function Header({ onLoginClick, scrolled, activeSection, landingConfig }:
           <div className="relative">
             <div
               className="absolute -inset-1 rounded-2xl opacity-50 blur-md transition-opacity duration-300 group-hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #22d3ee)' }}
+              style={{ background: 'linear-gradient(135deg, #0c8de7, #0057a0)' }}
               aria-hidden="true"
             />
             <div
-              className="relative w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-indigo-500/40 transition-transform duration-300 group-hover:scale-105"
-              style={{ background: landingConfig?.themeColor ? `linear-gradient(135deg, ${landingConfig.themeColor}, ${landingConfig.themeColor}bb)` : 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+              className="relative w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-sky-500/40 transition-transform duration-300 group-hover:scale-105"
+              style={{ background: landingConfig?.themeColor ? `linear-gradient(135deg, ${landingConfig.themeColor}, ${landingConfig.themeColor}bb)` : 'linear-gradient(135deg, #0c8de7, #0057a0)' }}
             >
               {landingConfig?.logoUrl
                 ? <img src={landingConfig.logoUrl} alt="KYVZON" className="w-full h-full rounded-xl object-cover" />
@@ -88,14 +88,14 @@ export function Header({ onLoginClick, scrolled, activeSection, landingConfig }:
               <ChevronDown size={12} />
             </button>
             <div
-              className="absolute top-full mt-2 glass-dark rounded-2xl overflow-hidden shadow-2xl shadow-black/60 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-all z-50 min-w-[140px]"
+              className="absolute top-full mt-2 glass-dark rounded-2xl overflow-hidden shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-all z-50 min-w-[140px]"
               style={{ [isRTL ? 'right' : 'left']: 0 }}
             >
               {LANG_OPTIONS.map((lo) => (
                 <button
                   key={lo.code}
                   onClick={() => setLang(lo.code)}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-500/15 transition-all flex items-center gap-2 ${lang === lo.code ? 'text-indigo-300 font-bold bg-indigo-500/10' : 'text-white/70'}`}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-sky-50 transition-all flex items-center gap-2 ${lang === lo.code ? 'font-bold' : 'text-white/70'}`}
                   aria-current={lang === lo.code ? 'true' : undefined}
                 >
                   {lo.flag} {lo.label}
@@ -121,7 +121,7 @@ export function Header({ onLoginClick, scrolled, activeSection, landingConfig }:
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="lg:hidden glass-dark border-t border-white/06 px-4 py-4 flex flex-col gap-1">
+        <div className="lg:hidden glass-dark border-t border-slate-200 px-4 py-4 flex flex-col gap-1">
           {NAV.map((n) => (
             <button key={n.id} onClick={() => scrollTo(n.id)} className={`nav-pill text-right w-full py-3 ${activeSection === n.id ? 'active' : ''}`}>
               {n.label}

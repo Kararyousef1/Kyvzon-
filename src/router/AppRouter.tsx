@@ -48,6 +48,7 @@ import SignupPage from '../pages/public/signup/SignupPage';
 import PublicAccountPage from '../pages/public/account/PublicAccountPage';
 import PublicPortalsPage from '../pages/public/portals/PublicPortalsPage';
 import PublicPortalDetailPage from '../pages/public/portals/PublicPortalDetailPage';
+import ServiceDetailPage from '../pages/public/portals/ServiceDetailPage';
 import PublicInfoPage from '../pages/public/static/PublicInfoPage';
 
 // ─── Lazy: Employee ─────────────────────────────────────────────────────
@@ -282,6 +283,7 @@ export function AppRoutes() {
       <Route path="/account" element={<PublicAccountPage />} />
       <Route path="/portals" element={<PublicPortalsPage />} />
       <Route path="/portals/:portalId" element={<PublicPortalDetailPage />} />
+      <Route path="/services/:serviceId" element={<ServiceDetailPage />} />
       <Route path="/about" element={<PublicInfoPage kind="about" />} />
       <Route path="/careers" element={<PublicInfoPage kind="careers" />} />
       <Route path="/blog" element={<PublicInfoPage kind="blog" />} />

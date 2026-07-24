@@ -13,6 +13,44 @@ export interface PublicInfoPageConfig {
 
 export interface LocalizedConfigText { ar: string; en: string; ku: string }
 
+/** ثيم الموقع العام — ألوان وخطوط قابلة للتحكم من لوحة المطوّر */
+export interface PublicSiteTheme {
+  /** اللون الرئيسي (الهوية) */
+  brandColor: string;
+  /** لون داكن مساعد (للتدرّجات والنصوص على أبيض) */
+  brandDark: string;
+  /** لون تفاعل سماوي */
+  accentSky: string;
+  /** لون خلفية القسم البديل */
+  bgAlt: string;
+  /** لون النص العنواني */
+  textHeading: string;
+  /** لون نص الفقرات */
+  textBody: string;
+  /** الخط الرئيسي (اسم عائلة Google Font) */
+  fontFamily: string;
+  /** خط العناوين */
+  headingFontFamily: string;
+}
+
+/** وسائط الهيرو والشعار */
+export interface PublicSiteMedia {
+  /** رابط الشعار (صورة) */
+  logoUrl?: string;
+  /** رابط صورة الهيرو (بديل للموك-أب) */
+  heroImageUrl?: string;
+  /** رابط فيديو تعريفي (YouTube/Vimeo/mp4) */
+  heroVideoUrl?: string;
+}
+
+/** نصوص الهيرو والأقسام الرئيسية القابلة للتحكم */
+export interface PublicSiteContent {
+  heroBadge?: LocalizedConfigText;
+  heroTitle1?: LocalizedConfigText;
+  heroTitle2?: LocalizedConfigText;
+  heroDesc?: LocalizedConfigText;
+}
+
 export interface PublicPlanConfig {
   id: string;
   name: LocalizedConfigText;
@@ -62,8 +100,23 @@ export interface PublicSiteConfig {
   plans?: PublicPlanConfig[];
   services?: PublicServiceConfig[];
   portals?: PublicPortalConfig[];
+  theme?: PublicSiteTheme;
+  media?: PublicSiteMedia;
+  content?: PublicSiteContent;
   updatedAt?: string;
 }
+
+/** الثيم الافتراضي — يطابق قيم styles.css الحالية */
+export const DEFAULT_SITE_THEME: PublicSiteTheme = {
+  brandColor: '#1466d8',
+  brandDark: '#0e4fac',
+  accentSky: '#38a6f0',
+  bgAlt: '#f7f9fc',
+  textHeading: '#0a1628',
+  textBody: '#3d4b60',
+  fontFamily: 'IBM Plex Sans Arabic',
+  headingFontFamily: 'Cairo',
+};
 
 export const DEFAULT_PUBLIC_SITE_CONFIG: PublicSiteConfig = {
   signupEnabled: true,
@@ -77,6 +130,9 @@ export const DEFAULT_PUBLIC_SITE_CONFIG: PublicSiteConfig = {
   plans: [],
   services: [],
   portals: [],
+  theme: DEFAULT_SITE_THEME,
+  media: {},
+  content: {},
   pages: [
     { kind: 'about', title: 'من نحن', desc: 'KYVZON منصة SaaS عراقية لبناء بوابات عمل احترافية للشركات والمؤسسات.', bullets: ['منصة متعددة الشركات', 'تركيز على HR والتشغيل', 'مصممة للعراق والمنطقة'], enabled: true },
     { kind: 'careers', title: 'الوظائف', desc: 'انضم إلى فريق Kyvzon لبناء مستقبل منصات SaaS في العراق والمنطقة.', bullets: ['هندسة برمجيات', 'دعم فني', 'مبيعات وشراكات', 'تصميم وتجربة مستخدم'], enabled: true },

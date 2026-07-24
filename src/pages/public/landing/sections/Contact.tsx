@@ -6,16 +6,16 @@ import type { LandingConfig } from '../../../../shared/types/landing';
 import type { PublicSiteConfig } from '../../../../services/sdk';
 
 const CONTACT_ITEMS = [
-  { icon: Phone, color: '#6366f1', title: { ar: 'الهاتف', en: 'Phone', ku: 'تەلەفۆن' }, val: { ar: '+964 XXX XXX XXXX', en: '+964 XXX XXX XXXX', ku: '+964 XXX XXX XXXX' } },
-  { icon: Mail, color: '#0ea5e9', title: { ar: 'البريد', en: 'Email', ku: 'ئیمەیڵ' }, val: { ar: 'hello@kyvzon.com', en: 'hello@kyvzon.com', ku: 'hello@kyvzon.com' } },
-  { icon: MapPin, color: '#10b981', title: { ar: 'الموقع', en: 'Location', ku: 'شوێن' }, val: { ar: 'بغداد، العراق', en: 'Baghdad, Iraq', ku: 'بەغداد، عێراق' } },
+  { icon: Phone, color: 'var(--kv-accent-1)', title: { ar: 'الهاتف', en: 'Phone', ku: 'تەلەفۆن' }, val: { ar: '+964 XXX XXX XXXX', en: '+964 XXX XXX XXXX', ku: '+964 XXX XXX XXXX' } },
+  { icon: Mail, color: 'var(--kv-accent-sky)', title: { ar: 'البريد', en: 'Email', ku: 'ئیمەیڵ' }, val: { ar: 'hello@kyvzon.com', en: 'hello@kyvzon.com', ku: 'hello@kyvzon.com' } },
+  { icon: MapPin, color: '#16a34a', title: { ar: 'الموقع', en: 'Location', ku: 'شوێن' }, val: { ar: 'بغداد، العراق', en: 'Baghdad, Iraq', ku: 'بەغداد، عێراق' } },
 ];
 
 export function Contact({ landingConfig, publicConfig }: { landingConfig?: Partial<LandingConfig> | null; publicConfig?: PublicSiteConfig }) {
   const { lang, t } = useLang();
 
   return (
-    <section id="contact" className="py-24 md:py-32" style={{ backgroundColor: 'var(--kv-bg-alt)' }}>
+    <section id="contact" className="relative" style={{ backgroundColor: 'var(--kv-bg-alt)', paddingBlock: 'var(--kv-section-y)' }}>
       <div className="max-w-7xl mx-auto px-4 md:px-8">
         <Reveal className="text-center mb-14">
           <div className="section-label"><Phone size={12} /> {t('contact_label')}</div>
@@ -31,7 +31,7 @@ export function Contact({ landingConfig, publicConfig }: { landingConfig?: Parti
                   <c.icon size={22} style={{ color: c.color }} />
                 </div>
                 <div className="font-bold text-white mb-1">{c.title[lang]}</div>
-                <div style={{ color: 'rgba(180,195,255,0.7)', fontSize: '0.875rem' }} dir="ltr">{c.val[lang]}</div>
+                <div style={{ color: 'var(--kv-text-body)', fontSize: '0.875rem' }} dir="ltr">{c.val[lang]}</div>
               </div>
             </Reveal>
           );

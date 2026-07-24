@@ -11,40 +11,38 @@ export function CTABanner({ onLoginClick, publicConfig }: { onLoginClick: () => 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
-    <section className="py-20" style={{ backgroundColor: 'var(--kv-bg-void)' }}>
-      <div className="max-w-4xl mx-auto px-4 md:px-8 text-center">
+    <section className="kv-section" style={{ backgroundColor: 'var(--kv-bg-void)' }}>
+      <div className="kv-container">
         <Reveal>
           <div
-            className="rounded-[32px] p-12 md:p-16 relative overflow-hidden"
+            className="relative overflow-hidden text-center"
             style={{
-              background: 'linear-gradient(rgba(10,12,32,0.92), rgba(10,12,32,0.92)) padding-box, var(--kv-accent-grad-full) border-box',
-              border: '1px solid transparent',
-              boxShadow: '0 40px 120px -40px rgba(99,102,241,0.6)',
+              background: 'var(--kv-accent-grad)',
+              borderRadius: 'var(--kv-r-2xl)',
+              padding: 'clamp(2.5rem, 6vw, 4.5rem)',
+              boxShadow: '0 40px 90px -35px rgba(20,102,216,0.45)',
             }}
           >
-            {/* أورورا داخلية متحركة */}
+            {/* عناصر تجريدية خفيفة */}
             <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-              <div className="anim-aurora absolute -top-24 -left-24 w-[350px] h-[350px] rounded-full bg-indigo-500/20 blur-[90px]" />
-              <div className="anim-aurora absolute -bottom-24 -right-24 w-[350px] h-[350px] rounded-full bg-cyan-400/12 blur-[90px]" style={{ animationDelay: '-6s' }} />
-              <div className="absolute inset-0 hero-grid opacity-20" />
+              <div className="kv-glow-orb" style={{ inset: '-30% -10% auto auto', width: 420, height: 420, background: 'rgba(255,255,255,0.14)' }} />
+              <div className="kv-glow-orb" style={{ inset: 'auto auto -40% -10%', width: 380, height: 380, background: 'rgba(56,166,240,0.28)' }} />
             </div>
 
             <div className="relative z-10">
               <div className="text-5xl mb-5 anim-float inline-block">🚀</div>
-              <h2 className="text-3xl md:text-5xl font-black mb-5 leading-tight">
-                <span className="kv-gradient-text" style={{ filter: 'drop-shadow(0 0 26px rgba(139,92,246,0.4))' }}>{t('cta_title')}</span>
-              </h2>
-              <p style={{ color: 'rgba(190,200,255,0.8)', marginBottom: '32px', maxWidth: '32rem', margin: '0 auto 32px', fontSize: '1.05rem', lineHeight: 1.8 }}>{t('cta_sub')}</p>
+              <h2 className="font-black mb-4 leading-tight" style={{ fontSize: 'var(--kv-fs-h2)', color: '#fff' }}>{t('cta_title')}</h2>
+              <p style={{ color: 'rgba(255,255,255,0.9)', maxWidth: '34rem', margin: '0 auto 2rem', fontSize: 'var(--kv-fs-lead)', lineHeight: 1.75 }}>{t('cta_sub')}</p>
               <div className="flex flex-wrap justify-center gap-3">
-                <button onClick={() => navigate(publicConfig?.primaryCtaHref || '/signup?intent=demo')} className="btn-primary text-base px-8 py-3.5">
+                <button onClick={() => navigate(publicConfig?.primaryCtaHref || '/signup?intent=demo')} className="btn-primary" style={{ background: '#fff', color: 'var(--kv-accent-2)' }}>
                   <Rocket size={16} />
                   {publicConfig?.primaryCtaLabel || t('cta_start_now')}
                 </button>
-                <button onClick={() => navigate('/signup?intent=demo&label=Talk%20to%20expert')} className="btn-outline text-base px-8 py-3.5">
+                <button onClick={() => navigate('/signup?intent=demo&label=Talk%20to%20expert')} className="btn-outline" style={{ background: 'transparent', color: '#fff', borderColor: 'rgba(255,255,255,0.5)' }}>
                   {t('cta_talk_expert')}
                 </button>
               </div>
-              <p style={{ marginTop: 24, fontSize: '0.78rem', color: 'rgba(180,195,255,0.5)', fontWeight: 600 }}>{t('cta_trust_row')}</p>
+              <p style={{ marginTop: '1.5rem', fontSize: '0.82rem', color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>{t('cta_trust_row')}</p>
             </div>
           </div>
         </Reveal>

@@ -102,15 +102,15 @@ export default function SignupPage() {
         {/* Logo */}
         <div className="relative flex items-center gap-3">
           <div className="relative">
-            <div className="absolute -inset-1 rounded-2xl blur-md opacity-60" style={{ background: 'linear-gradient(135deg, #6366f1, #22d3ee)' }} aria-hidden="true" />
-            <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/40">K</div>
+            <div className="absolute -inset-1 rounded-2xl blur-md opacity-60" style={{ background: 'var(--kv-accent-grad)' }} aria-hidden="true" />
+            <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-sky-500/30">K</div>
           </div>
-          <span className="text-2xl font-black text-white">KYVZON<span className="kv-gradient-text">.</span></span>
+          <span className="text-2xl font-black" style={{ color: 'var(--kv-text-hi)' }}>KYVZON<span className="kv-gradient-text">.</span></span>
         </div>
 
         {/* Copy */}
         <div className="relative max-w-md">
-          <h2 className="text-3xl xl:text-4xl font-black text-white leading-snug mb-4">
+          <h2 className="text-3xl xl:text-4xl font-black leading-snug mb-4" style={{ color: 'var(--kv-text-hi)' }}>
             انضم إلى منصة
             <span className="kv-gradient-text"> ERP </span>
             الأحدث في العراق
@@ -121,13 +121,13 @@ export default function SignupPage() {
 
           <div className="mt-10 space-y-4">
             {BRAND_POINTS.map((p, i) => (
-              <div key={i} className="flex items-start gap-3.5 rounded-2xl p-4 anim-fade-up" style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(148,163,255,0.12)', backdropFilter: 'blur(10px)', animationDelay: `${0.15 + i * 0.12}s` }}>
-                <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.3), rgba(34,211,238,0.12))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12)' }}>
-                  <p.icon size={17} style={{ color: '#a5b4fc' }} />
+              <div key={i} className="flex items-start gap-3.5 rounded-2xl p-4 anim-fade-up" style={{ background: '#ffffff', border: '1px solid var(--kv-border)', boxShadow: 'var(--kv-shadow-xs)', animationDelay: `${0.15 + i * 0.12}s` }}>
+                <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center" style={{ background: 'var(--kv-accent-soft)' }}>
+                  <p.icon size={17} style={{ color: 'var(--kv-accent-1)' }} />
                 </div>
                 <div>
-                  <div className="text-sm font-black text-white">{p.title}</div>
-                  <div style={{ fontSize: '0.78rem', color: 'rgba(180,195,255,0.55)', marginTop: 3 }}>{p.desc}</div>
+                  <div className="text-sm font-black" style={{ color: 'var(--kv-text-hi)' }}>{p.title}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--kv-text-muted)', marginTop: 3 }}>{p.desc}</div>
                 </div>
               </div>
             ))}
@@ -135,8 +135,8 @@ export default function SignupPage() {
         </div>
 
         {/* Trust row */}
-        <div className="relative flex items-center gap-2 text-xs font-bold" style={{ color: 'rgba(180,195,255,0.45)' }}>
-          <ShieldCheck size={14} style={{ color: '#22d3ee' }} />
+        <div className="relative flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--kv-text-muted)' }}>
+          <ShieldCheck size={14} style={{ color: 'var(--kv-accent-1)' }} />
           بياناتك محمية بالتشفير الكامل · 🇮🇶 صُنع بفخر في العراق
         </div>
       </aside>
@@ -157,18 +157,18 @@ export default function SignupPage() {
                     <div
                       className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black transition-all duration-500"
                       style={{
-                        background: i < stepIndex ? 'linear-gradient(135deg, #10b981, #059669)' : i === stepIndex ? 'var(--kv-accent-grad)' : 'rgba(255,255,255,0.06)',
-                        color: i <= stepIndex ? '#fff' : 'rgba(255,255,255,0.35)',
+                        background: i < stepIndex ? 'linear-gradient(135deg, #10b981, #059669)' : i === stepIndex ? 'var(--kv-accent-grad)' : 'var(--kv-border)',
+                        color: i <= stepIndex ? '#fff' : 'var(--kv-text-muted)',
                         boxShadow: i === stepIndex ? '0 0 22px rgba(99,102,241,0.55)' : 'none',
-                        border: i <= stepIndex ? '1px solid transparent' : '1px solid rgba(255,255,255,0.1)',
+                        border: i <= stepIndex ? '1px solid transparent' : '1px solid var(--kv-border)',
                       }}
                     >
                       {i < stepIndex ? <CheckCircle size={16} /> : i + 1}
                     </div>
-                    <span className="text-[10px] font-bold" style={{ color: i === stepIndex ? '#a5b4fc' : 'rgba(255,255,255,0.35)' }}>{s.label}</span>
+                    <span className="text-[10px] font-bold" style={{ color: i === stepIndex ? 'var(--kv-accent-2)' : 'var(--kv-text-muted)' }}>{s.label}</span>
                   </div>
                   {i < 2 && (
-                    <div className="w-14 sm:w-20 h-0.5 mx-1 mb-5 rounded-full transition-all duration-500" style={{ background: i < stepIndex ? 'linear-gradient(90deg, #10b981, #6366f1)' : 'rgba(255,255,255,0.08)' }} />
+                    <div className="w-14 sm:w-20 h-0.5 mx-1 mb-5 rounded-full transition-all duration-500" style={{ background: i < stepIndex ? 'linear-gradient(90deg, #16a34a, var(--kv-accent-1))' : 'var(--kv-border)' }} />
                   )}
                 </React.Fragment>
               ))}
@@ -179,18 +179,18 @@ export default function SignupPage() {
           <div
             className="rounded-[28px] p-6 sm:p-9 anim-fade-up-1"
             style={{
-              background: 'linear-gradient(rgba(13,16,36,0.88), rgba(13,16,36,0.88)) padding-box, linear-gradient(160deg, rgba(129,140,248,0.45), rgba(148,163,255,0.08) 45%, rgba(34,211,238,0.25)) border-box',
+              background: '#ffffff',
               border: '1px solid transparent',
               boxShadow: '0 40px 100px -30px rgba(0,0,0,0.8), 0 0 60px -20px rgba(99,102,241,0.25)',
               backdropFilter: 'blur(20px)',
             }}
           >
             <div className="text-center mb-7">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold mb-4" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.22), rgba(34,211,238,0.1))', border: '1px solid rgba(129,140,248,0.4)', color: '#c7d2fe' }}>
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold mb-4" style={{ background: 'var(--kv-accent-soft)', border: '1px solid #cfe0f8', color: 'var(--kv-accent-2)' }}>
                 <Sparkles size={13} /> {label}
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white leading-snug">{step === 'done' ? 'تم إنشاء حسابك 🎉' : title}</h1>
-              <p className="text-white/55 mt-2.5 text-sm leading-relaxed">
+              <h1 className="text-2xl sm:text-3xl font-black leading-snug" style={{ color: 'var(--kv-text-hi)' }}>{step === 'done' ? 'تم إنشاء حسابك 🎉' : title}</h1>
+              <p className=" mt-2.5 text-sm leading-relaxed">
                 {step === 'email' && 'أدخل بريدك الإلكتروني وسنرسل لك رمز تحقق فوري'}
                 {step === 'otp' && <>أدخل الرمز المرسل إلى <span className="font-bold text-indigo-300" dir="ltr">{email}</span></>}
                 {step === 'details' && 'خطوة أخيرة — أكمل بياناتك ليتواصل معك فريق KYVZON'}
@@ -219,7 +219,7 @@ export default function SignupPage() {
                   <input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))} className="kv-modal-input text-center tracking-[0.45em] text-lg font-black pr-11" placeholder="000000" inputMode="numeric" autoFocus />
                 </Field>
                 <Submit loading={loading}>تحقق من الرمز</Submit>
-                <button type="button" onClick={() => setStep('email')} className="w-full text-center text-xs font-bold text-white/40 hover:text-indigo-300 transition-colors">
+                <button type="button" onClick={() => setStep('email')} className="w-full text-center text-xs font-bold  hover:text-blue-600 transition-colors">
                   تغيير البريد الإلكتروني
                 </button>
               </form>
@@ -234,7 +234,7 @@ export default function SignupPage() {
                   <Field label="كلمة المرور" icon={<Lock size={15} />}>
                     <div className="relative">
                       <input type={showPassword ? 'text' : 'password'} value={form.password} onChange={(e) => update('password', e.target.value)} className="kv-modal-input pr-11 pl-11" />
-                      <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors" aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}>
+                      <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute left-3 top-1/2 -translate-y-1/2 hover:text-slate-900 transition-colors" aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}>
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
@@ -279,7 +279,7 @@ export default function SignupPage() {
                   <div className="absolute -inset-3 rounded-full bg-emerald-500/25 blur-xl anim-pulse2" aria-hidden="true" />
                   <CheckCircle size={62} className="relative text-emerald-400" />
                 </div>
-                <p className="text-white font-bold leading-relaxed">تم تسجيل طلبك بنجاح. يمكنك الآن الدخول إلى بروفايلك ومتابعة بياناتك.</p>
+                <p className="font-bold leading-relaxed" style={{ color: 'var(--kv-text-hi)' }}>تم تسجيل طلبك بنجاح. يمكنك الآن الدخول إلى بروفايلك ومتابعة بياناتك.</p>
                 <button onClick={() => navigate('/account', { replace: true })} className="btn-primary mt-7 mx-auto">الذهاب إلى حسابي</button>
               </div>
             )}
@@ -287,7 +287,7 @@ export default function SignupPage() {
 
           {/* شريط ثقة أسفل البطاقة */}
           {step !== 'done' && (
-            <p className="text-center mt-5 text-[11px] font-bold anim-fade-up-2" style={{ color: 'rgba(180,195,255,0.35)' }}>
+            <p className="text-center mt-5 text-[11px] font-bold anim-fade-up-2" style={{ color: 'var(--kv-text-faint)' }}>
               🔒 اتصال مشفّر — لن نشارك بياناتك مع أي طرف ثالث
             </p>
           )}
@@ -300,7 +300,7 @@ export default function SignupPage() {
 function Field({ label, icon, children }: { label: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-xs font-bold mb-1.5 text-white/65">{label}</span>
+      <span className="block text-xs font-bold mb-1.5 ">{label}</span>
       <span className="relative block">
         {icon && <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-indigo-300/60 pointer-events-none z-10">{icon}</span>}
         {children}

@@ -2,43 +2,88 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, Layers } from 'lucide-react';
 import { PORTALS } from '../landing/data';
+import { LangProvider } from '../landing/LangContext';
+import { useThemeInjector } from '../landing/ThemeInjector';
+import { Footer } from '../landing/sections/Footer';
+import { ContactFab } from '../landing/sections/ContactFab';
 import '../landing/styles.css';
 import { publicSiteConfigService, type PublicSiteConfig } from '../../../services/sdk';
 
-export default function PublicPortalsPage() {
+function PortalsContent() {
   const navigate = useNavigate();
   const [publicConfig, setPublicConfig] = useState<PublicSiteConfig | null>(null);
-  useEffect(() => { publicSiteConfigService.getConfig().then(setPublicConfig).catch(() => undefined); }, []);
-  const displayPortals = publicConfig?.portals?.length ? publicConfig.portals.filter(p => p.enabled !== false).sort((a,b)=>(a.order??0)-(b.order??0)).map(p => ({ ...p, icon: Layers })) : PORTALS;
+  useEffect(() => { window.scrollTo(0, 0); publicSiteConfigService.getConfig().then(setPublicConfig).catch(() => undefined); }, []);
+  useThemeInjector(publicConfig?.theme);
+  const displayPortals = publicConfig?.portals?.length
+    ? publicConfig.portals.filter((p) => p.enabled !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((p) => ({ ...p, icon: Layers }))
+    : PORTALS.filter((p) => p.id !== 'developer');
+
   return (
-    <div className="kv-root min-h-screen hero-grid" dir="rtl">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-24">
-        <div className="flex items-center justify-between mb-10">
-          <button onClick={() => navigate('/')} className="btn-outline py-2 px-4">العودة للرئيسية</button>
-          <button onClick={() => navigate('/signup?intent=demo')} className="btn-primary py-2 px-4">ابدأ مجانًا</button>
-        </div>
-        <div className="text-center mb-14">
-          <div className="section-label mx-auto">بوابات KYVZON</div>
-          <h1 className="section-title text-4xl font-black text-white mt-3">استكشف بوابات المنصة</h1>
-          <p className="text-white/60 mt-4 max-w-2xl mx-auto">تعرف على كل بوابة، مميزاتها، وكيف تساعد شركتك على إدارة الموارد البشرية والتشغيل والاتصال والتقنية.</p>
-        </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {displayPortals.map((p) => {
-            const Icon = p.icon;
-            return (
-              <button key={p.id} onClick={() => navigate(`/portals/${p.id}`)} className="service-card text-right h-full group">
-                <div className="w-14 h-14 rounded-2xl mb-4 flex items-center justify-center" style={{ background: `${p.color}18` }}><Icon size={24} style={{ color: p.color }}/></div>
-                <h2 className="font-black text-white text-lg mb-2">{p.title.ar}</h2>
-                <p className="text-white/65 text-sm leading-7 mb-5">{p.desc.ar}</p>
-                <div className="space-y-2">
-                  {p.features.ar.slice(0,3).map(f => <div key={f} className="flex items-center gap-2 text-white/65 text-xs"><CheckCircle size={13} style={{ color: p.color }}/>{f}</div>)}
-                </div>
-                <div className="mt-6 text-sm font-bold flex items-center gap-2" style={{ color: p.color }}>استكشف التفاصيل <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform"/></div>
-              </button>
-            );
-          })}
+    <div className="kv-root min-h-screen" dir="rtl">
+      {/* شريط علوي */}
+      <div className="glass-header" style={{ position: 'sticky', top: 0, zIndex: 30 }}>
+        <div className="kv-container flex items-center justify-between" style={{ height: 64 }}>
+          <button onClick={() => navigate('/')} className="font-black text-xl" style={{ color: 'var(--kv-text-hi)' }}>
+            Kyv<span style={{ color: 'var(--kv-accent-1)' }}>zon</span>
+          </button>
+          <button onClick={() => navigate('/signup?intent=demo')} className="btn-primary !py-2 !px-5 text-sm">ابدأ مجانًا</button>
         </div>
       </div>
+
+      {/* Hero القسم */}
+      <section className="hero-grid" style={{ paddingBlock: 'clamp(3.5rem, 7vw, 5.5rem)' }}>
+        <div className="kv-container text-center">
+          <span className="kv-eyebrow"><Layers size={13} /> بوابات KYVZON</span>
+          <h1 className="kv-h2 mt-4" style={{ fontSize: 'var(--kv-fs-h1)' }}>استكشف بوابات المنصة</h1>
+          <p className="kv-lead mx-auto" style={{ maxWidth: '42rem' }}>
+            تعرّف على كل بوابة، وحداتها، وكيف تساعد شركتك على إدارة الموارد البشرية والتشغيل والمالية والمبيعات.
+          </p>
+        </div>
+      </section>
+
+      {/* شبكة البوابات */}
+      <section className="kv-section" style={{ paddingTop: 0, background: 'var(--kv-bg-alt)' }}>
+        <div className="kv-container" style={{ paddingTop: 'var(--kv-space-10)' }}>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayPortals.map((p) => {
+              const Icon = p.icon;
+              const color = p.color || '#1466d8';
+              return (
+                <button key={p.id} onClick={() => navigate(`/portals/${p.id}`)} className="kv-card text-start h-full flex flex-col group" aria-label={p.title.ar}>
+                  {/* شريط لوني علوي */}
+                  <div style={{ position: 'absolute', insetInlineStart: 0, insetInlineEnd: 0, top: 0, height: 4, borderRadius: '22px 22px 0 0', background: `linear-gradient(90deg, ${color}, ${color}88)` }} />
+                  <div className="kv-icon-box" style={{ background: `${color}14`, color, marginBottom: 'var(--kv-space-4)' }}>
+                    <Icon size={24} />
+                  </div>
+                  <h2 className="font-black mb-2" style={{ color: 'var(--kv-text-hi)', fontSize: '1.2rem' }}>{p.title.ar}</h2>
+                  <p style={{ color: 'var(--kv-text-body)', fontSize: '0.9rem', lineHeight: 1.75, marginBottom: 'var(--kv-space-5)', flex: 1 }}>{p.desc.ar}</p>
+                  <div className="space-y-2.5">
+                    {p.features.ar.slice(0, 3).map((f) => (
+                      <div key={f} className="flex items-center gap-2" style={{ color: 'var(--kv-text-body)', fontSize: '0.83rem', fontWeight: 500 }}>
+                        <CheckCircle size={14} style={{ color, flexShrink: 0 }} /> {f}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 pt-4 text-sm font-bold flex items-center gap-2" style={{ color, borderTop: '1px solid var(--kv-border)' }}>
+                    استكشف التفاصيل <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-1" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <Footer publicConfig={publicConfig || undefined} />
+      <ContactFab publicConfig={publicConfig || undefined} />
     </div>
+  );
+}
+
+export default function PublicPortalsPage() {
+  return (
+    <LangProvider>
+      <PortalsContent />
+    </LangProvider>
   );
 }

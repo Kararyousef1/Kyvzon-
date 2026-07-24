@@ -12,8 +12,8 @@ export function Services({ publicConfig }: { publicConfig?: PublicSiteConfig }) 
   const displayServices = (publicConfig?.services?.filter(s => s.enabled !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(s => ({ ...s, icon: Settings })) || EXTRA_SERVICES);
 
   return (
-    <section id="services" className="relative py-24 md:py-32 overflow-hidden" style={{ backgroundColor: 'var(--kv-bg-void)' }}>
-      <div className="absolute top-1/4 -left-32 w-[400px] h-[400px] rounded-full bg-violet-600/07 blur-[120px] pointer-events-none" aria-hidden="true" />
+    <section id="services" className="relative overflow-hidden" style={{ backgroundColor: 'var(--kv-bg-void)', paddingBlock: 'var(--kv-section-y)' }}>
+      <div className="absolute top-1/4 -left-32 w-[400px] h-[400px] rounded-full bg-sky-400/[0.06] blur-[120px] pointer-events-none" aria-hidden="true" />
 
       <div className="relative max-w-7xl mx-auto px-4 md:px-8">
         <Reveal className="text-center mb-16">
@@ -51,16 +51,20 @@ export function Services({ publicConfig }: { publicConfig?: PublicSiteConfig }) 
                   </div>
 
                   <h3 className="font-black text-white text-base mb-2">{s.title[lang]}</h3>
-                  <p style={{ color: 'rgba(180,195,255,0.75)', fontSize: '0.875rem', lineHeight: '1.75', flex: 1 }}>{s.desc[lang]}</p>
-                  <div className="mt-4 pt-4 text-xs font-bold" style={{ borderTop: '1px solid rgba(148,163,255,0.09)', color: s.color }}>
+                  <p style={{ color: 'var(--kv-text-body)', fontSize: '0.875rem', lineHeight: '1.75', flex: 1 }}>{s.desc[lang]}</p>
+                  <div className="mt-4 pt-4 text-xs font-bold" style={{ borderTop: '1px solid var(--kv-border)', color: s.color }}>
                     {s.promo[lang]}
                   </div>
                   <button
                     type="button"
-                    onClick={() => navigate(`/signup?intent=service&service=${encodeURIComponent(s.title.en || s.title[lang])}&label=${encodeURIComponent(s.title[lang])}`)}
+                    onClick={() => {
+                      const sid = (s as { id?: string }).id;
+                      if (sid) navigate(`/services/${sid}`);
+                      else navigate(`/signup?intent=service&service=${encodeURIComponent(s.title.en || s.title[lang])}&label=${encodeURIComponent(s.title[lang])}`);
+                    }}
                     className="btn-outline w-full justify-center mt-4 py-2 text-xs"
                   >
-                    {lang === 'en' ? 'Request service' : lang === 'ku' ? 'داوای خزمەتگوزاری بکە' : 'اطلب الخدمة'}
+                    {lang === 'en' ? 'Learn more' : lang === 'ku' ? 'زیاتر بزانە' : 'اعرف المزيد'}
                   </button>
                 </div>
               </Reveal>

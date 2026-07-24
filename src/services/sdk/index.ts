@@ -15,8 +15,8 @@ export { SdkError, SdkErrorCode, getCurrentTenantId, requireTenantId } from './B
 export { authService } from './AuthService';
 export { publicSignupService } from './PublicSignupService';
 export { publicSignupAdminService } from './PublicSignupAdminService';
-export { publicSiteConfigService, DEFAULT_PUBLIC_SITE_CONFIG } from './PublicSiteConfigService';
-export type { PublicSiteConfig, PublicInfoPageConfig } from './PublicSiteConfigService';
+export { publicSiteConfigService, DEFAULT_PUBLIC_SITE_CONFIG, DEFAULT_SITE_THEME } from './PublicSiteConfigService';
+export type { PublicSiteConfig, PublicInfoPageConfig, PublicSiteTheme, PublicSiteMedia, PublicSiteContent, PublicPlanConfig, PublicServiceConfig, PublicPortalConfig } from './PublicSiteConfigService';
 export type { PublicSignupRequestRecord, PublicSignupStatus } from './PublicSignupAdminService';
 export type { PublicSignupIntentType, PublicSignupRequestInput } from './PublicSignupService';
 export type { LoginResult, SessionResult } from './AuthService';

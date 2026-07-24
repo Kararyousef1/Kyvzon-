@@ -46,7 +46,7 @@ export function BrowserFrame({ children, url = 'app.kyvzon.com', className = '' 
             padding: '4px 12px',
             borderRadius: 8,
             background: 'rgba(255,255,255,0.04)',
-            color: 'rgba(255,255,255,0.35)',
+            color: 'var(--kv-text-muted)',
             fontSize: '0.72rem',
           }}
         >

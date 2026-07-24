@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Zap, Clock, Globe, Rocket, Play, ChevronDown } from 'lucide-react';
+import { Shield, Zap, Clock, Globe, Rocket, Play } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { LandingConfig } from '../../../../shared/types/landing';
 import type { PublicSiteConfig } from '../../../../services/sdk';
@@ -19,53 +19,58 @@ const QUICK_STATS = [
   { icon: Globe, v: '🇮🇶', l: { ar: 'صُنع في العراق', en: 'Made in Iraq', ku: 'لە عێراق' } },
 ];
 
-export function Hero({ onLoginClick, landingConfig, publicConfig }: HeroProps) {
+export function Hero({ landingConfig, publicConfig }: HeroProps) {
   const { lang, t } = useLang();
   const navigate = useNavigate();
-
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+  // نصوص الهيرو: تُفضّل من لوحة التحكم (content) إن وُجدت
+  const c = publicConfig?.content;
+  const media = publicConfig?.media;
+  const pick = (v?: { ar: string; en: string; ku: string }) => (v && v[lang]?.trim() ? v[lang] : undefined);
+
   return (
-    <section id="home" className="relative min-h-screen flex items-center overflow-hidden hero-grid">
-      {/* خلفية أورورا متحركة ثلاثية الطبقات */}
+    <section id="home" className="relative overflow-hidden hero-grid">
+      {/* خلفية تجريدية خفيفة جداً */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-        <div className="anim-aurora absolute -top-40 -right-40 w-[650px] h-[650px] rounded-full bg-indigo-600/15 blur-[130px]" />
-        <div className="anim-aurora absolute -bottom-40 -left-20 w-[550px] h-[550px] rounded-full bg-violet-700/12 blur-[110px]" style={{ animationDelay: '-5s' }} />
-        <div className="anim-aurora absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full bg-cyan-500/08 blur-[120px]" style={{ animationDelay: '-9s' }} />
-        {/* شعاع ضوئي علوي */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(165,180,252,0.7), transparent)' }} />
+        <div className="kv-glow-orb" style={{ inset: '-10% -10% auto auto', width: 640, height: 640, background: 'rgba(56,166,240,0.16)' }} />
+        <div className="kv-glow-orb" style={{ inset: 'auto auto -20% -10%', width: 520, height: 520, background: 'rgba(20,102,216,0.10)' }} />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 pt-28 pb-20 w-full">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
-          {/* ── Copy column ── */}
+      <div className="kv-container relative z-10" style={{ paddingBlock: 'clamp(6rem, 12vw, 9rem) var(--kv-section-y)' }}>
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          {/* عمود النص */}
           <div className="max-w-2xl">
             <div className="anim-fade-up">
-              <span className="badge">
-                <span className="glow-dot" />
-                {t('hero_badge')}
-              </span>
+              <span className="kv-eyebrow"><span className="glow-dot" /> {pick(c?.heroBadge) || t('hero_badge')}</span>
             </div>
 
-            <h1 className="hero-h1 anim-fade-up-1 mt-7 font-black leading-[1.12] tracking-tight" style={{ fontSize: 'clamp(2.7rem, 4.6vw, 4rem)' }}>
-              {landingConfig?.heroTitleAr || landingConfig?.heroTitleEn
+            <h1
+              className="hero-h1 anim-fade-up-1 font-black"
+              style={{ fontSize: 'var(--kv-fs-display)', lineHeight: 'var(--kv-lh-tight)', letterSpacing: '-0.03em', marginTop: 'var(--kv-space-5)', color: 'var(--kv-text-hi)' }}
+            >
+              {pick(c?.heroTitle1) || pick(c?.heroTitle2)
+                ? (<>
+                    <span>{pick(c?.heroTitle1) || t('hero_h1_1')}</span>
+                    <br />
+                    <span className="kv-gradient-text">{pick(c?.heroTitle2) || t('hero_h1_2')}</span>
+                  </>)
+                : landingConfig?.heroTitleAr || landingConfig?.heroTitleEn
                 ? (lang === 'en' ? landingConfig?.heroTitleEn : landingConfig?.heroTitleAr)
                 : (
                   <>
-                    <span className="text-white">{t('hero_h1_1')}</span>
+                    <span>{t('hero_h1_1')}</span>
                     <br />
-                    <span className="kv-gradient-text" style={{ filter: 'drop-shadow(0 0 30px rgba(139,92,246,0.35))' }}>
-                      {t('hero_h1_2')}
-                    </span>
+                    <span className="kv-gradient-text">{t('hero_h1_2')}</span>
                   </>
                 )}
             </h1>
 
-            <p className="anim-fade-up-2" style={{ marginTop: '26px', fontSize: '1.12rem', color: 'var(--kv-text-body)', lineHeight: '1.85', maxWidth: '38rem' }}>
-              {(lang === 'en' ? landingConfig?.heroDescEn : landingConfig?.heroDescAr) || t('hero_desc')}
+            <p className="anim-fade-up-2" style={{ marginTop: 'var(--kv-space-5)', fontSize: 'var(--kv-fs-lead)', color: 'var(--kv-text-body)', lineHeight: 'var(--kv-lh-normal)', maxWidth: '38rem' }}>
+              {pick(c?.heroDesc) || (lang === 'en' ? landingConfig?.heroDescEn : landingConfig?.heroDescAr) || t('hero_desc')}
             </p>
 
-            <div className="anim-fade-up-3 mt-9 flex flex-wrap gap-3">
+            <div className="anim-fade-up-3 flex flex-wrap gap-3" style={{ marginTop: 'var(--kv-space-7)' }}>
               <button className="btn-primary" onClick={() => navigate(publicConfig?.primaryCtaHref || '/signup?intent=demo')}>
                 <Rocket size={16} />
                 {publicConfig?.primaryCtaLabel || t('hero_cta1')}
@@ -76,53 +81,83 @@ export function Hero({ onLoginClick, landingConfig, publicConfig }: HeroProps) {
               </button>
             </div>
 
-            {/* إحصائيات سريعة — بطاقات زجاجية مصغرة بدل صف مسطح */}
-            <div className="anim-fade-up-4 mt-12 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* إزالة الحواجز */}
+            <div className="anim-fade-up-3 flex flex-wrap gap-x-5 gap-y-2 text-sm" style={{ marginTop: 'var(--kv-space-4)', color: 'var(--kv-text-muted)' }}>
+              <span className="inline-flex items-center gap-1.5">✓ {lang === 'en' ? 'Free trial' : lang === 'ku' ? 'تاقیکردنەوەی خۆڕایی' : 'مجاني للتجربة'}</span>
+              <span className="inline-flex items-center gap-1.5">✓ {lang === 'en' ? 'No credit card' : lang === 'ku' ? 'بەبێ کارتی بانکی' : 'بلا بطاقة ائتمان'}</span>
+              <span className="inline-flex items-center gap-1.5">✓ {lang === 'en' ? 'Arabic support' : lang === 'ku' ? 'پشتگیری عەرەبی' : 'دعم عربي كامل'}</span>
+            </div>
+
+            {/* إحصائيات سريعة */}
+            <div className="anim-fade-up-4 grid grid-cols-2 sm:grid-cols-4 gap-3" style={{ marginTop: 'var(--kv-space-8)' }}>
               {QUICK_STATS.map((s, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2.5 rounded-2xl px-3.5 py-3 border border-white/[0.07] bg-white/[0.03] backdrop-blur-sm transition-all duration-300 hover:border-indigo-400/40 hover:bg-indigo-500/[0.07] hover:-translate-y-0.5"
-                >
-                  <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(34,211,238,0.12))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)' }}>
-                    <s.icon size={15} style={{ color: '#a5b4fc' }} />
+                <div key={i} className="flex items-center gap-2.5 rounded-2xl p-3" style={{ background: '#fff', border: '1px solid var(--kv-border)', boxShadow: 'var(--kv-shadow-xs)' }}>
+                  <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: 'var(--kv-accent-soft)' }}>
+                    <s.icon size={15} style={{ color: 'var(--kv-accent-1)' }} />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-sm font-black text-white leading-tight">{s.v}</div>
-                    <div className="text-[11px] text-white/45 leading-tight truncate">{s.l[lang]}</div>
+                    <div className="text-sm font-black leading-tight" style={{ color: 'var(--kv-text-hi)' }}>{s.v}</div>
+                    <div className="text-[11px] leading-tight truncate" style={{ color: 'var(--kv-text-muted)' }}>{s.l[lang]}</div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ── Mockup column — إطار متوهج عائم ── */}
+          {/* عمود الموك-أب / الوسائط */}
           <div className="hidden lg:block anim-fade-up-2">
-            <div className="relative anim-float">
-              <div
-                className="absolute -inset-4 rounded-[36px] opacity-40 blur-2xl pointer-events-none"
-                style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.5), rgba(139,92,246,0.3), rgba(34,211,238,0.35))' }}
-                aria-hidden="true"
-              />
-              <div className="relative">
-                <HeroMockup />
-              </div>
-            </div>
+            <HeroVisual media={media} />
           </div>
         </div>
 
-        {/* Mockup on mobile */}
-        <div className="lg:hidden mt-14 anim-fade-up-3">
-          <HeroMockup />
+        {/* على الجوال */}
+        <div className="lg:hidden anim-fade-up-3" style={{ marginTop: 'var(--kv-space-10)' }}>
+          <HeroVisual media={media} />
         </div>
-      </div>
-
-      {/* Scroll indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/30 text-xs anim-bounce" aria-hidden="true">
-        <div className="w-6 h-10 rounded-full border-2 border-white/20 flex items-start justify-center p-1.5">
-          <div className="w-1 h-2 rounded-full bg-indigo-400/80" />
-        </div>
-        <ChevronDown size={16} />
       </div>
     </section>
   );
+}
+
+/** يحوّل رابط يوتيوب لصيغة embed */
+function toEmbed(url: string): string | null {
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  const vm = url.match(/vimeo\.com\/(\d+)/);
+  if (vm) return `https://player.vimeo.com/video/${vm[1]}`;
+  return null;
+}
+
+/** يعرض فيديو الهيرو أو صورته أو الموك-أب الافتراضي حسب إعدادات لوحة التحكم */
+function HeroVisual({ media }: { media?: { heroVideoUrl?: string; heroImageUrl?: string } }) {
+  const video = media?.heroVideoUrl?.trim();
+  const image = media?.heroImageUrl?.trim();
+
+  if (video) {
+    const embed = toEmbed(video);
+    return (
+      <div className="kv-device relative anim-float" style={{ maxWidth: 560, marginInline: 'auto' }}>
+        <div style={{ position: 'relative', paddingBottom: '62%', height: 0, background: '#000' }}>
+          {embed ? (
+            <iframe
+              src={embed} title="hero video" loading="lazy" allowFullScreen
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+            />
+          ) : (
+            <video src={video} controls playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (image) {
+    return (
+      <div className="kv-device relative anim-float" style={{ maxWidth: 560, marginInline: 'auto' }}>
+        <img src={image} alt="KYVZON" loading="lazy" style={{ display: 'block', width: '100%', height: 'auto' }} />
+      </div>
+    );
+  }
+
+  return <HeroMockup />;
 }

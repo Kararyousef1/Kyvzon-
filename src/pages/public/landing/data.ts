@@ -68,6 +68,18 @@ export const PORTALS: PortalData[] = [
     desc: { ar: 'إدارة أجهزة البصمة، سجل المزامنة، صحة النظام، الإعدادات التقنية، وحدود الأجهزة حسب خطة الاشتراك.', en: 'Manage biometric devices, sync logs, system health, technical settings and device limits by subscription plan.', ku: 'بەڕێوەبردنی ئامێری پەنجەمۆر، تۆماری هاوکاتکردن، تەندروستی سیستەم و ڕێکخستنەکان.' },
     features: { ar: ['إدارة أجهزة البصمة', 'سجل مزامنة فعلي', 'اختبار اتصال الجهاز', 'بصمات اليوم', 'إعدادات تقنية محفوظة'], en: ['Biometric devices', 'Real sync logs', 'Device connection test', 'Today punches', 'Saved technical settings'], ku: ['ئامێری پەنجەمۆر', 'تۆماری هاوکاتکردن', 'تاقیکردنەوەی پەیوەندی', 'پەنجەمۆری ئەمڕۆ', 'ڕێکخستنی پاشەکەوتکراو'] },
   },
+  {
+    id: 'marketing', icon: TrendingUp, color: '#0c8de7', gradient: 'from-sky-500 to-blue-600',
+    title: { ar: 'بوابة التسويق', en: 'Marketing Portal', ku: 'دەروازەی مارکێتینگ' },
+    desc: { ar: 'منظومة تسويق متكاملة: أتمتة الحملات، البريد، وسائل التواصل، SMS وواتساب، الفعاليات، والاستبيانات — بمفاتيحك الخاصة.', en: 'A complete marketing suite: automation, email, social, SMS/WhatsApp, events and surveys — with your own keys.', ku: 'کۆمەڵە مارکێتینگێکی تەواو بە کلیلی تایبەت.' },
+    features: { ar: ['أتمتة التسويق', 'البريد الإلكتروني', 'وسائل التواصل', 'SMS / واتساب', 'الفعاليات والاستبيانات'], en: ['Marketing automation', 'Email marketing', 'Social media', 'SMS / WhatsApp', 'Events & surveys'], ku: ['ئۆتۆماتیک', 'ئیمەیڵ', 'سۆشیال میدیا', 'SMS / واتساپ', 'چالاکی و ڕاپرسی'] },
+  },
+  {
+    id: 'crm', icon: Building2, color: '#7c3aed', gradient: 'from-violet-500 to-purple-600',
+    title: { ar: 'بوابة إدارة العملاء CRM', en: 'CRM Portal', ku: 'دەروازەی CRM' },
+    desc: { ar: 'أدِر علاقات عملائك من أول اتصال إلى إغلاق الصفقة: جهات اتصال، خط أنابيب، عروض وعقود، دعم، وتحليلات — مع ربط تلقائي بالمالية.', en: 'Manage customer relationships end-to-end: contacts, pipeline, quotes, support and analytics — auto-linked with Finance.', ku: 'بەڕێوەبردنی پەیوەندی کڕیار بە تەواوی.' },
+    features: { ar: ['جهات الاتصال والحسابات', 'خط الأنابيب والصفقات', 'العروض والعقود', 'الدعم والتذاكر', 'التحليلات والتنبؤ'], en: ['Contacts & accounts', 'Pipeline & deals', 'Quotes & contracts', 'Support & tickets', 'Analytics & forecast'], ku: ['پەیوەندی', 'پایپلاین', 'پێشنیار', 'پشتگیری', 'شیکاری'] },
+  },
 ];
 
 // ─── خطط الأسعار الفعلية لمنصة Kyvzon SaaS ─────────────────
@@ -154,32 +166,36 @@ export const PLAN_COMPARISON: CompareRow[] = [
 // ─── الخدمات الإضافية ─────────────────────────────────────────────
 export const EXTRA_SERVICES: ServiceData[] = [
   {
+    id: 'web-design',
     icon: Globe,
-    color: '#6366f1',
+    color: '#0c8de7',
     title: { ar: 'تصميم وإنشاء مواقع إلكترونية', en: 'Web Design & Development', ku: 'دیزاین و دروستکردنی مالپەڕ' },
     desc: { ar: 'احصل على موقع احترافي يعكس هوية شركتك', en: 'Get a professional website that reflects your brand identity', ku: 'مالپەڕێکی پیشەیی بەدەست بهێنە کە ناسنامەی برانتت نیشان بدات' },
     promo: { ar: '🎁 اشترك واحصل على موقعك مجاناً', en: '🎁 Subscribe & Get a Free Website', ku: '🎁 بەشداری بکە و مالپەڕی بە خۆراو وەربگرە' },
     badge: { ar: 'مجاناً مع الاشتراك', en: 'Free with Plan', ku: 'خۆراو لەگەڵ ئەبۆنمەنت' },
   },
   {
+    id: 'custom-app',
     icon: Smartphone,
-    color: '#0ea5e9',
+    color: '#7c3aed',
     title: { ar: 'تطوير تطبيقات إدارة مخصصة', en: 'Custom Management App Development', ku: 'گەشەپێدانی ئەپی بەڕێوەبردنی تایبەت' },
     desc: { ar: 'نصمم وننشئ تطبيق ويب أو موبايل مخصص بالكامل لإدارة مؤسستك حسب احتياجاتك الفعلية', en: 'We design and build a fully custom web or mobile app to manage your organization, built around your real needs', ku: 'ئێمە ئەپێکی وێب یان مۆبایلی تایبەت دروست دەکەین بۆ بەڕێوەبردنی دامەزراوەکەت' },
     promo: { ar: '⚙️ من الفكرة إلى الإطلاق', en: '⚙️ From Idea to Launch', ku: '⚙️ لە بیرۆکەوە بۆ دەستپێکردن' },
     badge: { ar: 'حل مخصص', en: 'Custom Build', ku: 'دروستکراوی تایبەت' },
   },
   {
+    id: 'consulting',
     icon: TrendingUp,
-    color: '#f59e0b',
+    color: '#ea580c',
     title: { ar: 'استشارات تقنية وتحول رقمي', en: 'Technical Consulting & Digital Transformation', ku: 'ڕاوێژکاری تەکنیکی و گۆڕانکاری دیجیتاڵ' },
     desc: { ar: 'نساعدك على تحديد المسار الرقمي الأمثل لمؤسستك وربط أنظمتك بكفاءة أعلى', en: 'We help you define the right digital roadmap for your organization and connect your systems more efficiently', ku: 'یارمەتیت دەدەین ڕێگای دیجیتاڵی گونجاو بۆ دامەزراوەکەت دیاری بکەیت' },
     promo: { ar: '📈 استراتيجية مبنية على بياناتك', en: '📈 Strategy Built Around Your Data', ku: '📈 ستراتیژی بەپێی داتاکانت' },
     badge: { ar: 'فريق خبراء', en: 'Expert Team', ku: 'تیمی شارەزا' },
   },
   {
+    id: 'cybersecurity',
     icon: Shield,
-    color: '#10b981',
+    color: '#16a34a',
     title: { ar: 'الأمن السيبراني', en: 'Cybersecurity Services', ku: 'خزمەتگوزاریی ئەمنییەتی سایبەر' },
     desc: { ar: 'حماية متكاملة لبيانات شركتك — تشفير، مراقبة، وإدارة أذونات متقدمة', en: 'Complete protection for your company data — encryption, monitoring, and advanced permission management', ku: 'پاراستنی تەواو بۆ داتاکانی کۆمپانیاکەت' },
     promo: { ar: '🛡️ حماية 24/7 لبياناتك', en: '🛡️ 24/7 Data Protection', ku: '🛡️ پاراستنی داتا ٢٤/٧' },

@@ -26,6 +26,12 @@ export interface LandingPageProps {
   previewMode?: boolean;
 }
 
+export interface PortalModule {
+  title: LocalizedText;
+  desc: LocalizedText;
+  icon?: LucideIcon;
+}
+
 export interface PortalData {
   id: string;
   icon: LucideIcon;
@@ -34,6 +40,10 @@ export interface PortalData {
   title: LocalizedText;
   desc: LocalizedText;
   features: LocalizedList;
+  /** وحدات البوابة التفصيلية (لصفحة التفاصيل الغنية) — اختياري */
+  modules?: PortalModule[];
+  /** جملة تشويقية طويلة تُعرض في hero صفحة التفاصيل — اختياري */
+  tagline?: LocalizedText;
 }
 
 export interface PlanFeatureRow {
@@ -54,12 +64,30 @@ export interface PlanData {
 }
 
 export interface ServiceData {
+  id?: string;
   icon: LucideIcon;
   color: string;
   title: LocalizedText;
   desc: LocalizedText;
   promo: LocalizedText;
   badge: LocalizedText;
+}
+
+/** كتلة محتوى تفصيلية لصفحة تفاصيل الخدمة (نمط Odoo — عنوان منفعة + شرح) */
+export interface ServiceBlock {
+  title: LocalizedText;
+  desc: LocalizedText;
+}
+
+export interface ServiceStep {
+  title: LocalizedText;
+  desc: LocalizedText;
+}
+
+export interface ServiceDetailExtra {
+  tagline: LocalizedText;
+  benefits: ServiceBlock[];   // نقاط بيع/منافع
+  steps: ServiceStep[];       // كيف نعمل (خطوات)
 }
 
 export interface StatData {
