@@ -65,8 +65,22 @@ class SettingsService extends BaseService<SettingsRecord> {
    * جلب إعدادات الصفحة الرئيسية (landing_config)
    */
   async findLandingConfig(): Promise<any | null> {
-    const current = await this.findSystemSettings();
-    return current?.landing_config || null;
+    // المسار العام الآمن: دالة RPC تعمل للزوّار (anon) بلا فتح system_settings
+    try {
+      const { supabase } = await import('../supabase/supabase');
+      const { data, error } = await supabase.rpc('get_public_landing_config');
+      if (!error && data && typeof data === 'object' && Object.keys(data).length > 0) {
+        return data;
+      }
+      if (!error) return null; // موجود لكن فارغ
+    } catch { /* fallback أدناه */ }
+    // احتياطي (للأدمن): القراءة المباشرة
+    try {
+      const current = await this.findSystemSettings();
+      return current?.landing_config || null;
+    } catch {
+      return null;
+    }
   }
 
   /**
