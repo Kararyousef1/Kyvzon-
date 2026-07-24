@@ -590,10 +590,17 @@ export const useUIStore = create<UIState>()(
       fetchLandingConfig: async () => {
         set({ isLoadingConfig: true });
         try {
-          // ✅ استخدام SettingsService بدلاً من supabase.from('system_settings')
-          const settings = await settingsService.findSystemSettings();
-          if (settings?.landing_config) {
-            set({ landingConfig: { ...defaultLandingConfig, ...settings.landing_config } });
+          // ✅ المسار الآمن للزوّار: RPC تُرجع landing_config فقط (بلا أسرار)
+          // للـ admin يعمل أيضاً، وللـ anon يعمل عبر SECURITY DEFINER
+          const landing = await settingsService.findLandingConfig().catch(() => null);
+          if (landing) {
+            set({ landingConfig: { ...defaultLandingConfig, ...(landing as Partial<LandingConfig>) } });
+          } else {
+            // احتياطي للـ staff: قراءة مباشرة عبر RLS
+            const settings = await settingsService.findSystemSettings().catch(() => null);
+            if (settings?.landing_config) {
+              set({ landingConfig: { ...defaultLandingConfig, ...settings.landing_config } });
+            }
           }
         } catch (err) {
           console.warn('Failed to fetch landing config:', getErrorMessage(err));
@@ -605,19 +612,8 @@ export const useUIStore = create<UIState>()(
       saveLandingConfig: async (config) => {
         set({ isSavingConfig: true });
         try {
-          const current = await settingsService.findSystemSettings();
-          if (current) {
-            await settingsService.updateSystemSettings(current.id, {
-              landing_config: config,
-              updated_at: new Date().toISOString(),
-            } as unknown as Record<string, unknown>);
-          } else {
-            await settingsService.create({
-              id: 'singleton',
-              landing_config: config,
-              updated_at: new Date().toISOString(),
-            } as unknown as Record<string, unknown>);
-          }
+          // ✅ استخدام updateLandingConfig المخصصة (تمر عبر BaseService + RLS)
+          await settingsService.updateLandingConfig(config as unknown as Record<string, unknown>);
           set({ landingConfig: config });
           return { success: true };
         } catch (err) {

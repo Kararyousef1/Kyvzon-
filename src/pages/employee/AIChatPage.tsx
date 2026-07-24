@@ -5,7 +5,7 @@ import Card from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
-import { supabase } from '../../services/supabase/supabase';
+import { settingsService } from '../../services/sdk/SettingsService';
 import { callAi } from '../../services/ai/edgeAiService';
 
 // النماذج المسموح بها؛ المفاتيح والمناداة الفعلية تبقى داخل Edge Function.
@@ -62,22 +62,16 @@ export default function AIChatPage() {
   const [currentModelName, setCurrentModelName] = useState('GPT-4o Mini');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // جلب النموذج النشط من إعدادات النظام عند تحميل الصفحة
+  // جلب النموذج النشط عبر طبقة SDK الآمنة (لا وصول مباشر لـ system_settings)
   useEffect(() => {
     const loadModel = async () => {
       try {
-        const { data, error } = await supabase
-          .from('system_settings')
-          .select('ai_settings')
-          .eq('id', 'singleton')
-          .single();
-        
-        if (!error && data?.ai_settings?.activeModel) {
-          const modelId = data.ai_settings.activeModel as string;
-          if (AI_MODELS[modelId]) {
-            setActiveModel(modelId);
-            setCurrentModelName(AI_MODELS[modelId].name);
-          }
+        // المسار الآمن: يمر عبر BaseService + RLS (staff فقط). للموظفين يفشل بهدوء ويستخدم الافتراضي.
+        const aiSettings = await settingsService.findAiSettings().catch(() => null) as { activeModel?: string } | null;
+        const modelId = (aiSettings as any)?.activeModel as string | undefined;
+        if (modelId && AI_MODELS[modelId]) {
+          setActiveModel(modelId);
+          setCurrentModelName(AI_MODELS[modelId].name);
         } else {
           setActiveModel('gpt4o');
           setCurrentModelName('GPT-4o Mini');
