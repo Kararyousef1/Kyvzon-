@@ -148,8 +148,22 @@ export const DEFAULT_PUBLIC_SITE_CONFIG: PublicSiteConfig = {
 
 export const publicSiteConfigService = {
   async getConfig(): Promise<PublicSiteConfig> {
-    const general = await settingsService.findGeneralSettings();
-    return { ...DEFAULT_PUBLIC_SITE_CONFIG, ...((general?.public_site_config || {}) as Partial<PublicSiteConfig>) };
+    // 1) المسار العام: دالة آمنة تعمل للزوّار (anon) — تُرجع public_site_config فقط
+    try {
+      const { supabase } = await import('../supabase/supabase');
+      const { data, error } = await supabase.rpc('get_public_site_config');
+      if (!error && data && typeof data === 'object') {
+        return { ...DEFAULT_PUBLIC_SITE_CONFIG, ...(data as Partial<PublicSiteConfig>) };
+      }
+    } catch { /* fallback أدناه */ }
+
+    // 2) احتياطي: القراءة المباشرة (تعمل للأدمن؛ تفشل بهدوء للزوّار)
+    try {
+      const general = await settingsService.findGeneralSettings();
+      return { ...DEFAULT_PUBLIC_SITE_CONFIG, ...((general?.public_site_config || {}) as Partial<PublicSiteConfig>) };
+    } catch {
+      return DEFAULT_PUBLIC_SITE_CONFIG;
+    }
   },
   async updateConfig(config: PublicSiteConfig): Promise<void> {
     const general = (await settingsService.findGeneralSettings()) || {};

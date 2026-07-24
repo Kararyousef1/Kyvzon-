@@ -100,7 +100,7 @@ export function Screenshots() {
                   {KPI_CARDS.slice(0, 2).map((k, i) => (
                     <div key={i} className="mockup-kpi">
                       <div style={{ color: 'var(--kv-text-muted)', fontSize: '0.55rem', marginBottom: 4 }}>{k.label[lang]}</div>
-                      <div className="font-black" style-x style={{ fontSize: '0.95rem' }}>{k.value}</div>
+                      <div className="font-black" style={{ fontSize: '0.95rem', color: 'var(--kv-text-hi)' }}>{k.value}</div>
                     </div>
                   ))}
                 </div>
@@ -133,7 +133,7 @@ export function Screenshots() {
                       {KPI_CARDS.map((k, i) => (
                         <div key={i} className="mockup-kpi">
                           <div style={{ color: 'var(--kv-text-muted)', fontSize: '0.68rem', marginBottom: 6 }}>{k.label[lang]}</div>
-                          <div className="font-black" style-x style={{ fontSize: '1.3rem' }}>{k.value}</div>
+                          <div className="font-black" style={{ fontSize: '1.3rem', color: 'var(--kv-text-hi)' }}>{k.value}</div>
                         </div>
                       ))}
                     </div>
@@ -210,7 +210,7 @@ export function Screenshots() {
                     <div className="mockup-kpi flex flex-col items-center justify-center gap-3 text-center" style={{ padding: 18 }}>
                       <Clock size={20} style={{ color: 'var(--kv-accent-1)' }} />
                       <div>
-                        <div className="font-black" style-x style={{ fontSize: '0.95rem' }}>09:02</div>
+                        <div className="font-black" style={{ fontSize: '0.95rem', color: 'var(--kv-text-hi)' }}>09:02</div>
                         <div style={{ fontSize: '0.62rem', color: 'var(--kv-text-muted)' }}>
                           {lang === 'ar' ? 'وقت الدخول اليوم' : lang === 'en' ? "Today's check-in" : 'کاتی چوونە ژوورەوە'}
                         </div>
