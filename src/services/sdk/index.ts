@@ -286,12 +286,18 @@ export type { ProviderChannel, ProviderStatus, ProviderMeta } from './TenantProv
 export {
   supplierService,
   supplierDocumentService,
+  supplierContactService,
   supplierRiskAssessmentService,
+  supplierSiteVisitService,
+  supplierPortalInviteService,
 } from './Procurement/SupplierService';
 export type {
   SupplierRecord,
   SupplierDocumentRecord,
+  SupplierContactRecord,
   SupplierRiskAssessmentRecord,
+  SupplierSiteVisitRecord,
+  SupplierPortalInviteRecord,
 } from './Procurement/SupplierService';
 export {
   purchaseRequisitionService,
@@ -307,3 +313,15 @@ export type {
   CreatePrItemInput,
   CreatePrInput,
 } from './Procurement/PurchaseRequisitionService';
+export {
+  sourcingEventService,
+  supplierBidService,
+  auctionService,
+  auctionBidService,
+} from './Procurement/SourcingService';
+export type {
+  SourcingEventRecord,
+  SupplierBidRecord,
+  AuctionRecord,
+  AuctionBidRecord,
+} from './Procurement/SourcingService';

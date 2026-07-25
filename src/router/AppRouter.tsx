@@ -154,10 +154,19 @@ const MarketingPortal       = lazy(() => import('../pages/marketingportal/Market
 // بوابة CRM
 const CrmPortal             = lazy(() => import('../pages/crmportal/CrmPortal'));
 const CrmDashboard          = lazy(() => import('../pages/crmportal/CrmDashboard'));
-// بوابة المشتريات — Wave1: الموردون + طلبات الشراء
-const ProcurementDashboard  = lazy(() => import('../pages/app/procurement/ProcurementDashboard'));
-const SuppliersPage         = lazy(() => import('../pages/app/procurement/SuppliersPage'));
-const RequisitionsPage      = lazy(() => import('../pages/app/procurement/RequisitionsPage'));
+// بوابة المشتريات — Wave1: الموردون + طلبات الشراء (هيكل مجلدي مثل CRM)
+const ProcurementDashboard      = lazy(() => import('../pages/app/procurement/ProcurementDashboard'));
+const SuppliersLayout           = lazy(() => import('../pages/app/procurement/suppliers/SuppliersLayout'));
+const SuppliersPage             = lazy(() => import('../pages/app/procurement/suppliers/SuppliersPage'));
+const SupplierDetailPage        = lazy(() => import('../pages/app/procurement/suppliers/SupplierDetailPage'));
+const RequisitionsLayout        = lazy(() => import('../pages/app/procurement/requisitions/RequisitionsLayout'));
+const RequisitionListPage       = lazy(() => import('../pages/app/procurement/requisitions/RequisitionListPage'));
+const RequisitionDetailPage     = lazy(() => import('../pages/app/procurement/requisitions/RequisitionDetailPage'));
+// Unit 02 — RFx + Auctions
+const SourcingLayout            = lazy(() => import('../pages/app/procurement/sourcing/SourcingLayout'));
+const SourcingEventsPage        = lazy(() => import('../pages/app/procurement/sourcing/SourcingEventsPage'));
+const RfxDetailPage             = lazy(() => import('../pages/app/procurement/sourcing/RfxDetailPage'));
+const AuctionLivePage           = lazy(() => import('../pages/app/procurement/sourcing/AuctionLivePage'));
 
 // بوابة CRM — الوحدة 1: جهات الاتصال والحسابات (التقرير 01)
 const ContactsLayout        = lazy(() => import('../pages/crmportal/contacts/ContactsLayout'));
@@ -460,13 +469,24 @@ export function AppRoutes() {
             </Route>
           </Route>
 
-          {/* Procurement Portal — بوابة المشتريات Wave1 */}
+          {/* Procurement Portal — بوابة المشتريات Wave1 (هيكل مجلدي مثل CRM) */}
           <Route path="procurement" element={<RequireRole roles={['procurement', 'admin', 'developer', 'manager', 'finance']} />}>
             <Route element={<RequireModule moduleKey="procurement" />}>
               <Route index element={<ProcurementDashboard />} />
               <Route path="dashboard" element={<ProcurementDashboard />} />
-              <Route path="suppliers" element={<SuppliersPage />} />
-              <Route path="requisitions" element={<RequisitionsPage />} />
+              <Route path="suppliers" element={<SuppliersLayout />}>
+                <Route index element={<SuppliersPage />} />
+                <Route path=":id" element={<SupplierDetailPage />} />
+              </Route>
+              <Route path="requisitions" element={<RequisitionsLayout />}>
+                <Route index element={<RequisitionListPage />} />
+                <Route path=":id" element={<RequisitionDetailPage />} />
+              </Route>
+              <Route path="sourcing" element={<SourcingLayout />}>
+                <Route index element={<SourcingEventsPage />} />
+                <Route path=":id" element={<RfxDetailPage />} />
+                <Route path="auctions/live" element={<AuctionLivePage />} />
+              </Route>
             </Route>
           </Route>
 

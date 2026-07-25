@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import Card from '../../../shared/components/ui/Card';
-import Button from '../../../shared/components/ui/Button';
-import Input from '../../../shared/components/ui/Input';
-import { supplierService, type SupplierRecord } from '../../../services/sdk';
+import Card from '../../../../shared/components/ui/Card';
+import Button from '../../../../shared/components/ui/Button';
+import Input from '../../../../shared/components/ui/Input';
+import { supplierService, type SupplierRecord } from '../../../../services/sdk';
 import { Plus, Search, Shield, AlertTriangle } from 'lucide-react';
-import { useUIStore } from '../../../core/stores';
+import { useUIStore } from '../../../../core/stores';
 
 export default function SuppliersPage() {
   const { addToast } = useUIStore();

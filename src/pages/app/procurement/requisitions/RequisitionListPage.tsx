@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import Card from '../../../shared/components/ui/Card';
-import Button from '../../../shared/components/ui/Button';
-import { purchaseRequisitionService, prLineItemService, prApprovalService, type PurchaseRequisitionRecord } from '../../../services/sdk';
-import { useUIStore, useAuthStore } from '../../../core/stores';
+import Card from '../../../../shared/components/ui/Card';
+import Button from '../../../../shared/components/ui/Button';
+import { purchaseRequisitionService, prLineItemService, prApprovalService, type PurchaseRequisitionRecord } from '../../../../services/sdk';
+import { useUIStore, useAuthStore } from '../../../../core/stores';
 import { Plus, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 
 export default function RequisitionsPage() {
