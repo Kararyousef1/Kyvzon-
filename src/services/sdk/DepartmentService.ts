@@ -65,22 +65,23 @@ class DepartmentService extends BaseService<DepartmentRecord> {
     return this.findAll({ filters: { is_active: true, manager_id: undefined }, orderBy: 'name_ar', ascending: true });
   }
 
-  /** تعيين أدوار القسم (مشرف/مدير/مدير مباشر). null يزيل التعيين. */
+  /** تعيين أدوار القسم (مشرف/مدير/مدير مباشر/مسؤول مشتريات). null يزيل التعيين. */
   async assignRoles(
     departmentId: string,
-    roles: { supervisor_id?: string | null; manager_id?: string | null; direct_manager_id?: string | null },
+    roles: { supervisor_id?: string | null; manager_id?: string | null; direct_manager_id?: string | null; procurement_manager_id?: string | null },
   ): Promise<DepartmentRecord> {
     const payload: Record<string, unknown> = {};
     if ('supervisor_id' in roles) payload.supervisor_id = roles.supervisor_id || null;
     if ('manager_id' in roles) payload.manager_id = roles.manager_id || null;
     if ('direct_manager_id' in roles) payload.direct_manager_id = roles.direct_manager_id || null;
+    if ('procurement_manager_id' in roles) payload.procurement_manager_id = roles.procurement_manager_id || null;
     return this.update(departmentId, payload);
   }
 
   /**
    * يحسب الأدوار الفعّالة لقسم مع الوراثة من الأقسام الأب:
    *  - supervisor: خاص بالقسم فقط (لا يُورَث).
-   *  - manager / direct_manager: يُورَثان من أقرب قسم أب يملكهما إن كانا فارغين.
+   *  - manager / direct_manager / procurement_manager: يُورَثان من أقرب قسم أب يملكهما إن كانا فارغين.
    * يعيد أيضاً مصدر كل قيمة (own | inherited) للعرض.
    */
   async resolveEffectiveRoles(departmentId: string): Promise<{
@@ -89,22 +90,24 @@ class DepartmentService extends BaseService<DepartmentRecord> {
     manager_inherited: boolean;
     direct_manager_id: string | null;
     direct_manager_inherited: boolean;
+    procurement_manager_id: string | null;
+    procurement_manager_inherited: boolean;
   }> {
     const all = await this.findActive();
     const byId = new Map(all.map((d) => [d.id, d]));
 
     const self = byId.get(departmentId);
-    const supervisor_id = self?.supervisor_id || null;
+    const supervisor_id = (self as any)?.supervisor_id || null;
 
     // يمشي لأعلى السلسلة لإيجاد أول قيمة غير فارغة لحقل معيّن
-    const walkUp = (field: 'manager_id' | 'direct_manager_id'): { id: string | null; inherited: boolean } => {
+    const walkUp = (field: 'manager_id' | 'direct_manager_id' | 'procurement_manager_id'): { id: string | null; inherited: boolean } => {
       let node = self;
       let depth = 0;
       let inherited = false;
       while (node && depth < 20) {
-        const val = node[field];
+        const val = (node as any)[field];
         if (val) return { id: val, inherited };
-        node = node.parent_department_id ? byId.get(node.parent_department_id) : undefined;
+        node = (node as any).parent_department_id ? byId.get((node as any).parent_department_id) : undefined;
         inherited = true;
         depth++;
       }
@@ -113,6 +116,7 @@ class DepartmentService extends BaseService<DepartmentRecord> {
 
     const mgr = walkUp('manager_id');
     const dm = walkUp('direct_manager_id');
+    const pm = walkUp('procurement_manager_id');
 
     return {
       supervisor_id,
@@ -120,6 +124,8 @@ class DepartmentService extends BaseService<DepartmentRecord> {
       manager_inherited: mgr.inherited,
       direct_manager_id: dm.id,
       direct_manager_inherited: dm.inherited,
+      procurement_manager_id: pm.id,
+      procurement_manager_inherited: pm.inherited,
     };
   }
 

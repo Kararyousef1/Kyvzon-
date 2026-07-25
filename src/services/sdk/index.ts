@@ -282,3 +282,28 @@ export { hrApprovalService } from './HrApprovalService';
 // 🆕 مفاتيح المزوّدين لكل شركة (BYOK — النموذج ب)
 export { tenantProviderService, SUPPORTED_PROVIDERS } from './TenantProviderService';
 export type { ProviderChannel, ProviderStatus, ProviderMeta } from './TenantProviderService';
+// 🆕 بوابة المشتريات — Wave1: الموردون + طلبات الشراء
+export {
+  supplierService,
+  supplierDocumentService,
+  supplierRiskAssessmentService,
+} from './Procurement/SupplierService';
+export type {
+  SupplierRecord,
+  SupplierDocumentRecord,
+  SupplierRiskAssessmentRecord,
+} from './Procurement/SupplierService';
+export {
+  purchaseRequisitionService,
+  prLineItemService,
+  prApprovalService,
+  prAttachmentService,
+} from './Procurement/PurchaseRequisitionService';
+export type {
+  PurchaseRequisitionRecord,
+  PrLineItemRecord,
+  PrApprovalRecord,
+  PrAttachmentRecord,
+  CreatePrItemInput,
+  CreatePrInput,
+} from './Procurement/PurchaseRequisitionService';

@@ -50,6 +50,7 @@ const ROLES: { value: string; label: string; color: string }[] = [
   { value: 'tech',       label: 'تقني / IT',     color: 'bg-cyan-100 text-cyan-700'   },
   { value: 'marketing',  label: 'تسويق',         color: 'bg-fuchsia-100 text-fuchsia-700'},
   { value: 'sales',      label: 'مبيعات',        color: 'bg-cyan-100 text-cyan-700'   },
+  { value: 'procurement',label: 'مشتريات',       color: 'bg-amber-100 text-amber-700'  },
 ];
 
 const ROLE_LABELS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r.value, r.label]));
@@ -57,7 +58,7 @@ const ROLE_LABELS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r
 const ROLE_MODULE_MAP: Record<string, string> = {
   employee: 'employee', supervisor: 'supervisor', manager: 'manager',
   hr: 'hr', gatekeeper: 'gatekeeper', admin: 'admin', finance: 'finance', tech: 'tech_portal',
-  marketing: 'marketing', sales: 'crm',
+  marketing: 'marketing', sales: 'crm', procurement: 'procurement',
 };
 
 const PORTAL_PAGES = [

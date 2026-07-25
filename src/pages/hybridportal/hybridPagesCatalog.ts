@@ -174,7 +174,7 @@ const RAW_CATALOG: HybridPageMeta[] = [
  * ملاحظة: "الإشعارات" لا تُدرَج هنا لأنها تُعرَض بتصميم خاص في الـ footer
  * (مع عدّاد unreadCount)؛ إدراجها هنا كان يُظهرها مرتين.
  */
-const ALL_ROLES: UserRole[] = ['employee','supervisor','manager','hr','admin','gatekeeper','it_admin','tech','finance','marketing','sales'];
+const ALL_ROLES: UserRole[] = ['employee','supervisor','manager','hr','admin','gatekeeper','it_admin','tech','finance','marketing','sales','procurement'];
 export const HYBRID_ALWAYS_ON: HybridPageMeta[] = [
   { id: 'employee-problems', label: 'البلاغات', icon: FolderKanban, module: 'employee', group: 'work',     roles: ALL_ROLES },
   { id: 'employee-profile',  label: 'حسابي',    icon: User,         module: 'employee', group: 'personal', roles: ALL_ROLES },

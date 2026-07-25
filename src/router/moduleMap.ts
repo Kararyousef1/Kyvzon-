@@ -18,6 +18,7 @@ export const ROUTE_MODULE_MAP: Array<{ pathPrefix: string; moduleKey: string; la
   { pathPrefix: '/app/tech-portal', moduleKey: 'tech_portal', label: 'البوابة التقنية' },
   { pathPrefix: '/app/marketing', moduleKey: 'marketing', label: 'بوابة التسويق' },
   { pathPrefix: '/app/crm', moduleKey: 'crm', label: 'بوابة CRM' },
+  { pathPrefix: '/app/procurement', moduleKey: 'procurement', label: 'بوابة المشتريات' },
   { pathPrefix: '/app/insights', moduleKey: 'ai', label: 'رؤى الذكاء الاصطناعي' },
 ];
 

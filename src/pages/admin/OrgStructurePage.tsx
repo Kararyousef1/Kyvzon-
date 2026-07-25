@@ -42,6 +42,7 @@ export default function OrgStructurePage() {
   const [supervisors, setSupervisors] = useState<SimpleUser[]>([]);
   const [managers, setManagers] = useState<SimpleUser[]>([]);
   const [admins, setAdmins] = useState<SimpleUser[]>([]);
+  const [procurements, setProcurements] = useState<SimpleUser[]>([]);
 
   // التحديد + التوسّع
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -65,16 +66,18 @@ export default function OrgStructurePage() {
     setLoading(true);
     setError(null);
     try {
-      const [depts, sup, mgr, adm] = await Promise.all([
+      const [depts, sup, mgr, adm, proc] = await Promise.all([
         departmentService.findActive(),
         userService.findAllUsers({ role: 'supervisor' }).catch(() => []),
         userService.findAllUsers({ role: 'manager' }).catch(() => []),
         userService.findAllUsers({ role: 'admin' }).catch(() => []),
+        userService.findAllUsers({ role: 'procurement' }).catch(() => []),
       ]);
       setDepartments(depts || []);
       setSupervisors((sup as unknown as SimpleUser[]) || []);
       setManagers((mgr as unknown as SimpleUser[]) || []);
       setAdmins((adm as unknown as SimpleUser[]) || []);
+      setProcurements((proc as unknown as SimpleUser[]) || []);
     } catch (err) {
       console.error('فشل تحميل الهيكل التنظيمي:', err);
       setError('تعذّر تحميل الهيكل التنظيمي');
@@ -165,12 +168,12 @@ export default function OrgStructurePage() {
 
   // تعيين دور
   const assignRole = async (
-    field: 'supervisor_id' | 'manager_id' | 'direct_manager_id',
+    field: 'supervisor_id' | 'manager_id' | 'direct_manager_id' | 'procurement_manager_id',
     value: string,
   ) => {
     if (!selectedId) return;
     try {
-      await departmentService.assignRoles(selectedId, { [field]: value || null });
+      await departmentService.assignRoles(selectedId, { [field]: value || null } as any);
       addToast('تم تحديث التعيين', 'success');
       // حدّث الحالة المحلية + أعد حساب الوراثة
       setDepartments((prev) => prev.map((d) => (d.id === selectedId ? { ...d, [field]: value || undefined } : d)));
@@ -344,11 +347,11 @@ export default function OrgStructurePage() {
                 {/* تعيين الأدوار */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base font-black">القيادة والإشراف</CardTitle>
+                    <CardTitle className="text-base font-black">القيادة والإشراف — مع مسؤول المشتريات</CardTitle>
                   </CardHeader>
-                  <div className="p-5 pt-0 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-5 pt-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {detailsLoading || !effectiveRoles ? (
-                      <div className="col-span-3 flex justify-center py-8"><Loader2 className="animate-spin text-indigo-500" /></div>
+                      <div className="col-span-4 flex justify-center py-8"><Loader2 className="animate-spin text-indigo-500" /></div>
                     ) : (
                       <>
                         <RoleAssignCard
@@ -365,11 +368,20 @@ export default function OrgStructurePage() {
                         />
                         <RoleAssignCard
                           label="المشرف" icon={<Shield size={16} />} colorCls="bg-emerald-100 text-emerald-600"
-                          options={supervisors} value={effectiveRoles.supervisor_id}
+                          options={supervisors} value={(effectiveRoles as any).supervisor_id}
                           onChange={(v) => assignRole('supervisor_id', v)}
+                        />
+                        <RoleAssignCard
+                          label="مسؤول المشتريات" icon={<Building size={16} />} colorCls="bg-amber-100 text-amber-600"
+                          options={procurements} value={(effectiveRoles as any).procurement_manager_id}
+                          inherited={(effectiveRoles as any).procurement_manager_inherited}
+                          onChange={(v) => assignRole('procurement_manager_id', v)}
                         />
                       </>
                     )}
+                  </div>
+                  <div className="px-5 pb-4">
+                    <p className="text-[11px] text-slate-400">يُستخدم مسؤول المشتريات في سير موافقات طلبات الشراء PR — يُورث من القسم الأب إذا لم يُعيَّن، ويُطبق قواعد المبلغ (5K→مدير، 50K→مالية، 500K→إدارة).</p>
                   </div>
                 </Card>
 

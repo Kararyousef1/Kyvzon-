@@ -154,6 +154,11 @@ const MarketingPortal       = lazy(() => import('../pages/marketingportal/Market
 // بوابة CRM
 const CrmPortal             = lazy(() => import('../pages/crmportal/CrmPortal'));
 const CrmDashboard          = lazy(() => import('../pages/crmportal/CrmDashboard'));
+// بوابة المشتريات — Wave1: الموردون + طلبات الشراء
+const ProcurementDashboard  = lazy(() => import('../pages/app/procurement/ProcurementDashboard'));
+const SuppliersPage         = lazy(() => import('../pages/app/procurement/SuppliersPage'));
+const RequisitionsPage      = lazy(() => import('../pages/app/procurement/RequisitionsPage'));
+
 // بوابة CRM — الوحدة 1: جهات الاتصال والحسابات (التقرير 01)
 const ContactsLayout        = lazy(() => import('../pages/crmportal/contacts/ContactsLayout'));
 const ContactsOverview      = lazy(() => import('../pages/crmportal/contacts/ContactsOverview'));
@@ -452,6 +457,16 @@ export function AppRoutes() {
                 <Route path="intelligence" element={<CrmIntelligencePage />} />
                 <Route path="revenue" element={<CrmRevenuePage />} />
               </Route>
+            </Route>
+          </Route>
+
+          {/* Procurement Portal — بوابة المشتريات Wave1 */}
+          <Route path="procurement" element={<RequireRole roles={['procurement', 'admin', 'developer', 'manager', 'finance']} />}>
+            <Route element={<RequireModule moduleKey="procurement" />}>
+              <Route index element={<ProcurementDashboard />} />
+              <Route path="dashboard" element={<ProcurementDashboard />} />
+              <Route path="suppliers" element={<SuppliersPage />} />
+              <Route path="requisitions" element={<RequisitionsPage />} />
             </Route>
           </Route>
 
