@@ -91,6 +91,40 @@ class PurchaseOrderService extends BaseService<PurchaseOrderRecord> {
     return data as string;
   }
 
+  async createManual(input: { supplier_id: string; po_type: string; currency_code?: string; delivery_date?: string; delivery_location?: string; incoterms?: string; payment_terms?: string; lines: Array<{ item_code?: string; description: string; quantity: number; unit?: string; unit_price: number; specification?: Record<string, unknown> }> }): Promise<string> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { data, error } = await supabase.rpc('create_purchase_order_manual', {
+      p_supplier_id: input.supplier_id,
+      p_po_type: input.po_type,
+      p_currency_code: input.currency_code || 'SAR',
+      p_delivery_date: input.delivery_date || null,
+      p_delivery_location: input.delivery_location || null,
+      p_incoterms: input.incoterms || 'DDP',
+      p_payment_terms: input.payment_terms || 'Net45',
+      p_lines: input.lines as any,
+    });
+    if (error) throw new Error(error.message);
+    return data as string;
+  }
+
+  async send(poId: string, trackingNumber?: string): Promise<void> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { error } = await supabase.rpc('mark_po_sent', { p_po_id: poId, p_tracking_number: trackingNumber || null });
+    if (error) throw new Error(error.message);
+  }
+
+  async acknowledge(poId: string, trackingNumber?: string): Promise<void> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { error } = await supabase.rpc('acknowledge_po', { p_po_id: poId, p_tracking_number: trackingNumber || null });
+    if (error) throw new Error(error.message);
+  }
+
+  async updateTracking(poId: string, status: string, trackingNumber?: string, deliveryDate?: string): Promise<void> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { error } = await supabase.rpc('update_po_tracking', { p_po_id: poId, p_status: status, p_tracking_number: trackingNumber || null, p_delivery_date: deliveryDate || null });
+    if (error) throw new Error(error.message);
+  }
+
   async findByStatus(status: string): Promise<PurchaseOrderRecord[]> {
     return this.findAll({ filters: { status }, orderBy: 'delivery_date', limit: 100 });
   }
@@ -125,6 +159,36 @@ class GoodsReceiptService extends BaseService<GoodsReceiptRecord> {
     const { error } = await supabase.rpc('post_goods_receipt', { p_gr_id: grId });
     if (error) throw new Error(error.message);
   }
+
+  async decideIqc(grId: string, status: 'approved' | 'rejected' | 'partial', notes?: string): Promise<void> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { error } = await supabase.rpc('decide_iqc_inspection', { p_gr_id: grId, p_status: status, p_notes: notes || null });
+    if (error) throw new Error(error.message);
+  }
+}
+
+class IqcInspectionService extends BaseService<any> {
+  constructor() { super('iqc_inspections'); }
+  async findByGr(grId: string): Promise<any | null> {
+    return this.findOne('gr_id', grId);
+  }
+}
+
+class InventoryTransactionService extends BaseService<any> {
+  constructor() { super('inventory_transactions'); }
+  async findRecent(limit = 100): Promise<any[]> {
+    return this.findAll({ orderBy: 'created_at', ascending: false, limit });
+  }
+}
+
+class PoOtifAlertService extends BaseService<any> {
+  constructor() { super('po_otif_alerts'); }
+  async detectLate(): Promise<number> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { data, error } = await supabase.rpc('detect_late_po_alerts');
+    if (error) throw new Error(error.message);
+    return Number(data || 0);
+  }
 }
 
 class GrLineItemService extends BaseService<GrLineItemRecord> {
@@ -155,4 +219,7 @@ export const purchaseOrderService = new PurchaseOrderService();
 export const poLineItemService = new PoLineItemService();
 export const goodsReceiptService = new GoodsReceiptService();
 export const grLineItemService = new GrLineItemService();
+export const iqcInspectionService = new IqcInspectionService();
+export const inventoryTransactionService = new InventoryTransactionService();
+export const poOtifAlertService = new PoOtifAlertService();
 export const rtvService = new RtvService();

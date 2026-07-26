@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Card from '../../../../shared/components/ui/Card';
 import Button from '../../../../shared/components/ui/Button';
-import { toleranceRuleService, getCurrentTenantId } from '../../../../services/sdk';
+import { toleranceRuleService } from '../../../../services/sdk';
 import { useUIStore } from '../../../../core/stores';
 
 export default function ToleranceRulesPage() {
@@ -19,9 +19,8 @@ export default function ToleranceRulesPage() {
 
   const seed = async () => {
     try {
-      const tenantId = getCurrentTenantId() || (localStorage.getItem('tenant_id') || '');
-      if (!tenantId) { addToast('لا يوجد tenant_id في localStorage','error'); return; }
-      await toleranceRuleService.seed(tenantId);
+      // P0 security: الدالة لا تستقبل tenant_id من العميل؛ تعتمد على current_user_tenant_id() في قاعدة البيانات.
+      await toleranceRuleService.seed();
       addToast('تم بذر القواعد الافتراضية','success');
       await load();
     } catch(e:any){ addToast(e.message,'error'); }

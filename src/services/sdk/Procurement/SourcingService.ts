@@ -64,6 +64,75 @@ export interface AuctionBidRecord {
   created_at: string;
 }
 
+export interface RfxInvitationRecord {
+  id: string;
+  tenant_id: string;
+  event_id: string;
+  supplier_id: string;
+  email: string;
+  status: 'invited' | 'viewed' | 'responded' | 'declined' | 'expired' | 'cancelled';
+  bid_id?: string | null;
+  invited_at: string;
+  responded_at?: string | null;
+  expires_at: string;
+}
+
+export interface RfxQuestionRecord {
+  id: string;
+  tenant_id: string;
+  event_id: string;
+  supplier_id?: string | null;
+  question: string;
+  answer?: string | null;
+  visibility: 'all_suppliers' | 'private';
+  status: 'open' | 'answered' | 'closed';
+  created_at: string;
+  answered_at?: string | null;
+}
+
+export interface RfxTemplateRecord {
+  id: string;
+  tenant_id: string;
+  template_name: string;
+  type: 'RFI' | 'RFQ' | 'RFP' | 'auction';
+  sections: Array<Record<string, unknown>>;
+  default_criteria: Array<Record<string, unknown>>;
+  is_active: boolean;
+}
+
+export interface RfxDocumentRecord {
+  id: string;
+  tenant_id: string;
+  event_id: string;
+  section: 'intro' | 'company' | 'scope' | 'requirements' | 'criteria' | 'timeline' | 'legal';
+  title: string;
+  content: string;
+  weight_percent?: number | null;
+}
+
+export interface RfxEvaluationCriterionRecord {
+  id: string;
+  tenant_id: string;
+  event_id: string;
+  criterion_key: string;
+  label_ar: string;
+  label_en?: string | null;
+  weight_percent: number;
+  max_score: number;
+  sort_order: number;
+}
+
+export interface RfxBidScorecardRecord {
+  id: string;
+  tenant_id: string;
+  event_id: string;
+  bid_id: string;
+  evaluator_id?: string | null;
+  scores: Record<string, number>;
+  weighted_total: number;
+  notes?: string | null;
+}
+
 class SourcingEventService extends BaseService<SourcingEventRecord> {
   constructor() { super('sourcing_events'); }
 
@@ -90,6 +159,22 @@ class SupplierBidService extends BaseService<SupplierBidRecord> {
     return this.findAll({ filters: { event_id: eventId }, orderBy: 'effective_price', ascending: true, limit: 100 });
   }
 
+  async award(bidId: string, reason?: string): Promise<string> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { data, error } = await supabase.rpc('award_supplier_bid', {
+      p_bid_id: bidId,
+      p_reason: reason || null,
+    });
+    if (error) throw new Error(error.message);
+    return data as string;
+  }
+
+  async archiveAwardedPrice(bidId: string): Promise<void> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { error } = await supabase.rpc('archive_awarded_bid_price', { p_bid_id: bidId });
+    if (error) throw new Error(error.message);
+  }
+
   async submit(eventId: string, supplierId: string, totalPrice: number, currency = 'SAR', leadTime?: number, discount = 0): Promise<string> {
     const { supabase } = await import('../../supabase/supabase');
     const { data, error } = await supabase.rpc('submit_supplier_bid', {
@@ -102,6 +187,76 @@ class SupplierBidService extends BaseService<SupplierBidRecord> {
     });
     if (error) throw new Error(error.message);
     return data as string;
+  }
+}
+
+class RfxInvitationService extends BaseService<RfxInvitationRecord> {
+  constructor() { super('rfx_supplier_invitations'); }
+  async findByEvent(eventId: string): Promise<RfxInvitationRecord[]> {
+    return this.findAll({ filters: { event_id: eventId }, orderBy: 'invited_at', ascending: false, limit: 200 });
+  }
+  async invite(eventId: string, supplierIds: string[]): Promise<number> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { data, error } = await supabase.rpc('invite_suppliers_to_rfx', { p_event_id: eventId, p_supplier_ids: supplierIds });
+    if (error) throw new Error(error.message);
+    return Number(data || 0);
+  }
+}
+
+class RfxQuestionService extends BaseService<RfxQuestionRecord> {
+  constructor() { super('rfx_questions'); }
+  async findByEvent(eventId: string): Promise<RfxQuestionRecord[]> {
+    return this.findAll({ filters: { event_id: eventId }, orderBy: 'created_at', ascending: false, limit: 100 });
+  }
+  async answer(questionId: string, answer: string): Promise<void> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { error } = await supabase.rpc('answer_rfx_question', { p_question_id: questionId, p_answer: answer });
+    if (error) throw new Error(error.message);
+  }
+}
+
+class RfxTemplateService extends BaseService<RfxTemplateRecord> {
+  constructor() { super('rfx_templates'); }
+  async findActive(): Promise<RfxTemplateRecord[]> {
+    return this.findAll({ filters: { is_active: true }, orderBy: 'type', limit: 100 });
+  }
+  async seedDefaults(): Promise<number> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { data, error } = await supabase.rpc('seed_default_rfx_templates');
+    if (error) throw new Error(error.message);
+    return Number(data || 0);
+  }
+  async apply(eventId: string, templateId: string): Promise<void> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { error } = await supabase.rpc('apply_rfx_template', { p_event_id: eventId, p_template_id: templateId });
+    if (error) throw new Error(error.message);
+  }
+}
+
+class RfxDocumentService extends BaseService<RfxDocumentRecord> {
+  constructor() { super('rfx_documents'); }
+  async findByEvent(eventId: string): Promise<RfxDocumentRecord[]> {
+    return this.findAll({ filters: { event_id: eventId }, orderBy: 'created_at', ascending: true, limit: 100 });
+  }
+}
+
+class RfxEvaluationCriteriaService extends BaseService<RfxEvaluationCriterionRecord> {
+  constructor() { super('rfx_evaluation_criteria'); }
+  async findByEvent(eventId: string): Promise<RfxEvaluationCriterionRecord[]> {
+    return this.findAll({ filters: { event_id: eventId }, orderBy: 'sort_order', ascending: true, limit: 50 });
+  }
+}
+
+class RfxBidScorecardService extends BaseService<RfxBidScorecardRecord> {
+  constructor() { super('rfx_bid_scorecards'); }
+  async findByEvent(eventId: string): Promise<RfxBidScorecardRecord[]> {
+    return this.findAll({ filters: { event_id: eventId }, orderBy: 'weighted_total', ascending: false, limit: 100 });
+  }
+  async score(bidId: string, scores: Record<string, number>, notes?: string): Promise<number> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { data, error } = await supabase.rpc('score_bid_mecca', { p_bid_id: bidId, p_scores: scores, p_notes: notes || null });
+    if (error) throw new Error(error.message);
+    return Number(data || 0);
   }
 }
 
@@ -119,6 +274,24 @@ class AuctionService extends BaseService<AuctionRecord> {
     });
     if (error) throw new Error(error.message);
     return data as string;
+  }
+
+  async startFromEvent(eventId: string, auctionType: 'british' | 'japanese' | 'dutch' = 'british', durationMin = 45): Promise<string> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { data, error } = await supabase.rpc('start_procurement_auction_from_event', {
+      p_event_id: eventId,
+      p_auction_type: auctionType,
+      p_duration_minutes: durationMin,
+    });
+    if (error) throw new Error(error.message);
+    return data as string;
+  }
+
+  async close(auctionId: string): Promise<string | null> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { data, error } = await supabase.rpc('close_procurement_auction', { p_auction_id: auctionId });
+    if (error) throw new Error(error.message);
+    return data as string | null;
   }
 
   async findLive(): Promise<AuctionRecord[]> {
@@ -151,5 +324,11 @@ class AuctionBidService extends BaseService<AuctionBidRecord> {
 
 export const sourcingEventService = new SourcingEventService();
 export const supplierBidService = new SupplierBidService();
+export const rfxInvitationService = new RfxInvitationService();
+export const rfxQuestionService = new RfxQuestionService();
+export const rfxTemplateService = new RfxTemplateService();
+export const rfxDocumentService = new RfxDocumentService();
+export const rfxEvaluationCriteriaService = new RfxEvaluationCriteriaService();
+export const rfxBidScorecardService = new RfxBidScorecardService();
 export const auctionService = new AuctionService();
 export const auctionBidService = new AuctionBidService();

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Card from '../../../../shared/components/ui/Card';
-import { purchaseOrderService, poLineItemService, goodsReceiptService, type PurchaseOrderRecord, type PoLineItemRecord } from '../../../../services/sdk';
+import Button from '../../../../shared/components/ui/Button';
+import { purchaseOrderService, poLineItemService, goodsReceiptService, rtvService, type PurchaseOrderRecord, type PoLineItemRecord } from '../../../../services/sdk';
 import { useUIStore } from '../../../../core/stores';
 
 export default function PoDetailPage() {
@@ -25,6 +26,29 @@ export default function PoDetailPage() {
     })();
   }, [id]);
 
+  const updateStatus = async (status: string) => {
+    if (!po) return;
+    const tracking = window.prompt('رقم التتبع (اختياري)', po.tracking_number || '') || undefined;
+    try {
+      await purchaseOrderService.updateTracking(po.id, status, tracking);
+      addToast('تم تحديث حالة PO', 'success');
+      const p = await purchaseOrderService.findById(po.id);
+      setPo(p as any);
+    } catch (e:any) { addToast(e.message, 'error'); }
+  };
+
+  const createRtv = async (grId: string) => {
+    if (!po) return;
+    const qty = Number(window.prompt('الكمية المراد إرجاعها', '1') || '0');
+    const reason = window.prompt('سبب الإعادة: quality_rejected / over_delivery / damaged / wrong_item / expired / other', 'quality_rejected') || 'other';
+    const details = window.prompt('تفاصيل الإعادة') || '';
+    const lot = window.prompt('رقم الدفعة Lot إن وجد') || undefined;
+    try {
+      await rtvService.createRtv(grId, po.id, qty, reason, details, lot);
+      addToast('تم إنشاء RTV وتحديث المخزون الخارج', 'success');
+    } catch (e:any) { addToast(e.message, 'error'); }
+  };
+
   if (!po) return <div className="p-10 text-center">جاري التحميل...</div>;
 
   const totalOrdered = lines.reduce((s,l)=>s+Number(l.quantity),0);
@@ -33,9 +57,17 @@ export default function PoDetailPage() {
 
   return (
     <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
-      <div>
-        <h1 className="text-2xl font-black">{po.po_number} — {po.po_type}</h1>
-        <p className="text-sm text-slate-500 mt-1">حالة: {po.status} • مورد: {po.supplier_id.slice(0,8)} • تسليم: {po.delivery_date ? new Date(po.delivery_date).toLocaleDateString('ar-SA') : '-'} • تتبع: {po.tracking_number || '-'}</p>
+      <div className="flex justify-between items-start gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-black">{po.po_number} — {po.po_type}</h1>
+          <p className="text-sm text-slate-500 mt-1">حالة: {po.status} • مورد: {po.supplier_id.slice(0,8)} • تسليم: {po.delivery_date ? new Date(po.delivery_date).toLocaleDateString('ar-SA') : '-'} • تتبع: {po.tracking_number || '-'}</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {po.status === 'approved' && <Button size="sm" onClick={() => updateStatus('sent')}>إرسال للمورد</Button>}
+          {po.status === 'sent' && <Button size="sm" onClick={() => updateStatus('acknowledged')}>تأكيد المورد</Button>}
+          {['sent','acknowledged'].includes(po.status) && <Button size="sm" variant="secondary" onClick={() => updateStatus('shipped')}>تم الشحن</Button>}
+          {po.status === 'received' && <Button size="sm" variant="secondary" onClick={() => updateStatus('closed')}>إغلاق PO</Button>}
+        </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
@@ -92,9 +124,12 @@ export default function PoDetailPage() {
         <h3 className="font-bold mb-3">عمليات استلام GR ({grs.length}) — 4 خطوات: dock → عد كميات → حجر صحي جودة → Posting</h3>
         <div className="space-y-2">
           {grs.map((gr:any)=>(
-            <div key={gr.id} className="p-3 border rounded-xl flex justify-between text-sm">
+            <div key={gr.id} className="p-3 border rounded-xl flex justify-between items-center gap-3 text-sm">
               <div><span className="font-mono font-bold">{gr.gr_number}</span> • {new Date(gr.received_at).toLocaleString('ar-SA')} • طرود: {gr.total_packages || '-'} • ضرر: {gr.has_damage ? 'نعم' : 'لا'}</div>
-              <span className={`text-[10px] px-2 py-1 rounded-full ${gr.status==='posted'?'bg-emerald-100 text-emerald-700':gr.status==='quality_hold'?'bg-amber-100 text-amber-700':'bg-slate-100'}`}>{gr.status}</span>
+              <div className="flex gap-2 items-center">
+                <span className={`text-[10px] px-2 py-1 rounded-full ${gr.status==='posted'?'bg-emerald-100 text-emerald-700':gr.status==='quality_hold'?'bg-amber-100 text-amber-700':'bg-slate-100'}`}>{gr.status}</span>
+                <Button size="xs" variant="secondary" onClick={() => createRtv(gr.id)}>RTV</Button>
+              </div>
             </div>
           ))}
           {!grs.length && <div className="py-6 text-center text-slate-400 text-sm">لا توجد عمليات استلام — استخدم receive_goods() مع 4 خطوات: مطابقة PO مع إيصال شحن + فحص أضرار + عد كميات + تسجيل Lot Numbers</div>}

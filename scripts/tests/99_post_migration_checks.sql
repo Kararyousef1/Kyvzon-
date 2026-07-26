@@ -585,4 +585,135 @@ BEGIN
 END $$;
 
 \echo ''
+\echo '=== AA. بوابة المشتريات — P0 Security + الوحدات السبع ==='
+DO $$
+BEGIN
+  -- Role + Module
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.profiles'::regclass AND pg_get_constraintdef(oid) LIKE '%procurement%') THEN
+    RAISE EXCEPTION 'FAILED: procurement role missing from profiles constraint';
+  END IF;
+
+  -- Unit 01: PR
+  IF to_regclass('public.purchase_requisitions') IS NULL
+     OR to_regclass('public.pr_line_items') IS NULL
+     OR to_regclass('public.procurement_approval_requests') IS NULL
+     OR to_regclass('public.pr_audit_log') IS NULL
+     OR to_regclass('public.pr_comments') IS NULL
+     OR to_regclass('public.pr_approval_reminders') IS NULL
+     OR to_regclass('public.pr_overdue_approvals') IS NULL
+     OR to_regprocedure('public.create_purchase_requisition_full(uuid,uuid,date,text,text,text,text,text,text,jsonb)') IS NULL
+     OR to_regprocedure('public.approve_procurement_step(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.request_pr_revision(uuid,text)') IS NULL
+     OR to_regprocedure('public.generate_reorder_point_prs()') IS NULL
+     OR to_regprocedure('public.record_pr_approval_reminder(uuid,uuid,text,jsonb)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: procurement PR unit missing';
+  END IF;
+
+  -- Unit 02: RFx/Auctions
+  IF to_regclass('public.sourcing_events') IS NULL
+     OR to_regclass('public.supplier_bids') IS NULL
+     OR to_regclass('public.procurement_auctions') IS NULL
+     OR to_regclass('public.rfx_supplier_invitations') IS NULL
+     OR to_regclass('public.rfx_questions') IS NULL
+     OR to_regclass('public.rfx_event_audit_log') IS NULL
+     OR to_regclass('public.rfx_templates') IS NULL
+     OR to_regclass('public.rfx_evaluation_criteria') IS NULL
+     OR to_regclass('public.rfx_bid_scorecards') IS NULL
+     OR to_regprocedure('public.create_sourcing_event_from_pr(uuid,text,int)') IS NULL
+     OR to_regprocedure('public.place_auction_bid(uuid,uuid,numeric)') IS NULL
+     OR to_regprocedure('public.award_supplier_bid(uuid,text)') IS NULL
+     OR to_regprocedure('public.score_bid_mecca(uuid,jsonb,text)') IS NULL
+     OR to_regprocedure('public.start_procurement_auction_from_event(uuid,text,int)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: procurement RFx/auction unit missing';
+  END IF;
+
+  -- Unit 03: Suppliers
+  IF to_regclass('public.suppliers') IS NULL
+     OR to_regclass('public.supplier_documents') IS NULL
+     OR to_regclass('public.supplier_risk_assessments') IS NULL
+     OR to_regclass('public.supplier_audit_log') IS NULL
+     OR to_regclass('public.supplier_qualification_forms') IS NULL
+     OR to_regprocedure('public.calculate_kraljic(uuid)') IS NULL
+     OR to_regprocedure('public.decide_supplier_qualification(uuid,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: procurement supplier unit missing';
+  END IF;
+
+  -- Unit 04: PO/GR
+  IF to_regclass('public.purchase_orders') IS NULL
+     OR to_regclass('public.goods_receipts') IS NULL
+     OR to_regclass('public.return_to_vendor') IS NULL
+     OR to_regclass('public.inventory_transactions') IS NULL
+     OR to_regclass('public.iqc_inspections') IS NULL
+     OR to_regclass('public.po_otif_alerts') IS NULL
+     OR to_regprocedure('public.create_po_from_pr(uuid,uuid,text,date,text,text)') IS NULL
+     OR to_regprocedure('public.create_purchase_order_manual(uuid,text,text,date,text,text,text,jsonb)') IS NULL
+     OR to_regprocedure('public.receive_goods(uuid,text,int,boolean,text,jsonb)') IS NULL
+     OR to_regprocedure('public.decide_iqc_inspection(uuid,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: procurement PO/GR unit missing';
+  END IF;
+
+  -- Unit 05: Invoices
+  IF to_regclass('public.supplier_invoices') IS NULL
+     OR to_regclass('public.procurement_matching_results') IS NULL
+     OR to_regclass('public.invoice_exception_actions') IS NULL
+     OR to_regclass('public.invoice_audit_log') IS NULL
+     OR to_regclass('public.invoice_archive') IS NULL
+     OR to_regprocedure('public.match_invoice(uuid)') IS NULL
+     OR to_regprocedure('public.detect_duplicate_invoice(uuid,text,numeric,date)') IS NULL
+     OR to_regprocedure('public.create_supplier_invoice_full(uuid,uuid,text,date,numeric,numeric,text,date,text,text,text,jsonb)') IS NULL
+     OR to_regprocedure('public.approve_invoice_for_payment(uuid,text)') IS NULL
+     OR to_regprocedure('public.record_invoice_payment(uuid,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: procurement invoice/matching unit missing';
+  END IF;
+
+  -- Unit 06: CLM
+  IF to_regclass('public.procurement_contracts') IS NULL
+     OR to_regclass('public.contract_versions') IS NULL
+     OR to_regclass('public.contract_obligations') IS NULL
+     OR to_regclass('public.contract_audit_log') IS NULL
+     OR to_regclass('public.contract_approval_steps') IS NULL
+     OR to_regclass('public.contract_signature_requests') IS NULL
+     OR to_regclass('public.contract_clm_analytics') IS NULL
+     OR to_regprocedure('public.create_contract_version(uuid,text,text,text)') IS NULL
+     OR to_regprocedure('public.create_procurement_contract_full(uuid,text,text,numeric,text,date,date,uuid,text)') IS NULL
+     OR to_regprocedure('public.request_contract_approval(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: procurement contracts unit missing';
+  END IF;
+
+  -- Unit 07: Spend
+  IF to_regclass('public.spend_transactions') IS NULL
+     OR to_regclass('public.procurement_price_history') IS NULL
+     OR to_regclass('public.p_card_transactions') IS NULL
+     OR to_regclass('public.supplier_name_aliases') IS NULL
+     OR to_regclass('public.spend_intelligence_alerts') IS NULL
+     OR to_regclass('public.procurement_executive_kpis') IS NULL
+     OR to_regclass('public.spend_category_report') IS NULL
+     OR to_regprocedure('public.forecast_spend(text,text)') IS NULL
+     OR to_regprocedure('public.detect_maverick_spend()') IS NULL
+     OR to_regprocedure('public.collect_procurement_spend_transactions()') IS NULL
+     OR to_regprocedure('public.generate_spend_intelligence_alerts()') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: procurement spend analytics unit missing';
+  END IF;
+
+  -- P0 Security hardening
+  IF to_regprocedure('public.procurement_require_roles(text[])') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: procurement security helper missing';
+  END IF;
+  IF to_regprocedure('public.procurement_assert_supplier_in_tenant(uuid,boolean)') IS NULL
+     OR to_regprocedure('public.procurement_assert_po_in_tenant(uuid)') IS NULL
+     OR to_regprocedure('public.procurement_assert_contract_in_tenant(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: procurement same-tenant assertion helpers missing';
+  END IF;
+
+  IF has_function_privilege('authenticated', 'public.forecast_spend(uuid,text,text)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.detect_maverick_spend(uuid)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.detect_duplicate_invoice(uuid,uuid,text,numeric,date)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.seed_procurement_tolerance_rules(uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'SECURITY: tenant-taking procurement RPC still executable by authenticated';
+  END IF;
+
+  RAISE NOTICE 'CHECK AA PASSED — بوابة المشتريات: الوحدات السبع + P0 security hardening موجودة';
+END $$;
+
+\echo ''
 \echo '=== ✅ POST-MIGRATION CHECKS: ALL PASS ==='

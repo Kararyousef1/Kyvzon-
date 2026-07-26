@@ -50,6 +50,9 @@ import PublicPortalsPage from '../pages/public/portals/PublicPortalsPage';
 import PublicPortalDetailPage from '../pages/public/portals/PublicPortalDetailPage';
 import ServiceDetailPage from '../pages/public/portals/ServiceDetailPage';
 import PublicInfoPage from '../pages/public/static/PublicInfoPage';
+import SupplierPortalPage from '../pages/public/supplier/SupplierPortalPage';
+import SupplierRfxPortalPage from '../pages/public/supplier/SupplierRfxPortalPage';
+import SupplierInvoicePortalPage from '../pages/public/supplier/SupplierInvoicePortalPage';
 
 // ─── Lazy: Employee ─────────────────────────────────────────────────────
 // ─── Lazy: Finance ──────────────────────────────────────────────────────
@@ -167,6 +170,7 @@ const RequisitionDetailPage     = lazy(() => import('../pages/app/procurement/re
 const OrdersLayout              = lazy(() => import('../pages/app/procurement/orders/OrdersLayout'));
 const PurchaseOrdersPage        = lazy(() => import('../pages/app/procurement/orders/PurchaseOrdersPage'));
 const PoDetailPage              = lazy(() => import('../pages/app/procurement/orders/PoDetailPage'));
+const PoReleasesPage            = lazy(() => import('../pages/app/procurement/orders/PoReleasesPage'));
 const GoodsReceiptPage          = lazy(() => import('../pages/app/procurement/orders/GoodsReceiptPage'));
 // Unit 02 — RFx + Auctions
 const SourcingLayout            = lazy(() => import('../pages/app/procurement/sourcing/SourcingLayout'));
@@ -177,6 +181,7 @@ const AuctionLivePage           = lazy(() => import('../pages/app/procurement/so
 const InvoicesLayout            = lazy(() => import('../pages/app/procurement/invoices/InvoicesLayout'));
 const InvoicesPage              = lazy(() => import('../pages/app/procurement/invoices/InvoicesPage'));
 const MatchingDetailPage        = lazy(() => import('../pages/app/procurement/invoices/MatchingDetailPage'));
+const ToleranceRulesPage        = lazy(() => import('../pages/app/procurement/invoices/ToleranceRulesPage'));
 // Unit 06 — Contracts
 const ContractsLayout           = lazy(() => import('../pages/app/procurement/contracts/ContractsLayout'));
 const ContractsPage             = lazy(() => import('../pages/app/procurement/contracts/ContractsPage'));
@@ -321,6 +326,9 @@ export function AppRoutes() {
       <Route path="/portals" element={<PublicPortalsPage />} />
       <Route path="/portals/:portalId" element={<PublicPortalDetailPage />} />
       <Route path="/services/:serviceId" element={<ServiceDetailPage />} />
+      <Route path="/supplier-portal/:token" element={<SupplierPortalPage />} />
+      <Route path="/supplier-rfx/:token" element={<SupplierRfxPortalPage />} />
+      <Route path="/supplier-invoice/:token" element={<SupplierInvoicePortalPage />} />
       <Route path="/about" element={<PublicInfoPage kind="about" />} />
       <Route path="/careers" element={<PublicInfoPage kind="careers" />} />
       <Route path="/blog" element={<PublicInfoPage kind="blog" />} />
@@ -514,10 +522,12 @@ export function AppRoutes() {
                 <Route index element={<PurchaseOrdersPage />} />
                 <Route path="purchase-orders" element={<PurchaseOrdersPage />} />
                 <Route path="purchase-orders/:id" element={<PoDetailPage />} />
+                <Route path="releases" element={<PoReleasesPage />} />
                 <Route path="goods-receipts" element={<GoodsReceiptPage />} />
               </Route>
               <Route path="invoices" element={<InvoicesLayout />}>
                 <Route index element={<InvoicesPage />} />
+                <Route path="tolerance-rules" element={<ToleranceRulesPage />} />
                 <Route path=":id/matching" element={<MatchingDetailPage />} />
               </Route>
               <Route path="contracts" element={<ContractsLayout />}>

@@ -302,6 +302,7 @@ export default function AdminEmployeesPage() {
   const [wizardStep,   setWizardStep]   = useState<1 | 2 | 3>(1);
   const [saving,       setSaving]       = useState(false);
   const [form,         setForm]         = useState({ ...EMPTY_FORM });
+  const [pageSelectionTouched, setPageSelectionTouched] = useState(false);
 
   const [deleteTarget,  setDeleteTarget]  = useState<any>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -330,6 +331,20 @@ export default function AdminEmployeesPage() {
       .filter(portal => portal.pages.length > 0),
     [isEnabled, subscriptionPlan, enabledPages],
   );
+
+  const getDefaultPagesForRole = useCallback((roleValue: string): string[] => {
+    const moduleKey = ROLE_MODULE_MAP[roleValue];
+    if (!moduleKey) return [];
+    return visiblePortals
+      .filter(portal => portal.moduleKey === moduleKey)
+      .flatMap(portal => portal.pages.map(page => page.id));
+  }, [visiblePortals]);
+
+  useEffect(() => {
+    if (!modalOpen || pageSelectionTouched || form.allowed_pages.length > 0) return;
+    const defaults = getDefaultPagesForRole(form.role);
+    if (defaults.length) setForm(f => ({ ...f, allowed_pages: defaults }));
+  }, [modalOpen, pageSelectionTouched, form.role, form.allowed_pages.length, getDefaultPagesForRole]);
 
   // ─── fetchAll ─────────────────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
@@ -410,7 +425,14 @@ export default function AdminEmployeesPage() {
 
   // ─── Modal helpers ─────────────────────────────────────────────────────────
   const openCreate = () => {
-    setForm({ ...EMPTY_FORM, finance: { ...EMPTY_FORM.finance, legal_entity_id: legalEntities[0]?.id || '' } });
+    const defaultRole = 'employee' as UserRole;
+    setPageSelectionTouched(false);
+    setForm({
+      ...EMPTY_FORM,
+      role: defaultRole,
+      allowed_pages: getDefaultPagesForRole(defaultRole),
+      finance: { ...EMPTY_FORM.finance, legal_entity_id: legalEntities[0]?.id || '' },
+    });
     setFormMode('create');
     setSelectedEmp(null);
     setWizardStep(1);
@@ -418,6 +440,11 @@ export default function AdminEmployeesPage() {
   };
 
   const openEdit = async (emp: any) => {
+    const hasExistingAllowedPages = Array.isArray(emp.custom_permissions?.allowed_pages);
+    const existingAllowedPages = hasExistingAllowedPages
+      ? emp.custom_permissions.allowed_pages
+      : getDefaultPagesForRole(emp.role || 'employee');
+    setPageSelectionTouched(hasExistingAllowedPages);
     setForm({
       full_name:    emp.full_name || '',
       email:        emp.email?.split('@')[0] || '',
@@ -430,7 +457,7 @@ export default function AdminEmployeesPage() {
       branch_id:    emp.branch_id || '',
       shift_code:   '',
       status:       emp.status || 'active',
-      allowed_pages: emp.custom_permissions?.allowed_pages || [],
+      allowed_pages: existingAllowedPages,
       finance: { ...EMPTY_FORM.finance },
     });
     setFormMode('edit');
@@ -494,6 +521,10 @@ export default function AdminEmployeesPage() {
   const handleSave = async () => {
     if (!validateStep1() || !validateStep2()) return;
     const tenantId = getCurrentTenantId();
+    const defaultPages = getDefaultPagesForRole(form.role);
+    const effectiveAllowedPages = (form.allowed_pages.length > 0 || pageSelectionTouched)
+      ? form.allowed_pages
+      : defaultPages;
     setSaving(true);
     try {
       if (formMode === 'edit' && selectedEmp) {
@@ -525,7 +556,7 @@ export default function AdminEmployeesPage() {
         // حفظ custom_permissions
         const currentCustom = selectedEmp.custom_permissions || {};
         await supabase.from('profiles').update({
-          custom_permissions: { ...currentCustom, allowed_pages: form.allowed_pages },
+          custom_permissions: { ...currentCustom, allowed_pages: effectiveAllowedPages },
         }).eq('id', selectedEmp.id);
 
         // مزامنة حالة Auth إذا تغيرت
@@ -585,7 +616,7 @@ export default function AdminEmployeesPage() {
               shift_code:   form.shift_code || null,
               cost_centers: form.finance.cost_centers,
               projects:     form.finance.projects,
-              allowed_pages:form.allowed_pages,
+              allowed_pages:effectiveAllowedPages,
             },
           }).eq('id', newUserId);
 
@@ -976,7 +1007,11 @@ export default function AdminEmployeesPage() {
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 mb-1.5 block">الدور الرئيسي في المنصة *</label>
-                      <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as any }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 font-bold" required>
+                      <select value={form.role} onChange={e => {
+                        const nextRole = e.target.value as UserRole;
+                        setPageSelectionTouched(false);
+                        setForm(f => ({ ...f, role: nextRole, allowed_pages: getDefaultPagesForRole(nextRole) }));
+                      }} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 font-bold" required>
                         {visibleRoles.map(r => <option key={r.value} value={r.value}>{r.label} ({r.value})</option>)}
                       </select>
                     </div>
@@ -1006,7 +1041,7 @@ export default function AdminEmployeesPage() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-black text-sm text-slate-800">تخصيص صفحات وبوابات المستخدم</h4>
-                      <button type="button" onClick={() => setForm(f => ({ ...f, allowed_pages: visiblePortals.flatMap(p => p.pages.map(pg => pg.id)) }))} className="text-xs font-bold text-indigo-600 hover:text-indigo-800">
+                      <button type="button" onClick={() => { setPageSelectionTouched(true); setForm(f => ({ ...f, allowed_pages: visiblePortals.flatMap(p => p.pages.map(pg => pg.id)) })); }} className="text-xs font-bold text-indigo-600 hover:text-indigo-800">
                         تحديد الكل ✅
                       </button>
                     </div>
@@ -1018,12 +1053,12 @@ export default function AdminEmployeesPage() {
                           <div key={portal.portalLabel} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                             <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                               <span className="font-black text-xs text-slate-700 uppercase tracking-wider">{portal.portalLabel}</span>
-                              <button type="button" onClick={() => setForm(f => ({
+                              <button type="button" onClick={() => { setPageSelectionTouched(true); setForm(f => ({
                                 ...f,
                                 allowed_pages: allSelected
                                   ? f.allowed_pages.filter(id => !ids.includes(id))
                                   : [...new Set([...f.allowed_pages, ...ids])],
-                              }))} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800">
+                              })); }} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800">
                                 {allSelected ? 'إلغاء التحديد ❌' : 'تحديد الكل ✅'}
                               </button>
                             </div>
@@ -1032,12 +1067,12 @@ export default function AdminEmployeesPage() {
                                 const checked = form.allowed_pages.includes(pg.id);
                                 return (
                                   <label key={pg.id} className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${checked ? 'bg-indigo-50 border-indigo-200 text-indigo-800 font-bold' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                                    <input type="checkbox" checked={checked} onChange={() => setForm(f => ({
+                                    <input type="checkbox" checked={checked} onChange={() => { setPageSelectionTouched(true); setForm(f => ({
                                       ...f,
                                       allowed_pages: checked
                                         ? f.allowed_pages.filter(id => id !== pg.id)
                                         : [...f.allowed_pages, pg.id],
-                                    }))} className="rounded text-indigo-600 focus:ring-indigo-500" />
+                                    })); }} className="rounded text-indigo-600 focus:ring-indigo-500" />
                                     <span>{pg.label}</span>
                                   </label>
                                 );

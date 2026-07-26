@@ -44,6 +44,7 @@ export interface PrLineItemRecord {
   estimated_unit_price: number;
   estimated_total: number;
   suggested_supplier_id?: string | null;
+  unspsc_code?: string | null;
   notes?: string | null;
   created_at: string;
 }
@@ -72,6 +73,46 @@ export interface PrAttachmentRecord {
   created_at: string;
 }
 
+export interface PrAuditLogRecord {
+  id: string;
+  tenant_id: string;
+  pr_id: string;
+  actor_id?: string | null;
+  action: string;
+  old_status?: string | null;
+  new_status?: string | null;
+  comments?: string | null;
+  created_at: string;
+}
+
+export interface PrCommentRecord {
+  id: string;
+  tenant_id: string;
+  pr_id: string;
+  author_id?: string | null;
+  comment: string;
+  is_internal: boolean;
+  created_at: string;
+}
+
+export interface ProcurementReorderPointRecord {
+  id: string;
+  tenant_id: string;
+  item_code: string;
+  description: string;
+  current_stock: number;
+  reorder_point: number;
+  reorder_qty: number;
+  unit: string;
+  department_id?: string | null;
+  last_generated_at?: string | null;
+  is_active: boolean;
+  estimated_unit_price?: number | null;
+  priority?: 'normal' | 'urgent' | 'emergency' | null;
+  needed_in_days?: number | null;
+  created_at: string;
+}
+
 export interface CreatePrItemInput {
   item_code?: string;
   description: string;
@@ -79,16 +120,22 @@ export interface CreatePrItemInput {
   unit?: string;
   estimated_unit_price: number;
   suggested_supplier_id?: string;
+  unspsc_code?: string;
   notes?: string;
 }
 
 export interface CreatePrInput {
   department_id?: string;
   cost_center_id?: string;
+  project_id?: string;
+  budget_scope?: 'cost_center' | 'project' | 'category' | 'capex';
+  budget_category_code?: string;
   needed_by_date?: string;
   priority?: 'normal' | 'urgent' | 'emergency';
   request_type?: 'raw_material' | 'service' | 'asset' | 'consumable' | 'other';
   justification?: string;
+  emergency_reason?: string;
+  source?: 'manual' | 'mrp' | 'reorder_point' | 'p_card' | 'expense' | 'other';
   currency_code?: string;
   items: CreatePrItemInput[];
 }
@@ -107,14 +154,22 @@ class PurchaseRequisitionService extends BaseService<PurchaseRequisitionRecord> 
       p_priority: input.priority || 'normal',
       p_request_type: input.request_type || 'raw_material',
       p_justification: input.justification || null,
-      p_emergency_reason: (input as any).emergency_reason || null,
-      p_source: (input as any).source || 'manual',
+      p_emergency_reason: input.emergency_reason || null,
+      p_source: input.source || 'manual',
       p_currency_code: input.currency_code || 'SAR',
       p_items: input.items as unknown as string, // JSONB
     });
 
     if (error) throw new Error(error.message);
-    return data as string; // UUID
+    const prId = data as string;
+    if (input.project_id || input.budget_scope || input.budget_category_code) {
+      await this.update(prId, {
+        project_id: input.project_id || null,
+        budget_scope: input.budget_scope || (input.request_type === 'asset' ? 'capex' : 'cost_center'),
+        budget_category_code: input.budget_category_code || null,
+      } as any);
+    }
+    return prId; // UUID
   }
 
   async findMyRequests(): Promise<PurchaseRequisitionRecord[]> {
@@ -130,6 +185,22 @@ class PurchaseRequisitionService extends BaseService<PurchaseRequisitionRecord> 
     const { data, error } = await supabase.rpc('consolidate_prs', { p_pr_ids: prIds });
     if (error) throw new Error(error.message);
     return data as string;
+  }
+
+  async requestRevision(prId: string, reason: string): Promise<void> {
+    const { error } = await supabase.rpc('request_pr_revision', { p_pr_id: prId, p_reason: reason });
+    if (error) throw new Error(error.message);
+  }
+
+  async cancel(prId: string, reason?: string): Promise<void> {
+    const { error } = await supabase.rpc('cancel_pr', { p_pr_id: prId, p_reason: reason || null });
+    if (error) throw new Error(error.message);
+  }
+
+  async generateFromReorderPoints(): Promise<number> {
+    const { data, error } = await supabase.rpc('generate_reorder_point_prs');
+    if (error) throw new Error(error.message);
+    return Number(data || 0);
   }
 }
 
@@ -195,9 +266,67 @@ class PrAttachmentService extends BaseService<PrAttachmentRecord> {
   async findByPr(prId: string): Promise<PrAttachmentRecord[]> {
     return this.findAll({ filters: { pr_id: prId }, orderBy: 'created_at', limit: 50 });
   }
+
+  async uploadFile(prId: string, file: File): Promise<string> {
+    const { supabase } = await import('../../supabase/supabase');
+    const fileBase64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('FILE_READ_FAILED'));
+      reader.readAsDataURL(file);
+    });
+    const { data, error } = await supabase.functions.invoke('procurement-pr-attachment', {
+      body: { action: 'upload', pr_id: prId, file_name: file.name, file_mime: file.type, file_base64: fileBase64 },
+    });
+    if (error || data?.error) throw new Error(data?.error || error?.message || 'فشل رفع المرفق');
+    return data.attachment_id as string;
+  }
+
+  async signedUrl(prId: string, fileUrl: string): Promise<string> {
+    if (!fileUrl.startsWith('storage://')) return fileUrl;
+    const { supabase } = await import('../../supabase/supabase');
+    const { data, error } = await supabase.functions.invoke('procurement-pr-attachment', {
+      body: { action: 'signed_url', pr_id: prId, file_url: fileUrl },
+    });
+    if (error || data?.error) throw new Error(data?.error || error?.message || 'فشل إنشاء رابط المرفق');
+    return data.url as string;
+  }
+}
+
+class PrAuditLogService extends BaseService<PrAuditLogRecord> {
+  constructor() { super('pr_audit_log'); }
+  async findByPr(prId: string): Promise<PrAuditLogRecord[]> {
+    return this.findAll({ filters: { pr_id: prId }, orderBy: 'created_at', ascending: false, limit: 100 });
+  }
+}
+
+class PrCommentService extends BaseService<PrCommentRecord> {
+  constructor() { super('pr_comments'); }
+  async findByPr(prId: string): Promise<PrCommentRecord[]> {
+    return this.findAll({ filters: { pr_id: prId }, orderBy: 'created_at', ascending: false, limit: 100 });
+  }
+  async add(prId: string, comment: string, isInternal = false): Promise<string> {
+    const { data, error } = await supabase.rpc('add_pr_comment', { p_pr_id: prId, p_comment: comment, p_is_internal: isInternal });
+    if (error) throw new Error(error.message);
+    return data as string;
+  }
+}
+
+class ProcurementReorderPointService extends BaseService<ProcurementReorderPointRecord> {
+  constructor() { super('procurement_reorder_points'); }
+  async findActive(): Promise<ProcurementReorderPointRecord[]> {
+    return this.findAll({ filters: { is_active: true }, orderBy: 'item_code', ascending: true, limit: 200 });
+  }
+  async findTriggered(): Promise<ProcurementReorderPointRecord[]> {
+    const rows = await this.findActive();
+    return rows.filter(r => Number(r.current_stock) <= Number(r.reorder_point));
+  }
 }
 
 export const purchaseRequisitionService = new PurchaseRequisitionService();
 export const prLineItemService = new PrLineItemService();
 export const prApprovalService = new PrApprovalService();
 export const prAttachmentService = new PrAttachmentService();
+export const prAuditLogService = new PrAuditLogService();
+export const prCommentService = new PrCommentService();
+export const procurementReorderPointService = new ProcurementReorderPointService();

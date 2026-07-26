@@ -32,6 +32,8 @@ export { payrollService } from './PayrollService';
 export { aiService } from './AIService';
 export { settingsService } from './SettingsService';
 export { departmentService, specialtyService } from './DepartmentService';
+export { costCenterService } from './CostCenterService';
+export type { CostCenterRecord } from './CostCenterService';
 export { incidentService } from './IncidentService';
 export { wellnessService, wellnessEntryService } from './WellnessService';
 export { reviewService } from './ReviewService';
@@ -290,6 +292,8 @@ export {
   supplierRiskAssessmentService,
   supplierSiteVisitService,
   supplierPortalInviteService,
+  supplierAuditLogService,
+  supplierQualificationFormService,
 } from './Procurement/SupplierService';
 export type {
   SupplierRecord,
@@ -298,30 +302,50 @@ export type {
   SupplierRiskAssessmentRecord,
   SupplierSiteVisitRecord,
   SupplierPortalInviteRecord,
+  SupplierAuditLogRecord,
+  SupplierQualificationFormRecord,
 } from './Procurement/SupplierService';
 export {
   purchaseRequisitionService,
   prLineItemService,
   prApprovalService,
   prAttachmentService,
+  prAuditLogService,
+  prCommentService,
+  procurementReorderPointService,
 } from './Procurement/PurchaseRequisitionService';
 export type {
   PurchaseRequisitionRecord,
   PrLineItemRecord,
   PrApprovalRecord,
   PrAttachmentRecord,
+  PrAuditLogRecord,
+  PrCommentRecord,
+  ProcurementReorderPointRecord,
   CreatePrItemInput,
   CreatePrInput,
 } from './Procurement/PurchaseRequisitionService';
 export {
   sourcingEventService,
   supplierBidService,
+  rfxInvitationService,
+  rfxQuestionService,
+  rfxTemplateService,
+  rfxDocumentService,
+  rfxEvaluationCriteriaService,
+  rfxBidScorecardService,
   auctionService,
   auctionBidService,
 } from './Procurement/SourcingService';
 export type {
   SourcingEventRecord,
   SupplierBidRecord,
+  RfxInvitationRecord,
+  RfxQuestionRecord,
+  RfxTemplateRecord,
+  RfxDocumentRecord,
+  RfxEvaluationCriterionRecord,
+  RfxBidScorecardRecord,
   AuctionRecord,
   AuctionBidRecord,
 } from './Procurement/SourcingService';
@@ -330,6 +354,9 @@ export {
   poLineItemService,
   goodsReceiptService,
   grLineItemService,
+  iqcInspectionService,
+  inventoryTransactionService,
+  poOtifAlertService,
   rtvService,
 } from './Procurement/PurchaseOrderService';
 export type {
@@ -345,9 +372,13 @@ export {
 export type {
   SupplierInvoiceRecord,
   MatchingResultRecord,
+  CreateInvoiceInput,
+  CreateInvoiceLineInput,
 } from './Procurement/InvoiceService';
 export {
   procurementContractService,
+  contractApprovalStepService,
+  contractAuditLogService,
   contractTemplateService,
   contractClauseService,
   contractVersionService,
@@ -362,13 +393,29 @@ export type {
   ContractVersionRecord,
   ContractObligationRecord,
   ContractSignatureRecord,
+  ContractApprovalStepRecord,
+  ContractAuditLogRecord,
 } from './Procurement/ContractService';
 export {
   spendParetoService,
   priceTrendService,
+  procurementExecutiveKpiService,
+  spendCategoryReportService,
+  spendAlertService,
   spendForecastService,
   spendTransactionService,
+  spendCategoryStrategyService,
+  pCardTransactionService,
   toleranceRuleService,
   poReleaseService,
   procurementApprovalRuleService,
+} from './Procurement/SpendAnalyticsService';
+export type {
+  SpendParetoRecord,
+  PriceTrendRecord,
+  SpendForecastRecord,
+  SpendTransactionRecord,
+  ProcurementExecutiveKpiRecord,
+  SpendCategoryReportRecord,
+  SpendIntelligenceAlertRecord,
 } from './Procurement/SpendAnalyticsService';

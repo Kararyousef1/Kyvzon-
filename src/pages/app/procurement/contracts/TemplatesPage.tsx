@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import Card from '../../../../shared/components/ui/Card';
+import Button from '../../../../shared/components/ui/Button';
+import Input from '../../../../shared/components/ui/Input';
 import { contractTemplateService, contractClauseService } from '../../../../services/sdk';
 import { useUIStore } from '../../../../core/stores';
 
@@ -7,52 +9,19 @@ export default function TemplatesPage() {
   const { addToast } = useUIStore();
   const [templates, setTemplates] = useState<any[]>([]);
   const [clauses, setClauses] = useState<any[]>([]);
+  const [showTemplate, setShowTemplate] = useState(false);
+  const [showClause, setShowClause] = useState(false);
+  const [tpl, setTpl] = useState({ name: '', type: 'MSA', content: '' });
+  const [clause, setClause] = useState({ clause_type: 'payment', title: '', content: '', is_red_flag: false, is_standard: true });
 
-  useEffect(()=>{
-    (async()=>{
-      try {
-        const t = await contractTemplateService.findAll({ limit: 50 });
-        setTemplates(t || []);
-        const c = await contractClauseService.findAll({ limit: 100 });
-        setClauses(c || []);
-      } catch(e:any){ addToast(e.message,'error'); }
-    })();
-  }, []);
+  const load = async () => {
+    try { setTemplates(await contractTemplateService.findAll({ limit: 100 })); setClauses(await contractClauseService.findAll({ limit: 200 })); }
+    catch(e:any){ addToast(e.message,'error'); }
+  };
+  useEffect(()=>{ load(); }, []);
+  const seed = async () => { try { await contractTemplateService.seedDefaults(); addToast('تم تجهيز قوالب وبنود افتراضية','success'); await load(); } catch(e:any){ addToast(e.message,'error'); } };
+  const createTemplate = async (e:React.FormEvent) => { e.preventDefault(); try { await contractTemplateService.create({ ...tpl, is_active: true } as any); setShowTemplate(false); setTpl({ name:'', type:'MSA', content:'' }); await load(); } catch(e:any){ addToast(e.message,'error'); } };
+  const createClause = async (e:React.FormEvent) => { e.preventDefault(); try { await contractClauseService.create(clause as any); setShowClause(false); setClause({ clause_type:'payment', title:'', content:'', is_red_flag:false, is_standard:true }); await load(); } catch(e:any){ addToast(e.message,'error'); } };
 
-  return (
-    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
-      <div>
-        <h1 className="text-2xl font-black">قوالب العقود ومكتبة البنود</h1>
-        <p className="text-sm text-slate-500 mt-1">6 أنواع قوالب (MSA/SLA/SOW/PO_TC/NDA/IP) + مكتبة بنود مع Red Flags — Unit 06 — عبر SDK فقط</p>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-5">
-        <Card>
-          <h3 className="font-bold mb-3">قوالب العقود ({templates.length})</h3>
-          <div className="space-y-2 max-h-[50vh] overflow-auto">
-            {templates.map((t:any)=>(
-              <div key={t.id} className="p-3 border rounded-xl text-sm">
-                <div className="font-bold">{t.name} <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 ml-2">{t.type}</span></div>
-                <div className="text-xs text-slate-500 mt-1 line-clamp-2">{t.content?.slice(0,120)}...</div>
-              </div>
-            ))}
-            {!templates.length && <div className="py-10 text-center text-slate-400 text-sm">لا قوالب — أنشئ قوالب MSA للعلاقات طويلة الأمد, SLA للخدمات المستمرة, SOW لمشاريع محددة, NDA للمعلومات السرية</div>}
-          </div>
-        </Card>
-
-        <Card>
-          <h3 className="font-bold mb-3">مكتبة البنود — مع Red Flags</h3>
-          <div className="space-y-2 max-h-[50vh] overflow-auto">
-            {clauses.map((c:any)=>(
-              <div key={c.id} className={`p-3 border rounded-xl text-sm ${c.is_red_flag ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
-                <div className="flex justify-between"><span className="font-bold">{c.title}</span><span className={`text-[10px] px-2 py-0.5 rounded-full ${c.is_red_flag ? 'bg-red-100 text-red-700' : c.is_standard ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100'}`}>{c.clause_type} {c.is_red_flag ? '🔴 Red Flag' : c.is_standard ? 'معياري' : 'مخصص'}</span></div>
-                <div className="text-xs text-slate-600 mt-1">{c.content?.slice(0,150)}...</div>
-              </div>
-            ))}
-            {!clauses.length && <div className="py-10 text-center text-slate-400 text-sm">لا بنود — أضف بنود دفع Net30/Net45 مع خصم 2/10, تسليم DDP/FOB/CIF, ضمان 12 شهر</div>}
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
+  return <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl"><div className="flex justify-between items-center gap-3 flex-wrap"><div><h1 className="text-2xl font-black">قوالب العقود ومكتبة البنود</h1><p className="text-sm text-slate-500 mt-1">MSA/SLA/SOW/PO_TC/NDA/IP + Red Flags.</p></div><div className="flex gap-2"><Button variant="secondary" onClick={seed}>قوالب افتراضية</Button><Button variant="secondary" onClick={()=>setShowClause(true)}>بند جديد</Button><Button onClick={()=>setShowTemplate(true)}>قالب جديد</Button></div></div><div className="grid md:grid-cols-2 gap-5"><Card><h3 className="font-bold mb-3">قوالب العقود ({templates.length})</h3><div className="space-y-2 max-h-[55vh] overflow-auto">{templates.map((t:any)=><div key={t.id} className="p-3 border rounded-xl text-sm"><div className="font-bold">{t.name} <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 ml-2">{t.type}</span></div><div className="text-xs text-slate-500 mt-1 line-clamp-2">{t.content?.slice(0,180)}...</div></div>)}{!templates.length&&<div className="py-10 text-center text-slate-400 text-sm">لا قوالب</div>}</div></Card><Card><h3 className="font-bold mb-3">مكتبة البنود — Red Flags</h3><div className="space-y-2 max-h-[55vh] overflow-auto">{clauses.map((c:any)=><div key={c.id} className={`p-3 border rounded-xl text-sm ${c.is_red_flag?'bg-red-50 border-red-200':'bg-white'}`}><div className="flex justify-between"><span className="font-bold">{c.title}</span><span className={`text-[10px] px-2 py-0.5 rounded-full ${c.is_red_flag?'bg-red-100 text-red-700':c.is_standard?'bg-emerald-100 text-emerald-700':'bg-slate-100'}`}>{c.clause_type} {c.is_red_flag?'🔴 Red Flag':'معياري'}</span></div><div className="text-xs text-slate-600 mt-1">{c.content?.slice(0,180)}...</div></div>)}{!clauses.length&&<div className="py-10 text-center text-slate-400 text-sm">لا بنود</div>}</div></Card></div>{showTemplate&&<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl p-6 w-full max-w-lg"><form onSubmit={createTemplate} className="space-y-3"><h3 className="font-bold text-lg">قالب جديد</h3><Input required placeholder="اسم القالب" value={tpl.name} onChange={e=>setTpl({...tpl,name:e.target.value})}/><select value={tpl.type} onChange={e=>setTpl({...tpl,type:e.target.value})} className="w-full border rounded-xl p-2.5 text-sm"><option value="MSA">MSA</option><option value="SLA">SLA</option><option value="SOW">SOW</option><option value="PO_TC">PO_TC</option><option value="NDA">NDA</option><option value="IP">IP</option></select><textarea required className="w-full border rounded-xl p-3 text-sm min-h-[160px]" placeholder="محتوى القالب" value={tpl.content} onChange={e=>setTpl({...tpl,content:e.target.value})}/><div className="flex gap-2"><Button type="submit" className="flex-1">حفظ</Button><Button type="button" variant="secondary" className="flex-1" onClick={()=>setShowTemplate(false)}>إلغاء</Button></div></form></div></div>}{showClause&&<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl p-6 w-full max-w-lg"><form onSubmit={createClause} className="space-y-3"><h3 className="font-bold text-lg">بند جديد</h3><Input required placeholder="العنوان" value={clause.title} onChange={e=>setClause({...clause,title:e.target.value})}/><select value={clause.clause_type} onChange={e=>setClause({...clause,clause_type:e.target.value})} className="w-full border rounded-xl p-2.5 text-sm"><option value="payment">payment</option><option value="delivery">delivery</option><option value="warranty">warranty</option><option value="penalty">penalty</option><option value="termination">termination</option><option value="liability">liability</option><option value="confidentiality">confidentiality</option><option value="ip">ip</option><option value="other">other</option></select><textarea required className="w-full border rounded-xl p-3 text-sm min-h-[120px]" placeholder="نص البند" value={clause.content} onChange={e=>setClause({...clause,content:e.target.value})}/><label className="text-sm"><input type="checkbox" checked={clause.is_red_flag} onChange={e=>setClause({...clause,is_red_flag:e.target.checked})}/> Red Flag يحتاج قانونية</label><div className="flex gap-2"><Button type="submit" className="flex-1">حفظ</Button><Button type="button" variant="secondary" className="flex-1" onClick={()=>setShowClause(false)}>إلغاء</Button></div></form></div></div>}</div>;
 }

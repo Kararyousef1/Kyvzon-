@@ -17,16 +17,20 @@ export interface SupplierRecord {
   supplier_code: string;
   legal_name: string;
   trade_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
   tax_number?: string | null;
   registration_number?: string | null;
   legal_form?: string | null;
   country?: string | null;
+  operating_country?: string | null;
   city?: string | null;
   address?: string | null;
   website?: string | null;
   industry?: string | null;
   employee_count?: number | null;
   annual_revenue?: number | null;
+  credit_rating?: string | null;
   bank_name?: string | null;
   iban?: string | null;
   swift_code?: string | null;
@@ -37,6 +41,11 @@ export interface SupplierRecord {
   max_capacity?: number | null;
   reference_customers?: string[] | null;
   lead_time_days?: number | null;
+  bcp_summary?: string | null;
+  sanctions_checked?: boolean | null;
+  conflict_checked?: boolean | null;
+  last_qualification_at?: string | null;
+  qualification_notes?: string | null;
   supplier_type: 'prospect' | 'approved' | 'strategic' | 'blocked';
   kraljic_category?: 'strategic' | 'leverage' | 'bottleneck' | 'routine' | null;
   risk_score?: number | null;
@@ -118,6 +127,33 @@ export interface SupplierPortalInviteRecord {
   created_at: string;
 }
 
+export interface SupplierAuditLogRecord {
+  id: string;
+  tenant_id: string;
+  supplier_id?: string | null;
+  actor_id?: string | null;
+  action: string;
+  entity_table: string;
+  entity_id?: string | null;
+  old_value?: unknown;
+  new_value?: unknown;
+  comments?: string | null;
+  created_at: string;
+}
+
+export interface SupplierQualificationFormRecord {
+  id: string;
+  tenant_id: string;
+  form_name: string;
+  supplier_type?: string | null;
+  category_code?: string | null;
+  schema: unknown[];
+  is_active: boolean;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 class SupplierService extends BaseService<SupplierRecord> {
   constructor() {
     super('suppliers');
@@ -155,6 +191,17 @@ class SupplierService extends BaseService<SupplierRecord> {
     const { data, error } = await supabase.rpc('check_supplier_documents_expiry', { p_days: days });
     if (error) throw new Error(error.message);
     return data as any;
+  }
+
+  async decideQualification(supplierId: string, decision: 'approve' | 'reject' | 'suspend' | 'reactivate' | 'under_review', comments?: string): Promise<string> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { data, error } = await supabase.rpc('decide_supplier_qualification', {
+      p_supplier_id: supplierId,
+      p_decision: decision,
+      p_comments: comments || null,
+    });
+    if (error) throw new Error(error.message);
+    return data as string;
   }
 }
 
@@ -197,6 +244,12 @@ class SupplierRiskAssessmentService extends BaseService<SupplierRiskAssessmentRe
   async findHighRisk(): Promise<SupplierRiskAssessmentRecord[]> {
     return this.findAll({ filters: { risk_level: 'high' }, orderBy: 'total_score', ascending: false, limit: 100 });
   }
+
+  async syncToSupplier(supplierId: string): Promise<void> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { error } = await supabase.rpc('sync_supplier_risk_from_assessment', { p_supplier_id: supplierId });
+    if (error) throw new Error(error.message);
+  }
 }
 
 class SupplierSiteVisitService extends BaseService<SupplierSiteVisitRecord> {
@@ -226,9 +279,25 @@ class SupplierPortalInviteService extends BaseService<SupplierPortalInviteRecord
   }
 }
 
+class SupplierAuditLogService extends BaseService<SupplierAuditLogRecord> {
+  constructor() { super('supplier_audit_log'); }
+  async findBySupplier(supplierId: string): Promise<SupplierAuditLogRecord[]> {
+    return this.findAll({ filters: { supplier_id: supplierId }, orderBy: 'created_at', ascending: false, limit: 100 });
+  }
+}
+
+class SupplierQualificationFormService extends BaseService<SupplierQualificationFormRecord> {
+  constructor() { super('supplier_qualification_forms'); }
+  async findActive(): Promise<SupplierQualificationFormRecord[]> {
+    return this.findAll({ filters: { is_active: true }, orderBy: 'created_at', ascending: false, limit: 50 });
+  }
+}
+
 export const supplierService = new SupplierService();
 export const supplierDocumentService = new SupplierDocumentService();
 export const supplierContactService = new SupplierContactService();
 export const supplierRiskAssessmentService = new SupplierRiskAssessmentService();
 export const supplierSiteVisitService = new SupplierSiteVisitService();
 export const supplierPortalInviteService = new SupplierPortalInviteService();
+export const supplierAuditLogService = new SupplierAuditLogService();
+export const supplierQualificationFormService = new SupplierQualificationFormService();

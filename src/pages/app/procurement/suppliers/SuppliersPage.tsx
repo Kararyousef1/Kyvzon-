@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Card from '../../../../shared/components/ui/Card';
 import Button from '../../../../shared/components/ui/Button';
 import Input from '../../../../shared/components/ui/Input';
@@ -100,6 +101,9 @@ export default function SuppliersPage() {
                 {s.supplier_type && <span className="text-[10px] px-2 py-1 rounded-full bg-slate-100">{s.supplier_type}</span>}
               </div>
               <div className="mt-3 text-xs text-slate-500">ضريبي: {s.tax_number || '-'}</div>
+              <Link to={`/app/procurement/suppliers/${s.id}`} className="block mt-4">
+                <Button variant="secondary" size="sm" fullWidth>فتح ملف المورد</Button>
+              </Link>
             </Card>
           ))}
           {!filtered.length && <div className="col-span-full py-16 text-center text-slate-500"><AlertTriangle className="mx-auto mb-2" />لا يوجد موردون</div>}

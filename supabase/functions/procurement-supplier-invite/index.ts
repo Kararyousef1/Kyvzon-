@@ -1,9 +1,12 @@
 /**
  * Edge Function: procurement-supplier-invite
  * يرسل دعوة بوابة ذاتية للمورد + token_hash + expiry 7d عبر Resend/BYOK
- * 
- * الأمان: JWT + role procurement/admin + APP_ORIGIN + rate limit 10/min
- * BYOK: مفتاح الشركة أولاً (email channel)، ثم مفتاح المنصة
+ *
+ * الأمان:
+ *  - JWT + role procurement/admin/developer/it_admin
+ *  - APP_ORIGIN allowlist
+ *  - token خام لا يخزن في DB؛ نخزن SHA-256 فقط
+ *  - لا نستخدم RPC تعتمد على current_user_tenant_id() مع service_role؛ نتحقق tenant صراحة ثم ندرج الدعوة
  */
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
@@ -35,12 +38,10 @@ function json(req: Request, body: unknown, status=200): Response {
   return new Response(JSON.stringify(body), { status, headers: headers(req) });
 }
 
-// توليد token آمن + هاش
-function generateToken(): { token: string; hash: string } {
+function generateToken(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
-  const token = Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('');
-  return { token, hash: token }; // تبسيط: الهاش = التوكن نفسه مع SHA-256 لاحقاً — للإنتاج استخدم SHA-256
+  return Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
 async function hashToken(token: string): Promise<string> {
@@ -72,7 +73,7 @@ serve(async (req: Request) => {
 
   const { data: profile } = await userClient.from('profiles').select('role, tenant_id').eq('id', authData.user.id).single();
   const allowedRoles = new Set(['procurement','admin','developer','it_admin']);
-  if (!profile || !allowedRoles.has(String(profile.role))) {
+  if (!profile || !allowedRoles.has(String(profile.role)) || !profile.tenant_id) {
     return json(req, { error: 'غير مخوّل — يتطلب صلاحية مشتريات' }, 403);
   }
 
@@ -82,48 +83,58 @@ serve(async (req: Request) => {
   const email = String(body.email || '').trim().toLowerCase();
   if (!supplierId || !email || !email.includes('@')) return json(req, { error: 'supplier_id و email مطلوبان' }, 400);
 
-  const { token, hash: tokenHashPlain } = generateToken();
-  const tokenHash = await hashToken(token);
-
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!serviceKey) return json(req, { error: 'Service not configured' }, 503);
-
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-  // إنشاء دعوة في DB عبر RPC invite_supplier_portal
-  const { data: inviteId, error: inviteError } = await admin.rpc('invite_supplier_portal', {
-    p_supplier_id: supplierId,
-    p_email: email,
-    p_token_hash: tokenHash,
-  });
+  const { data: supplier, error: supplierError } = await admin
+    .from('suppliers')
+    .select('id, tenant_id, legal_name')
+    .eq('id', supplierId)
+    .eq('tenant_id', profile.tenant_id)
+    .single();
+  if (supplierError || !supplier) return json(req, { error: 'المورد غير موجود داخل شركتك' }, 404);
+
+  const token = generateToken();
+  const tokenHash = await hashToken(token);
+  const expiresAt = new Date(Date.now() + 7 * 86400000).toISOString();
+
+  const { data: invite, error: inviteError } = await admin
+    .from('supplier_portal_invites')
+    .insert({
+      tenant_id: profile.tenant_id,
+      supplier_id: supplierId,
+      email,
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      created_by: authData.user.id,
+    })
+    .select('id')
+    .single();
 
   if (inviteError) {
     console.error('invite error:', inviteError.message);
     return json(req, { error: 'فشل إنشاء الدعوة' }, 500);
   }
 
-  // محاولة إرسال بريد عبر BYOK أو منصة
   let emailMode: 'live' | 'simulated' = 'simulated';
   let resendKey: string | undefined;
   let fromEmail = Deno.env.get('RESEND_FROM') || 'onboarding@resend.dev';
 
-  // BYOK: مفتاح الشركة أولاً
-  if (profile.tenant_id) {
-    try {
-      const { data: cred } = await admin.rpc('get_tenant_provider_secret', {
-        p_tenant_id: profile.tenant_id, p_channel: 'email', p_provider: 'resend',
-      });
-      const row = Array.isArray(cred) ? cred[0] : cred;
-      if (row?.secret_value) {
-        resendKey = row.secret_value;
-        if (row.config?.from_email) fromEmail = String(row.config.from_email);
-      }
-    } catch {}
-  }
+  try {
+    const { data: cred } = await admin.rpc('get_tenant_provider_secret', {
+      p_tenant_id: profile.tenant_id, p_channel: 'email', p_provider: 'resend',
+    });
+    const row = Array.isArray(cred) ? cred[0] : cred;
+    if (row?.secret_value) {
+      resendKey = row.secret_value;
+      if (row.config?.from_email) fromEmail = String(row.config.from_email);
+    }
+  } catch {}
   if (!resendKey) resendKey = Deno.env.get('RESEND_API_KEY');
 
   const portalBase = (Deno.env.get('APP_ORIGIN') || 'http://localhost:5173').split(',')[0].trim();
-  const inviteLink = `${portalBase}/supplier-portal/${token}`; // المسار العام للبوابة الذاتية
+  const inviteLink = `${portalBase}/supplier-portal/${token}`;
 
   if (resendKey) {
     try {
@@ -134,7 +145,7 @@ serve(async (req: Request) => {
           from: fromEmail,
           to: email,
           subject: 'دعوة للتسجيل في بوابة الموردين — Kyvzon',
-          html: `<p>مرحباً،</p><p>تمت دعوتك للتسجيل في بوابة الموردين.</p><p><a href="${inviteLink}">اضغط هنا للتسجيل</a></p><p>الرابط صالح 7 أيام.</p><p>Token (للتطوير): ${token}</p>`,
+          html: `<p>مرحباً،</p><p>تمت دعوتك لإكمال ملف المورد الخاص بشركة ${supplier.legal_name || ''} في Kyvzon.</p><p><a href="${inviteLink}">اضغط هنا للتسجيل</a></p><p>الرابط صالح 7 أيام.</p>`,
         }),
       });
       if (res.ok) emailMode = 'live';
@@ -143,13 +154,23 @@ serve(async (req: Request) => {
     }
   }
 
+  await admin.from('supplier_audit_log').insert({
+    tenant_id: profile.tenant_id,
+    supplier_id: supplierId,
+    actor_id: authData.user.id,
+    action: 'supplier_portal_invite_created',
+    entity_table: 'supplier_portal_invites',
+    entity_id: invite.id,
+    new_value: { email, expires_at: expiresAt, mode: emailMode },
+    comments: emailMode === 'live' ? 'Invitation email sent' : 'Invitation created in simulated mode',
+  }).catch(() => undefined);
+
   return json(req, {
     ok: true,
     mode: emailMode,
-    invite_id: inviteId,
+    invite_id: invite.id,
     invite_link: inviteLink,
-    // في الإنتاج لا نرجع التوكن الخام — فقط في simulated لتسهيل الاختبار
-    token: emailMode==='simulated' ? token : undefined,
+    token: emailMode === 'simulated' ? token : undefined,
     message: emailMode==='live' ? 'تم إرسال الدعوة بالبريد' : 'تم إنشاء الدعوة (محاكاة — أضف RESEND_API_KEY للإرسال الفعلي)',
   }, 200);
 });
