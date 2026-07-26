@@ -165,10 +165,28 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS %I_select ON public.%I;', t, t);
     EXECUTE format('DROP POLICY IF EXISTS %I_write ON public.%I;', t, t);
     IF t LIKE 'purchase_%' OR t LIKE 'pr_%' OR t LIKE 'procurement_approval_%' THEN
-      EXECUTE format(
-        'CREATE POLICY %I_select ON public.%I FOR SELECT TO authenticated USING (tenant_id = public.current_user_tenant_id() AND (public.current_user_is_staff() OR public.current_user_role() IN (''procurement'',''admin'',''manager'',''finance'') OR (''%s'' = ''purchase_requisitions'' AND requester_id = auth.uid()) OR (''%s'' IN (''pr_line_items'',''pr_attachments'') AND EXISTS (SELECT 1 FROM public.purchase_requisitions pr WHERE pr.id = %s.pr_id AND pr.requester_id = auth.uid())) OR (''%s'' = ''procurement_approval_steps'' AND approver_id = auth.uid())));',
-        t, t, t, t, t, t
-      );
+      IF t = 'purchase_requisitions' THEN
+        EXECUTE format(
+          'CREATE POLICY %I_select ON public.%I FOR SELECT TO authenticated USING (tenant_id = public.current_user_tenant_id() AND (public.current_user_is_staff() OR public.current_user_role() IN (''procurement'',''admin'',''manager'',''finance'') OR (requester_id = auth.uid())));',
+          t, t
+        );
+      ELSIF t IN ('pr_line_items', 'pr_attachments') THEN
+        EXECUTE format(
+          'CREATE POLICY %I_select ON public.%I FOR SELECT TO authenticated USING (tenant_id = public.current_user_tenant_id() AND (public.current_user_is_staff() OR public.current_user_role() IN (''procurement'',''admin'',''manager'',''finance'') OR (EXISTS (SELECT 1 FROM public.purchase_requisitions pr WHERE pr.id = %I.pr_id AND pr.requester_id = auth.uid()))));',
+          t, t, t
+        );
+      ELSIF t = 'procurement_approval_steps' THEN
+        EXECUTE format(
+          'CREATE POLICY %I_select ON public.%I FOR SELECT TO authenticated USING (tenant_id = public.current_user_tenant_id() AND (public.current_user_is_staff() OR public.current_user_role() IN (''procurement'',''admin'',''manager'',''finance'') OR (approver_id = auth.uid())));',
+          t, t
+        );
+      ELSE
+        -- procurement_approval_requests, procurement_approval_rules
+        EXECUTE format(
+          'CREATE POLICY %I_select ON public.%I FOR SELECT TO authenticated USING (tenant_id = public.current_user_tenant_id() AND (public.current_user_is_staff() OR public.current_user_role() IN (''procurement'',''admin'',''manager'',''finance'')));',
+          t, t
+        );
+      END IF;
     ELSE
       EXECUTE format(
         'CREATE POLICY %I_select ON public.%I FOR SELECT TO authenticated USING (tenant_id = public.current_user_tenant_id() AND (public.current_user_is_staff() OR public.current_user_role() IN (''procurement'',''admin'')));',

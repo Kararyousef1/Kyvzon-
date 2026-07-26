@@ -125,6 +125,7 @@ const AdminGatekeeperPermissions = lazy(() => import('../pages/admin/AdminGateke
 const AdminSOPsPage              = lazy(() => import('../pages/admin/AdminSOPsPage'));
 const AdminSOPsReport            = lazy(() => import('../pages/admin/AdminSOPsReport'));
 const OrgStructurePage           = lazy(() => import('../pages/admin/OrgStructurePage'));
+const ProcurementApprovalRulesPage = lazy(() => import('../pages/admin/ProcurementApprovalRulesPage'));
 const CompanyProfilePage         = lazy(() => import('../pages/admin/CompanyProfilePage'));
 const BranchesPage               = lazy(() => import('../pages/admin/BranchesPage'));
 const CompliancePage             = lazy(() => import('../pages/admin/CompliancePage'));
@@ -162,11 +163,33 @@ const SupplierDetailPage        = lazy(() => import('../pages/app/procurement/su
 const RequisitionsLayout        = lazy(() => import('../pages/app/procurement/requisitions/RequisitionsLayout'));
 const RequisitionListPage       = lazy(() => import('../pages/app/procurement/requisitions/RequisitionListPage'));
 const RequisitionDetailPage     = lazy(() => import('../pages/app/procurement/requisitions/RequisitionDetailPage'));
+// Unit 04 — PO + GR
+const OrdersLayout              = lazy(() => import('../pages/app/procurement/orders/OrdersLayout'));
+const PurchaseOrdersPage        = lazy(() => import('../pages/app/procurement/orders/PurchaseOrdersPage'));
+const PoDetailPage              = lazy(() => import('../pages/app/procurement/orders/PoDetailPage'));
+const GoodsReceiptPage          = lazy(() => import('../pages/app/procurement/orders/GoodsReceiptPage'));
 // Unit 02 — RFx + Auctions
 const SourcingLayout            = lazy(() => import('../pages/app/procurement/sourcing/SourcingLayout'));
 const SourcingEventsPage        = lazy(() => import('../pages/app/procurement/sourcing/SourcingEventsPage'));
 const RfxDetailPage             = lazy(() => import('../pages/app/procurement/sourcing/RfxDetailPage'));
 const AuctionLivePage           = lazy(() => import('../pages/app/procurement/sourcing/AuctionLivePage'));
+// Unit 05 — Invoices
+const InvoicesLayout            = lazy(() => import('../pages/app/procurement/invoices/InvoicesLayout'));
+const InvoicesPage              = lazy(() => import('../pages/app/procurement/invoices/InvoicesPage'));
+const MatchingDetailPage        = lazy(() => import('../pages/app/procurement/invoices/MatchingDetailPage'));
+// Unit 06 — Contracts
+const ContractsLayout           = lazy(() => import('../pages/app/procurement/contracts/ContractsLayout'));
+const ContractsPage             = lazy(() => import('../pages/app/procurement/contracts/ContractsPage'));
+const TemplatesPage             = lazy(() => import('../pages/app/procurement/contracts/TemplatesPage'));
+const ObligationsPage           = lazy(() => import('../pages/app/procurement/contracts/ObligationsPage'));
+const VersionsPage              = lazy(() => import('../pages/app/procurement/contracts/VersionsPage'));
+const SignaturesPage            = lazy(() => import('../pages/app/procurement/contracts/SignaturesPage'));
+// Unit 07 — Spend Analytics
+const AnalyticsLayout2          = lazy(() => import('../pages/app/procurement/analytics/AnalyticsLayout'));
+const SpendAnalyticsPage        = lazy(() => import('../pages/app/procurement/analytics/SpendAnalyticsPage'));
+const CategoryPage              = lazy(() => import('../pages/app/procurement/analytics/CategoryPage'));
+const PriceTrendPage            = lazy(() => import('../pages/app/procurement/analytics/PriceTrendPage'));
+const ForecastPage              = lazy(() => import('../pages/app/procurement/analytics/ForecastPage'));
 
 // بوابة CRM — الوحدة 1: جهات الاتصال والحسابات (التقرير 01)
 const ContactsLayout        = lazy(() => import('../pages/crmportal/contacts/ContactsLayout'));
@@ -487,6 +510,29 @@ export function AppRoutes() {
                 <Route path=":id" element={<RfxDetailPage />} />
                 <Route path="auctions/live" element={<AuctionLivePage />} />
               </Route>
+              <Route path="orders" element={<OrdersLayout />}>
+                <Route index element={<PurchaseOrdersPage />} />
+                <Route path="purchase-orders" element={<PurchaseOrdersPage />} />
+                <Route path="purchase-orders/:id" element={<PoDetailPage />} />
+                <Route path="goods-receipts" element={<GoodsReceiptPage />} />
+              </Route>
+              <Route path="invoices" element={<InvoicesLayout />}>
+                <Route index element={<InvoicesPage />} />
+                <Route path=":id/matching" element={<MatchingDetailPage />} />
+              </Route>
+              <Route path="contracts" element={<ContractsLayout />}>
+                <Route index element={<ContractsPage />} />
+                <Route path="templates" element={<TemplatesPage />} />
+                <Route path="obligations" element={<ObligationsPage />} />
+                <Route path="versions" element={<VersionsPage />} />
+                <Route path="signatures" element={<SignaturesPage />} />
+              </Route>
+              <Route path="analytics" element={<AnalyticsLayout2 />}>
+                <Route index element={<SpendAnalyticsPage />} />
+                <Route path="categories" element={<CategoryPage />} />
+                <Route path="price-trend" element={<PriceTrendPage />} />
+                <Route path="forecast" element={<ForecastPage />} />
+              </Route>
             </Route>
           </Route>
 
@@ -585,6 +631,7 @@ export function AppRoutes() {
             <Route path="company-profile" element={<CompanyProfilePage />} />
             <Route path="branches" element={<BranchesPage />} />
             <Route path="org-structure" element={<OrgStructurePage />} />
+            <Route path="procurement-approvals" element={<ProcurementApprovalRulesPage />} />
             <Route path="compliance" element={<CompliancePage />} />
             <Route path="ai-config" element={<AIConfigPage />} />
             <Route path="cms" element={<AdminLandingPageCMS />} />

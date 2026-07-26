@@ -325,3 +325,50 @@ export type {
   AuctionRecord,
   AuctionBidRecord,
 } from './Procurement/SourcingService';
+export {
+  purchaseOrderService,
+  poLineItemService,
+  goodsReceiptService,
+  grLineItemService,
+  rtvService,
+} from './Procurement/PurchaseOrderService';
+export type {
+  PurchaseOrderRecord,
+  PoLineItemRecord,
+  GoodsReceiptRecord,
+  GrLineItemRecord,
+} from './Procurement/PurchaseOrderService';
+export {
+  supplierInvoiceService,
+  matchingResultService,
+} from './Procurement/InvoiceService';
+export type {
+  SupplierInvoiceRecord,
+  MatchingResultRecord,
+} from './Procurement/InvoiceService';
+export {
+  procurementContractService,
+  contractTemplateService,
+  contractClauseService,
+  contractVersionService,
+  contractObligationService,
+  contractSignatureService,
+} from './Procurement/ContractService';
+export type {
+  ProcurementContractRecord,
+  ContractRenewalRecord,
+  ContractTemplateRecord,
+  ContractClauseRecord,
+  ContractVersionRecord,
+  ContractObligationRecord,
+  ContractSignatureRecord,
+} from './Procurement/ContractService';
+export {
+  spendParetoService,
+  priceTrendService,
+  spendForecastService,
+  spendTransactionService,
+  toleranceRuleService,
+  poReleaseService,
+  procurementApprovalRuleService,
+} from './Procurement/SpendAnalyticsService';

@@ -132,6 +132,17 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'finance-vendors':              '/app/finance/vendors',
   'finance-payable':              '/app/finance/accounts-payable',
   'finance-setup':                '/app/finance/setup',
+
+  // Procurement Portal
+  'procurement-dashboard':        '/app/procurement',
+  'procurement-pr':               '/app/procurement/requisitions',
+  'procurement-suppliers':        '/app/procurement/suppliers',
+  'procurement-sourcing':         '/app/procurement/sourcing',
+  'procurement-orders':           '/app/procurement/orders',
+  'procurement-gr':               '/app/procurement/orders/goods-receipts',
+  'procurement-invoices':         '/app/procurement/invoices',
+  'procurement-contracts':        '/app/procurement/contracts',
+  'procurement-analytics':        '/app/procurement/analytics',
 };
 
 /**

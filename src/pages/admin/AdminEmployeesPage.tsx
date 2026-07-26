@@ -182,6 +182,20 @@ const PORTAL_PAGES = [
       { id: 'crm-analytics', label: 'التحليلات والتنبؤ' },
     ],
   },
+  {
+    portalLabel: 'بوابة المشتريات (Procurement)', moduleKey: 'procurement',
+    pages: [
+      { id: 'procurement-dashboard', label: 'لوحة المشتريات' },
+      { id: 'procurement-pr', label: 'طلبات الشراء' },
+      { id: 'procurement-suppliers', label: 'الموردون' },
+      { id: 'procurement-sourcing', label: 'المناقصات والعروض' },
+      { id: 'procurement-orders', label: 'أوامر الشراء' },
+      { id: 'procurement-gr', label: 'استلام البضائع' },
+      { id: 'procurement-invoices', label: 'فواتير المشتريات' },
+      { id: 'procurement-contracts', label: 'العقود' },
+      { id: 'procurement-analytics', label: 'تحليلات المشتريات' },
+    ],
+  },
 ];
 
 // ─── توليد كلمة مرور عشوائية آمنة ────────────────────────────────────────────

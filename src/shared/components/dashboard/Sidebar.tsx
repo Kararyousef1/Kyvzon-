@@ -26,6 +26,7 @@ import {
   FolderKanban, CalendarClock, Megaphone, ClipboardCheck,
   Receipt, CreditCard, DollarSign, ShieldAlert, FileText,
   Briefcase, UserPlus, Plus, Cpu, Target, RefreshCw, Server, Shield,
+  ShoppingCart, Package,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../../core/stores';
 import { VIEW_TO_PATH } from '../../../router/legacyRedirect';
@@ -249,7 +250,23 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
 
-  // ─── 💰 FINANCE PORTAL ───
+  // ─── � PROCUREMENT PORTAL ───
+  {
+    key: 'procurement-main', label: 'بوابة المشتريات', roles: ['procurement', 'admin'],
+    items: [
+      { id: 'procurement-dashboard', label: 'لوحة المشتريات', icon: LayoutDashboard, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-pr', label: 'طلبات الشراء', icon: ClipboardList, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-suppliers', label: 'الموردون', icon: Users, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-sourcing', label: 'المناقصات والعروض', icon: TrendingUp, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-orders', label: 'أوامر الشراء', icon: ShoppingCart, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-gr', label: 'استلام البضائع', icon: Package, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-invoices', label: 'فواتير المشتريات', icon: Receipt, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-contracts', label: 'العقود', icon: FileText, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-analytics', label: 'تحليلات المشتريات', icon: BarChart2, roles: ['procurement', 'admin'], section: 'procurement-main' },
+    ],
+  },
+
+  // ─── �💰 FINANCE PORTAL ───
   {
     key: 'finance-main', label: 'البوابة المالية', roles: ['finance', 'admin'],
     items: [
@@ -381,6 +398,16 @@ const ITEM_MODULE_MAP: Record<string, string> = {
   'tawathul-admin': 'tawathul',
   'admin-ai-insights': 'ai',
   'employee-ai-chat': 'ai',
+
+  'procurement-dashboard': 'procurement',
+  'procurement-pr': 'procurement',
+  'procurement-suppliers': 'procurement',
+  'procurement-sourcing': 'procurement',
+  'procurement-orders': 'procurement',
+  'procurement-gr': 'procurement',
+  'procurement-invoices': 'procurement',
+  'procurement-contracts': 'procurement',
+  'procurement-analytics': 'procurement',
 };
 
 // ════════════════════════════════════════════════════════════════
