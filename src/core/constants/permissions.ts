@@ -415,6 +415,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'team',
     'analytics',
   ],
+  inventory: [
+    'dashboard',
+    'notifications',
+    'my-notifications',
+    'profile',
+    'reports',
+    'analytics',
+  ],
 };
 
 /**

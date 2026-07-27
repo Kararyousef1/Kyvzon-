@@ -1,4 +1,4 @@
-export type ModuleKey = 'finance' | 'employee' | 'hr' | 'admin' | 'manager' | 'supervisor' | 'gatekeeper' | 'movement' | 'tawathul' | 'tech_portal' | 'ai' | 'reports' | 'health_safety' | 'succession' | 'contracts' | 'marketing' | 'crm' | 'procurement';
+export type ModuleKey = 'finance' | 'employee' | 'hr' | 'admin' | 'manager' | 'supervisor' | 'gatekeeper' | 'movement' | 'tawathul' | 'tech_portal' | 'ai' | 'reports' | 'health_safety' | 'succession' | 'contracts' | 'marketing' | 'crm' | 'procurement' | 'inventory';
 
 export type ModuleStatus = 'planned' | 'in_build' | 'beta' | 'production';
 export type ModuleCategory = 'core' | 'people' | 'operations' | 'platform' | 'advanced';
@@ -54,6 +54,7 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
   { key: 'marketing', label: 'بوابة التسويق', description: 'أتمتة التسويق، البريد، وسائل التواصل، SMS/واتساب، الفعاليات، الاستبيانات، ونظام المناعة العلائقية', category: 'advanced', minPlan: 'professional', status: 'beta', wave: 2 },
   { key: 'crm', label: 'بوابة CRM', description: 'إدارة جهات الاتصال والحسابات، خط الأنابيب والصفقات، الأنشطة والأتمتة، العروض والعقود، الدعم والتذاكر، والتحليلات والتنبؤ', category: 'advanced', minPlan: 'professional', status: 'beta', wave: 2 },
   { key: 'procurement', label: 'بوابة المشتريات', description: 'P2P كاملة: طلبات الشراء، RFx والمزادات، تأهيل الموردين، أوامر الشراء واستلام البضائع، المطابقة الثلاثية، العقود، وتحليل الإنفاق', category: 'operations', minPlan: 'professional', status: 'beta', wave: 3 },
+  { key: 'inventory', label: 'بوابة المخزون والمستودعات', description: 'WMS: الاستلام، التخزين، السحب، الشحن، الجرد، المرتجعات، العمالة، وتحليلات المستودع', category: 'operations', minPlan: 'professional', status: 'beta', wave: 4, docsUrl: '/docs/inventory/00-inventory-foundation-technical-addendum.md' },
   // finance — wave breakdown per FINANCE_REMEDIATION_EXECUTION_PLAN
   { 
     key: 'finance', 
@@ -124,7 +125,7 @@ export const FINANCE_SUBMODULES: Record<FinanceSubModuleKey, { label: string, st
 
 export const PLAN_ALLOWED_MODULES: Record<string, ModuleKey[]> = {
   basic: ['employee', 'hr', 'finance'],
-  professional: ['employee', 'hr', 'admin', 'finance', 'manager', 'supervisor', 'gatekeeper', 'movement', 'tawathul', 'reports', 'contracts', 'marketing', 'crm', 'procurement'],
+  professional: ['employee', 'hr', 'admin', 'finance', 'manager', 'supervisor', 'gatekeeper', 'movement', 'tawathul', 'reports', 'contracts', 'marketing', 'crm', 'procurement', 'inventory'],
   enterprise: ['employee', 'hr', 'finance', ...MODULE_CATALOG.map(m => m.key)],
   custom: MODULE_CATALOG.map(m => m.key),
 };

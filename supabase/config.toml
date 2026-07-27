@@ -24,3 +24,9 @@ verify_jwt = false
 
 [functions.zkteco-sync]
 verify_jwt = false
+
+[functions.inventory-receiving-attachment]
+verify_jwt = false
+
+[functions.inventory-supplier-dock-portal]
+verify_jwt = false

@@ -53,6 +53,7 @@ import PublicInfoPage from '../pages/public/static/PublicInfoPage';
 import SupplierPortalPage from '../pages/public/supplier/SupplierPortalPage';
 import SupplierRfxPortalPage from '../pages/public/supplier/SupplierRfxPortalPage';
 import SupplierInvoicePortalPage from '../pages/public/supplier/SupplierInvoicePortalPage';
+import SupplierDockPortalPage from '../pages/public/supplier/SupplierDockPortalPage';
 
 // ─── Lazy: Employee ─────────────────────────────────────────────────────
 // ─── Lazy: Finance ──────────────────────────────────────────────────────
@@ -196,6 +197,123 @@ const CategoryPage              = lazy(() => import('../pages/app/procurement/an
 const PriceTrendPage            = lazy(() => import('../pages/app/procurement/analytics/PriceTrendPage'));
 const ForecastPage              = lazy(() => import('../pages/app/procurement/analytics/ForecastPage'));
 
+// ─── Lazy: Inventory / Warehouse Portal ────────────────────────────────────
+const InventoryDashboard        = lazy(() => import('../pages/app/inventory/InventoryDashboard'));
+const InventoryFoundationDashboard = lazy(() => import('../pages/app/inventory/foundation/FoundationDashboard'));
+const InventoryItemsPage        = lazy(() => import('../pages/app/inventory/foundation/ItemsPage'));
+const InventoryWarehousesPage   = lazy(() => import('../pages/app/inventory/foundation/WarehousesPage'));
+const InventoryLocationsPage    = lazy(() => import('../pages/app/inventory/foundation/LocationsPage'));
+const InventoryStockPage        = lazy(() => import('../pages/app/inventory/foundation/StockPage'));
+const InventoryMovementsPage    = lazy(() => import('../pages/app/inventory/foundation/MovementsPage'));
+const InventoryNumberingPage    = lazy(() => import('../pages/app/inventory/foundation/NumberingPage'));
+const ReceivingDashboardPage    = lazy(() => import('../pages/app/inventory/receiving/ReceivingDashboard'));
+const InventoryAsnListPage      = lazy(() => import('../pages/app/inventory/receiving/AsnListPage'));
+const InventoryDockSchedulePage = lazy(() => import('../pages/app/inventory/receiving/DockSchedulePage'));
+const InventoryReceivingSessionsPage = lazy(() => import('../pages/app/inventory/receiving/ReceivingSessionsPage'));
+const InventoryOsdCasesPage     = lazy(() => import('../pages/app/inventory/receiving/OsdCasesPage'));
+const InventoryQuarantinePage   = lazy(() => import('../pages/app/inventory/receiving/QuarantinePage'));
+const InventoryPutawayTasksPage = lazy(() => import('../pages/app/inventory/receiving/PutawayTasksPage'));
+const InventoryCrossDockingPage = lazy(() => import('../pages/app/inventory/receiving/CrossDockingPage'));
+const InventoryMobileScanPage   = lazy(() => import('../pages/app/inventory/receiving/MobileScanPage'));
+const InventoryLpnLabelsPage    = lazy(() => import('../pages/app/inventory/receiving/LpnLabelsPage'));
+const InventoryReceivingReportsPage = lazy(() => import('../pages/app/inventory/receiving/ReceivingReportsPage'));
+const InventoryInboundNotificationsPage = lazy(() => import('../pages/app/inventory/receiving/InboundNotificationsPage'));
+const InventoryReceivingAttachmentsPage = lazy(() => import('../pages/app/inventory/receiving/AttachmentsPage'));
+const InventoryQualityNcrPage = lazy(() => import('../pages/app/inventory/receiving/QualityNcrPage'));
+const StorageDashboardPage = lazy(() => import('../pages/app/inventory/storage/StorageDashboard'));
+const InventoryLocationMapPage = lazy(() => import('../pages/app/inventory/storage/LocationMapPage'));
+const InventoryVisualWarehouseMapPage = lazy(() => import('../pages/app/inventory/storage/VisualWarehouseMapPage'));
+const InventoryStorageHeatmapPage = lazy(() => import('../pages/app/inventory/storage/HeatmapPage'));
+const InventorySlottingPage = lazy(() => import('../pages/app/inventory/storage/SlottingPage'));
+const InventoryAbcClassificationPage = lazy(() => import('../pages/app/inventory/storage/AbcClassificationPage'));
+const InventoryReplenishmentPage = lazy(() => import('../pages/app/inventory/storage/ReplenishmentPage'));
+const InventoryCapacityPage = lazy(() => import('../pages/app/inventory/storage/CapacityPage'));
+const InventorySlowMovingPage = lazy(() => import('../pages/app/inventory/storage/SlowMovingPage'));
+const InventoryLocationLabelsPage = lazy(() => import('../pages/app/inventory/storage/LocationLabelsPage'));
+const InventoryAffinityPage = lazy(() => import('../pages/app/inventory/storage/AffinityPage'));
+const InventorySeasonalSlottingPage = lazy(() => import('../pages/app/inventory/storage/SeasonalSlottingPage'));
+const InventoryTaskInterleavingPage = lazy(() => import('../pages/app/inventory/storage/TaskInterleavingPage'));
+const InventorySlowMovingReportsPage = lazy(() => import('../pages/app/inventory/storage/SlowMovingReportsPage'));
+const PickingDashboardPage = lazy(() => import('../pages/app/inventory/picking/PickingDashboard'));
+const PickOrdersPage = lazy(() => import('../pages/app/inventory/picking/PickOrdersPage'));
+const PickTasksPage = lazy(() => import('../pages/app/inventory/picking/PickTasksPage'));
+const PickWavesPage = lazy(() => import('../pages/app/inventory/picking/PickWavesPage'));
+const PickExceptionsPage = lazy(() => import('../pages/app/inventory/picking/PickExceptionsPage'));
+const PickScansPage = lazy(() => import('../pages/app/inventory/picking/PickScansPage'));
+const PickingProductivityPage = lazy(() => import('../pages/app/inventory/picking/PickingProductivityPage'));
+const PickingKpisPage = lazy(() => import('../pages/app/inventory/picking/PickingKpisPage'));
+const PickRouteMapPage = lazy(() => import('../pages/app/inventory/picking/PickRouteMapPage'));
+const VoicePickingPage = lazy(() => import('../pages/app/inventory/picking/VoicePickingPage'));
+const PickToLightPage = lazy(() => import('../pages/app/inventory/picking/PickToLightPage'));
+const RfidPickingPage = lazy(() => import('../pages/app/inventory/picking/RfidPickingPage'));
+const PickSortingPage = lazy(() => import('../pages/app/inventory/picking/PickSortingPage'));
+const ZoneHandoffsPage = lazy(() => import('../pages/app/inventory/picking/ZoneHandoffsPage'));
+const ShippingDashboardPage = lazy(() => import('../pages/app/inventory/shipping/ShippingDashboard'));
+const ShippingPackagesPage = lazy(() => import('../pages/app/inventory/shipping/PackagesPage'));
+const ShipmentsPage = lazy(() => import('../pages/app/inventory/shipping/ShipmentsPage'));
+const ShippingCarriersPage = lazy(() => import('../pages/app/inventory/shipping/CarriersPage'));
+const ShippingDocumentsPage = lazy(() => import('../pages/app/inventory/shipping/ShippingDocumentsPage'));
+const ShippingManifestsPage = lazy(() => import('../pages/app/inventory/shipping/ManifestsPage'));
+const ShippingKpisPage = lazy(() => import('../pages/app/inventory/shipping/ShippingKpisPage'));
+const CountingDashboardPage = lazy(() => import('../pages/app/inventory/counting/CountingDashboard'));
+const CountPlansPage = lazy(() => import('../pages/app/inventory/counting/CountPlansPage'));
+const CountTasksPage = lazy(() => import('../pages/app/inventory/counting/CountTasksPage'));
+const CountVariancesPage = lazy(() => import('../pages/app/inventory/counting/VariancesPage'));
+const AdjustmentApprovalsPage2 = lazy(() => import('../pages/app/inventory/counting/AdjustmentApprovalsPage'));
+const CountCompletionPage = lazy(() => import('../pages/app/inventory/counting/CountCompletionPage'));
+const ExpiryCountReportPage = lazy(() => import('../pages/app/inventory/counting/ExpiryCountReportPage'));
+const MobileCountPage = lazy(() => import('../pages/app/inventory/counting/MobileCountPage'));
+const RecountPage = lazy(() => import('../pages/app/inventory/counting/RecountPage'));
+const FreezePage = lazy(() => import('../pages/app/inventory/counting/FreezePage'));
+const AnnualCountPage = lazy(() => import('../pages/app/inventory/counting/AnnualCountPage'));
+const RateQuotesPage = lazy(() => import('../pages/app/inventory/shipping/RateQuotesPage'));
+const RateRulesPage = lazy(() => import('../pages/app/inventory/shipping/RateRulesPage'));
+const TrackingPage = lazy(() => import('../pages/app/inventory/shipping/TrackingPage'));
+const CarrierWebhooksPage = lazy(() => import('../pages/app/inventory/shipping/CarrierWebhooksPage'));
+const ManifestCompletionPage = lazy(() => import('../pages/app/inventory/shipping/ManifestCompletionPage'));
+const ReturnsDashboardPage = lazy(() => import('../pages/app/inventory/returns/ReturnsDashboard'));
+const ReturnRmaPage = lazy(() => import('../pages/app/inventory/returns/RmaPage'));
+const ReturnReceivingPage = lazy(() => import('../pages/app/inventory/returns/ReturnReceivingPage'));
+const ReturnGradingPage = lazy(() => import('../pages/app/inventory/returns/ReturnGradingPage'));
+const ReturnDispositionPage = lazy(() => import('../pages/app/inventory/returns/ReturnDispositionPage'));
+const ProductionReturnsPage = lazy(() => import('../pages/app/inventory/returns/ProductionReturnsPage'));
+const ReturnRtvPage = lazy(() => import('../pages/app/inventory/returns/ReturnRtvPage'));
+const ReturnNotificationsPage = lazy(() => import('../pages/app/inventory/returns/ReturnNotificationsPage'));
+const SupplierRtvReportsPage = lazy(() => import('../pages/app/inventory/returns/SupplierRtvReportsPage'));
+const ReturnAnalyticsPage = lazy(() => import('../pages/app/inventory/returns/ReturnAnalyticsPage'));
+const ReturnQualityPage = lazy(() => import('../pages/app/inventory/returns/ReturnQualityPage'));
+const ReturnValueRecoveryPage = lazy(() => import('../pages/app/inventory/returns/ReturnValueRecoveryPage'));
+const ReturnCapaPage = lazy(() => import('../pages/app/inventory/returns/ReturnCapaPage'));
+const LaborDashboardPage = lazy(() => import('../pages/app/inventory/labor/LaborDashboard'));
+const LaborStandardsPage = lazy(() => import('../pages/app/inventory/labor/LaborStandardsPage'));
+const WorkforcePlanningPage = lazy(() => import('../pages/app/inventory/labor/WorkforcePlanningPage'));
+const WorkerAvailabilityPage = lazy(() => import('../pages/app/inventory/labor/WorkerAvailabilityPage'));
+const LaborDispatchPage = lazy(() => import('../pages/app/inventory/labor/LaborDispatchPage'));
+const LaborInterleavingPage = lazy(() => import('../pages/app/inventory/labor/LaborInterleavingPage'));
+const LaborTimeTrackingPage = lazy(() => import('../pages/app/inventory/labor/LaborTimeTrackingPage'));
+const EmployeePerformancePage2 = lazy(() => import('../pages/app/inventory/labor/EmployeePerformancePage'));
+const LaborManagerDashboardPage = lazy(() => import('../pages/app/inventory/labor/LaborManagerDashboardPage'));
+const NonProductiveTimePage = lazy(() => import('../pages/app/inventory/labor/NonProductiveTimePage'));
+const SkillsTrainingPage = lazy(() => import('../pages/app/inventory/labor/SkillsTrainingPage'));
+const LaborIncentivesPage = lazy(() => import('../pages/app/inventory/labor/LaborIncentivesPage'));
+const LaborReportsPage = lazy(() => import('../pages/app/inventory/labor/LaborReportsPage'));
+const LaborSafetyKpisPage = lazy(() => import('../pages/app/inventory/labor/LaborSafetyKpisPage'));
+const LaborLeaderboardPage = lazy(() => import('../pages/app/inventory/labor/LaborLeaderboardPage'));
+const WarehouseAnalyticsDashboardPage = lazy(() => import('../pages/app/inventory/analytics/WarehouseAnalyticsDashboard'));
+const ExecutiveDashboardPage = lazy(() => import('../pages/app/inventory/analytics/ExecutiveDashboardPage'));
+const OperationsManagerDashboardPage = lazy(() => import('../pages/app/inventory/analytics/OperationsManagerDashboardPage'));
+const ShiftSupervisorDashboardPage = lazy(() => import('../pages/app/inventory/analytics/ShiftSupervisorDashboardPage'));
+const KpiScorecardPage = lazy(() => import('../pages/app/inventory/analytics/KpiScorecardPage'));
+const KpiTrendsPage = lazy(() => import('../pages/app/inventory/analytics/KpiTrendsPage'));
+const InventoryHeatmapAnalyticsPage = lazy(() => import('../pages/app/inventory/analytics/InventoryHeatmapAnalyticsPage'));
+const SeasonalPatternsPage = lazy(() => import('../pages/app/inventory/analytics/SeasonalPatternsPage'));
+const RootCauseAnalysisPage = lazy(() => import('../pages/app/inventory/analytics/RootCauseAnalysisPage'));
+const PredictiveAlertsPage = lazy(() => import('../pages/app/inventory/analytics/PredictiveAlertsPage'));
+const PeriodicReportsPage = lazy(() => import('../pages/app/inventory/analytics/PeriodicReportsPage'));
+const ReportExportsPage = lazy(() => import('../pages/app/inventory/analytics/ReportExportsPage'));
+const OperatingCostsPage = lazy(() => import('../pages/app/inventory/analytics/OperatingCostsPage'));
+const KpiTargetsPage = lazy(() => import('../pages/app/inventory/analytics/KpiTargetsPage'));
+
 // بوابة CRM — الوحدة 1: جهات الاتصال والحسابات (التقرير 01)
 const ContactsLayout        = lazy(() => import('../pages/crmportal/contacts/ContactsLayout'));
 const ContactsOverview      = lazy(() => import('../pages/crmportal/contacts/ContactsOverview'));
@@ -329,6 +447,7 @@ export function AppRoutes() {
       <Route path="/supplier-portal/:token" element={<SupplierPortalPage />} />
       <Route path="/supplier-rfx/:token" element={<SupplierRfxPortalPage />} />
       <Route path="/supplier-invoice/:token" element={<SupplierInvoicePortalPage />} />
+      <Route path="/supplier-dock/:token" element={<SupplierDockPortalPage />} />
       <Route path="/about" element={<PublicInfoPage kind="about" />} />
       <Route path="/careers" element={<PublicInfoPage kind="careers" />} />
       <Route path="/blog" element={<PublicInfoPage kind="blog" />} />
@@ -543,6 +662,128 @@ export function AppRoutes() {
                 <Route path="price-trend" element={<PriceTrendPage />} />
                 <Route path="forecast" element={<ForecastPage />} />
               </Route>
+            </Route>
+          </Route>
+
+          {/* Inventory / Warehouse Portal — بوابة المخزون والمستودعات */}
+          <Route path="inventory" element={<RequireRole roles={['inventory', 'admin', 'developer', 'manager', 'procurement']} />}>
+            <Route element={<RequireModule moduleKey="inventory" />}>
+              <Route index element={<InventoryDashboard />} />
+              <Route path="dashboard" element={<InventoryDashboard />} />
+              <Route path="foundation" element={<InventoryFoundationDashboard />} />
+              <Route path="items" element={<InventoryItemsPage />} />
+              <Route path="warehouses" element={<InventoryWarehousesPage />} />
+              <Route path="locations" element={<InventoryLocationsPage />} />
+              <Route path="stock" element={<InventoryStockPage />} />
+              <Route path="movements" element={<InventoryMovementsPage />} />
+              <Route path="numbering" element={<InventoryNumberingPage />} />
+              <Route path="receiving" element={<ReceivingDashboardPage />} />
+              <Route path="receiving/asn" element={<InventoryAsnListPage />} />
+              <Route path="receiving/dock-schedule" element={<InventoryDockSchedulePage />} />
+              <Route path="receiving/sessions" element={<InventoryReceivingSessionsPage />} />
+              <Route path="receiving/osd" element={<InventoryOsdCasesPage />} />
+              <Route path="receiving/quarantine" element={<InventoryQuarantinePage />} />
+              <Route path="receiving/putaway" element={<InventoryPutawayTasksPage />} />
+              <Route path="receiving/cross-dock" element={<InventoryCrossDockingPage />} />
+              <Route path="receiving/mobile-scan" element={<InventoryMobileScanPage />} />
+              <Route path="receiving/lpn-labels" element={<InventoryLpnLabelsPage />} />
+              <Route path="receiving/reports" element={<InventoryReceivingReportsPage />} />
+              <Route path="receiving/notifications" element={<InventoryInboundNotificationsPage />} />
+              <Route path="receiving/attachments" element={<InventoryReceivingAttachmentsPage />} />
+              <Route path="receiving/ncr" element={<InventoryQualityNcrPage />} />
+              <Route path="storage" element={<StorageDashboardPage />} />
+              <Route path="storage/map" element={<InventoryLocationMapPage />} />
+              <Route path="storage/visual-map" element={<InventoryVisualWarehouseMapPage />} />
+              <Route path="storage/heatmap" element={<InventoryStorageHeatmapPage />} />
+              <Route path="storage/slotting" element={<InventorySlottingPage />} />
+              <Route path="storage/abc" element={<InventoryAbcClassificationPage />} />
+              <Route path="storage/replenishment" element={<InventoryReplenishmentPage />} />
+              <Route path="storage/capacity" element={<InventoryCapacityPage />} />
+              <Route path="storage/slow-moving" element={<InventorySlowMovingPage />} />
+              <Route path="storage/location-labels" element={<InventoryLocationLabelsPage />} />
+              <Route path="storage/affinity" element={<InventoryAffinityPage />} />
+              <Route path="storage/seasonal" element={<InventorySeasonalSlottingPage />} />
+              <Route path="storage/interleaving" element={<InventoryTaskInterleavingPage />} />
+              <Route path="storage/slow-moving-reports" element={<InventorySlowMovingReportsPage />} />
+              <Route path="picking" element={<PickingDashboardPage />} />
+              <Route path="picking/orders" element={<PickOrdersPage />} />
+              <Route path="picking/tasks" element={<PickTasksPage />} />
+              <Route path="picking/waves" element={<PickWavesPage />} />
+              <Route path="picking/exceptions" element={<PickExceptionsPage />} />
+              <Route path="picking/scans" element={<PickScansPage />} />
+              <Route path="picking/productivity" element={<PickingProductivityPage />} />
+              <Route path="picking/kpis" element={<PickingKpisPage />} />
+              <Route path="picking/route-map" element={<PickRouteMapPage />} />
+              <Route path="picking/voice" element={<VoicePickingPage />} />
+              <Route path="picking/pick-to-light" element={<PickToLightPage />} />
+              <Route path="picking/rfid" element={<RfidPickingPage />} />
+              <Route path="picking/sorting" element={<PickSortingPage />} />
+              <Route path="picking/handoffs" element={<ZoneHandoffsPage />} />
+              <Route path="shipping" element={<ShippingDashboardPage />} />
+              <Route path="shipping/packages" element={<ShippingPackagesPage />} />
+              <Route path="shipping/shipments" element={<ShipmentsPage />} />
+              <Route path="shipping/carriers" element={<ShippingCarriersPage />} />
+              <Route path="shipping/documents" element={<ShippingDocumentsPage />} />
+              <Route path="shipping/manifests" element={<ShippingManifestsPage />} />
+              <Route path="shipping/manifest-completion" element={<ManifestCompletionPage />} />
+              <Route path="shipping/rate-quotes" element={<RateQuotesPage />} />
+              <Route path="shipping/rate-rules" element={<RateRulesPage />} />
+              <Route path="shipping/tracking" element={<TrackingPage />} />
+              <Route path="shipping/webhooks" element={<CarrierWebhooksPage />} />
+              <Route path="shipping/kpis" element={<ShippingKpisPage />} />
+              <Route path="counting" element={<CountingDashboardPage />} />
+              <Route path="counting/plans" element={<CountPlansPage />} />
+              <Route path="counting/tasks" element={<CountTasksPage />} />
+              <Route path="counting/variances" element={<CountVariancesPage />} />
+              <Route path="counting/approvals" element={<AdjustmentApprovalsPage2 />} />
+              <Route path="counting/completion" element={<CountCompletionPage />} />
+              <Route path="counting/expiry" element={<ExpiryCountReportPage />} />
+              <Route path="counting/mobile" element={<MobileCountPage />} />
+              <Route path="counting/recount" element={<RecountPage />} />
+              <Route path="counting/freeze" element={<FreezePage />} />
+              <Route path="counting/annual" element={<AnnualCountPage />} />
+              <Route path="returns" element={<ReturnsDashboardPage />} />
+              <Route path="returns/rma" element={<ReturnRmaPage />} />
+              <Route path="returns/receiving" element={<ReturnReceivingPage />} />
+              <Route path="returns/grading" element={<ReturnGradingPage />} />
+              <Route path="returns/disposition" element={<ReturnDispositionPage />} />
+              <Route path="returns/production" element={<ProductionReturnsPage />} />
+              <Route path="returns/rtv" element={<ReturnRtvPage />} />
+              <Route path="returns/notifications" element={<ReturnNotificationsPage />} />
+              <Route path="returns/supplier-reports" element={<SupplierRtvReportsPage />} />
+              <Route path="returns/analytics" element={<ReturnAnalyticsPage />} />
+              <Route path="returns/quality" element={<ReturnQualityPage />} />
+              <Route path="returns/value-recovery" element={<ReturnValueRecoveryPage />} />
+              <Route path="returns/capa" element={<ReturnCapaPage />} />
+              <Route path="labor" element={<LaborDashboardPage />} />
+              <Route path="labor/standards" element={<LaborStandardsPage />} />
+              <Route path="labor/planning" element={<WorkforcePlanningPage />} />
+              <Route path="labor/availability" element={<WorkerAvailabilityPage />} />
+              <Route path="labor/dispatch" element={<LaborDispatchPage />} />
+              <Route path="labor/interleaving" element={<LaborInterleavingPage />} />
+              <Route path="labor/time-tracking" element={<LaborTimeTrackingPage />} />
+              <Route path="labor/employee-performance" element={<EmployeePerformancePage2 />} />
+              <Route path="labor/manager-dashboard" element={<LaborManagerDashboardPage />} />
+              <Route path="labor/non-productive" element={<NonProductiveTimePage />} />
+              <Route path="labor/skills-training" element={<SkillsTrainingPage />} />
+              <Route path="labor/incentives" element={<LaborIncentivesPage />} />
+              <Route path="labor/reports" element={<LaborReportsPage />} />
+              <Route path="labor/safety-kpis" element={<LaborSafetyKpisPage />} />
+              <Route path="labor/leaderboard" element={<LaborLeaderboardPage />} />
+              <Route path="analytics" element={<WarehouseAnalyticsDashboardPage />} />
+              <Route path="analytics/executive" element={<ExecutiveDashboardPage />} />
+              <Route path="analytics/operations" element={<OperationsManagerDashboardPage />} />
+              <Route path="analytics/supervisor" element={<ShiftSupervisorDashboardPage />} />
+              <Route path="analytics/scorecard" element={<KpiScorecardPage />} />
+              <Route path="analytics/trends" element={<KpiTrendsPage />} />
+              <Route path="analytics/heatmap" element={<InventoryHeatmapAnalyticsPage />} />
+              <Route path="analytics/seasonal" element={<SeasonalPatternsPage />} />
+              <Route path="analytics/root-cause" element={<RootCauseAnalysisPage />} />
+              <Route path="analytics/alerts" element={<PredictiveAlertsPage />} />
+              <Route path="analytics/reports" element={<PeriodicReportsPage />} />
+              <Route path="analytics/exports" element={<ReportExportsPage />} />
+              <Route path="analytics/costs" element={<OperatingCostsPage />} />
+              <Route path="analytics/targets" element={<KpiTargetsPage />} />
             </Route>
           </Route>
 

@@ -19,6 +19,7 @@ export const ROLE_DEFAULT_PATH: Record<string, string> = {
   marketing:  '/app/marketing',
   sales:      '/app/crm',
   procurement: '/app/procurement',
+  inventory: '/app/inventory',
 };
 
 /** الحصول على المسار الافتراضي لدور */

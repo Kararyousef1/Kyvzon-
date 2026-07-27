@@ -419,3 +419,128 @@ export type {
   SpendCategoryReportRecord,
   SpendIntelligenceAlertRecord,
 } from './Procurement/SpendAnalyticsService';
+
+// 🆕 بوابة المخزون والمستودعات — Foundation WMS
+export {
+  inventoryItemService,
+  inventoryWarehouseService,
+  inventoryLocationService,
+  inventoryStockBalanceService,
+  inventoryStockMovementService,
+  inventoryCodeSequenceService,
+  inventoryBarcodeService,
+  inventoryPostingService,
+  inventoryAnalyticsService,
+} from './InventoryService';
+export type {
+  InventoryItemRecord,
+  InventoryWarehouseRecord,
+  InventoryLocationRecord,
+  InventoryStockBalanceRecord,
+  InventoryStockMovementRecord,
+  InventoryCodeSequenceRecord,
+  InventoryBarcodeRecord,
+} from './InventoryService';
+
+// 🆕 بوابة المخزون — الوحدة 01: الاستلام والعمليات الواردة
+export {
+  inventoryAsnService,
+  inventoryDockAppointmentService,
+  inventoryReceivingSessionService,
+  inventoryReceivingLineService,
+  inventoryOsdCaseService,
+  inventoryQuarantineHoldService,
+  inventoryPutawayTaskService,
+  inventoryCrossDockTaskService,
+  inventoryReceivingScanService,
+  inventoryLpnLabelPrintService,
+  inventoryInboundNotificationService,
+  inventoryReceivingAttachmentService,
+  inventoryQualityNcrCaseService,
+  inventorySupplierDockInviteService,
+  inventoryReceivingAnalyticsService,
+} from './Inventory/ReceivingService';
+export type {
+  InventoryAsnRecord,
+  InventoryDockAppointmentRecord,
+  InventoryReceivingSessionRecord,
+  InventoryReceivingLineRecord,
+  InventoryOsdCaseRecord,
+  InventoryQuarantineHoldRecord,
+  InventoryPutawayTaskRecord,
+  InventoryCrossDockTaskRecord,
+  InventoryReceivingScanRecord,
+  InventoryLpnLabelPrintRecord,
+  InventoryInboundNotificationRecord,
+  InventoryReceivingAttachmentRecord,
+  InventoryQualityNcrCaseRecord,
+  InventorySupplierDockInviteRecord,
+} from './Inventory/ReceivingService';
+
+// 🆕 بوابة المخزون — الوحدة 02: التخزين وSlotting
+export {
+  inventoryAbcClassificationService,
+  inventorySlottingRecommendationService,
+  inventoryReplenishmentPolicyService,
+  inventoryReplenishmentTaskService,
+  inventoryLocationLabelPrintService,
+  inventoryAffinityRuleService,
+  inventorySeasonalSlottingPlanService,
+  inventoryTaskInterleavingSuggestionService,
+  inventorySlowMovingReportSubscriptionService,
+  inventoryStorageAnalyticsService,
+} from './Inventory/StorageSlottingService';
+export type {
+  InventoryAbcClassificationRecord,
+  InventorySlottingRecommendationRecord,
+  InventoryReplenishmentPolicyRecord,
+  InventoryReplenishmentTaskRecord,
+  InventoryLocationLabelPrintRecord,
+  InventoryAffinityRuleRecord,
+  InventorySeasonalSlottingPlanRecord,
+  InventoryTaskInterleavingSuggestionRecord,
+  InventorySlowMovingReportSubscriptionRecord,
+} from './Inventory/StorageSlottingService';
+
+// 🆕 بوابة المخزون — الوحدة 03: السحب وتنفيذ الأوامر
+export {
+  inventoryPickOrderService,
+  inventoryPickTaskService,
+  inventoryPickExceptionService,
+  inventoryPickWaveService,
+  inventoryPickScanService,
+  inventoryPickingTechnologyEventService,
+  inventoryPickSortingSessionService,
+  inventoryPickZoneHandoffService,
+  inventoryPickingAnalyticsService,
+} from './Inventory/PickingService';
+export type {
+  InventoryPickOrderRecord,
+  InventoryPickTaskRecord,
+  InventoryPickWaveRecord,
+  InventoryPickExceptionRecord,
+  InventoryPickScanRecord,
+  InventoryPickingTechnologyEventRecord,
+  InventoryPickSortingSessionRecord,
+  InventoryPickZoneHandoffRecord,
+} from './Inventory/PickingService';
+
+// 🆕 بوابة المخزون — الوحدة 04: الشحن والعمليات الصادرة
+export { inventoryShipmentService, inventoryPackageService, inventoryCarrierService, inventoryShippingDocumentService, inventoryCarrierRateQuoteService, inventoryRateShoppingRuleService, inventoryCarrierWebhookEventService, inventoryLoadingManifestService, inventoryShippingAnalyticsService } from './Inventory/ShippingService';
+export type { InventoryShipmentRecord, InventoryPackageRecord, InventoryCarrierRecord, InventoryShippingDocumentRecord, InventoryLoadingManifestRecord, InventoryCarrierRateQuoteRecord, InventoryTrackingEventRecord, InventoryRateShoppingRuleRecord, InventoryCarrierWebhookEventRecord } from './Inventory/ShippingService';
+
+// 🆕 بوابة المخزون — الوحدة 05: الجرد ودقة المخزون
+export { inventoryCycleCountPlanService, inventoryCountTaskService, inventoryCountVarianceService, inventoryAdjustmentApprovalService, inventoryCountFreezeService, inventoryAnnualCountPlanService, inventoryCountingAnalyticsService } from './Inventory/CountingService';
+export type { InventoryCycleCountPlanRecord, InventoryCountTaskRecord, InventoryCountVarianceRecord, InventoryAdjustmentApprovalRecord, InventoryCountFreezeRecord, InventoryAnnualCountPlanRecord } from './Inventory/CountingService';
+
+// 🆕 بوابة المخزون — الوحدة 06: المرتجعات واللوجستيات العكسية
+export { inventoryRmaService, inventoryReturnReceiptService, inventoryReturnConditionAssessmentService, inventoryReturnDispositionTaskService, inventoryProductionReturnService, inventoryReturnRtvClaimService, inventoryReturnCustomerNotificationService, inventorySupplierRtvReportService, inventoryReturnCapaActionService, inventoryReturnsAnalyticsService } from './Inventory/ReturnsService';
+export type { InventoryRmaRecord, InventoryRmaLineRecord, InventoryReturnReceiptRecord, InventoryReturnReceiptLineRecord, InventoryReturnConditionAssessmentRecord, InventoryReturnDispositionTaskRecord, InventoryReturnRtvClaimRecord, InventoryProductionReturnRecord, InventoryReturnCustomerNotificationRecord, InventorySupplierRtvReportRecord, InventoryReturnCapaActionRecord } from './Inventory/ReturnsService';
+
+// 🆕 بوابة المخزون — الوحدة 07: إدارة العمالة والإنتاجية
+export { inventoryLaborStandardService, inventoryWorkerAvailabilityService, inventoryLaborWorkforcePlanService, inventoryLaborSkillService, inventoryWorkerSkillService, inventoryLaborTrainingService, inventoryLaborDispatchTaskService, inventoryLaborTimeLogService, inventoryLaborInterleavingService, inventoryLaborIncentiveProgramService, inventoryLaborIncentiveAwardService, inventoryLaborLeaderboardService, inventoryLaborReportRunService, inventoryLaborSafetyIncidentService, inventoryLaborAnalyticsService } from './Inventory/LaborService';
+export type { InventoryLaborStandardRecord, InventoryWorkerAvailabilityRecord, InventoryLaborWorkforcePlanRecord, InventoryLaborSkillRecord, InventoryWorkerSkillRecord, InventoryLaborTrainingRecord, InventoryLaborDispatchTaskRecord, InventoryLaborTimeLogRecord, InventoryLaborIncentiveProgramRecord, InventoryLaborIncentiveAwardRecord, InventoryLaborLeaderboardRecord, InventoryLaborReportRunRecord, InventoryLaborSafetyIncidentRecord } from './Inventory/LaborService';
+
+// 🆕 بوابة المخزون — الوحدة 08: تحليلات المستودع ولوحة المؤشرات
+export { inventoryAnalyticsKpiTargetService, inventoryAnalyticsKpiSnapshotService, inventoryAnalyticsAlertRuleService, inventoryAnalyticsAlertService, inventoryRootCauseAnalysisService, inventoryPeriodicReportScheduleService, inventoryPeriodicReportRunService, inventoryReportExportService, inventoryOperatingCostEntryService, inventoryWarehouseAnalyticsService } from './Inventory/AnalyticsService';
+export type { InventoryAnalyticsKpiTargetRecord, InventoryAnalyticsKpiSnapshotRecord, InventoryAnalyticsAlertRuleRecord, InventoryAnalyticsAlertRecord, InventoryRootCauseAnalysisRecord, InventoryPeriodicReportScheduleRecord, InventoryPeriodicReportRunRecord, InventoryReportExportRecord, InventoryOperatingCostEntryRecord } from './Inventory/AnalyticsService';

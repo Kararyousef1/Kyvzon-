@@ -51,6 +51,7 @@ const ROLES: { value: string; label: string; color: string }[] = [
   { value: 'marketing',  label: 'تسويق',         color: 'bg-fuchsia-100 text-fuchsia-700'},
   { value: 'sales',      label: 'مبيعات',        color: 'bg-cyan-100 text-cyan-700'   },
   { value: 'procurement',label: 'مشتريات',       color: 'bg-amber-100 text-amber-700'  },
+  { value: 'inventory',  label: 'مخزون ومستودعات', color: 'bg-indigo-100 text-indigo-700'},
 ];
 
 const ROLE_LABELS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r.value, r.label]));
@@ -58,10 +59,37 @@ const ROLE_LABELS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r
 const ROLE_MODULE_MAP: Record<string, string> = {
   employee: 'employee', supervisor: 'supervisor', manager: 'manager',
   hr: 'hr', gatekeeper: 'gatekeeper', admin: 'admin', finance: 'finance', tech: 'tech_portal',
-  marketing: 'marketing', sales: 'crm', procurement: 'procurement',
+  marketing: 'marketing', sales: 'crm', procurement: 'procurement', inventory: 'inventory',
 };
 
-const PORTAL_PAGES = [
+type PortalPage = { id: string; label: string };
+type PortalPageGroup = { label: string; pages: PortalPage[] };
+type PortalPagesConfig = { portalLabel: string; moduleKey?: string; pages: PortalPage[] };
+
+const INVENTORY_ADMIN_PAGE_GROUPS: Array<{ label: string; ids: string[] }> = [
+  { label: 'الرئيسية والأساس التقني', ids: ['inventory-dashboard', 'inventory-foundation', 'inventory-items', 'inventory-warehouses', 'inventory-stock', 'inventory-movements', 'inventory-numbering'] },
+  { label: '01 الاستلام والعمليات الواردة', ids: ['inventory-receiving', 'inventory-asn', 'inventory-dock-schedule', 'inventory-receiving-sessions', 'inventory-osd', 'inventory-quarantine', 'inventory-putaway', 'inventory-cross-dock', 'inventory-mobile-scan', 'inventory-lpn-labels', 'inventory-receiving-reports', 'inventory-inbound-notifications'] },
+  { label: '02 التخزين و Slotting', ids: ['inventory-storage', 'inventory-location-map', 'inventory-visual-map', 'inventory-storage-heatmap', 'inventory-slotting', 'inventory-abc', 'inventory-replenishment', 'inventory-capacity', 'inventory-slow-moving', 'inventory-location-labels', 'inventory-affinity', 'inventory-seasonal-slotting', 'inventory-task-interleaving', 'inventory-slow-moving-reports'] },
+  { label: '03 السحب والتنفيذ', ids: ['inventory-picking', 'inventory-pick-orders', 'inventory-pick-tasks', 'inventory-pick-waves', 'inventory-pick-exceptions', 'inventory-pick-scans', 'inventory-picking-productivity', 'inventory-picking-kpis', 'inventory-pick-route-map', 'inventory-voice-picking', 'inventory-pick-to-light', 'inventory-rfid-picking', 'inventory-pick-sorting', 'inventory-zone-handoffs'] },
+  { label: '04 الشحن والعمليات الصادرة', ids: ['inventory-shipping', 'inventory-shipping-packages', 'inventory-shipments', 'inventory-carriers', 'inventory-shipping-documents', 'inventory-manifests', 'inventory-manifest-completion', 'inventory-rate-quotes', 'inventory-rate-rules', 'inventory-shipment-tracking', 'inventory-carrier-webhooks', 'inventory-shipping-kpis'] },
+  { label: '05 الجرد ودقة المخزون', ids: ['inventory-counting', 'inventory-count-plans', 'inventory-count-tasks', 'inventory-count-variances', 'inventory-adjustment-approvals', 'inventory-count-completion', 'inventory-expiry-count-report', 'inventory-mobile-count', 'inventory-recount', 'inventory-count-freeze', 'inventory-annual-count'] },
+  { label: '06 المرتجعات واللوجستيات العكسية', ids: ['inventory-returns', 'inventory-rma', 'inventory-return-receiving', 'inventory-return-grading', 'inventory-return-disposition', 'inventory-production-returns', 'inventory-return-rtv', 'inventory-return-notifications', 'inventory-supplier-rtv-reports', 'inventory-return-analytics', 'inventory-return-quality', 'inventory-return-value-recovery', 'inventory-return-capa'] },
+  { label: '07 العمالة والإنتاجية', ids: ['inventory-labor', 'inventory-labor-standards', 'inventory-workforce-planning', 'inventory-worker-availability', 'inventory-labor-dispatch', 'inventory-labor-interleaving', 'inventory-labor-time-tracking', 'inventory-employee-performance', 'inventory-labor-manager-dashboard', 'inventory-non-productive-time', 'inventory-skills-training', 'inventory-labor-incentives', 'inventory-labor-reports', 'inventory-labor-safety-kpis', 'inventory-labor-leaderboard'] },
+  { label: '08 التحليلات والمؤشرات', ids: ['inventory-analytics', 'inventory-analytics-executive', 'inventory-analytics-operations', 'inventory-analytics-supervisor', 'inventory-kpi-scorecard', 'inventory-kpi-trends', 'inventory-analytics-heatmap', 'inventory-seasonal-patterns', 'inventory-root-cause', 'inventory-predictive-alerts', 'inventory-periodic-reports', 'inventory-report-exports', 'inventory-operating-costs', 'inventory-kpi-targets'] },
+];
+
+function getPortalPageGroups(portal: PortalPagesConfig): PortalPageGroup[] {
+  if (portal.moduleKey !== 'inventory') return [{ label: portal.portalLabel, pages: portal.pages }];
+  const byId = new Map(portal.pages.map((page) => [page.id, page]));
+  const used = new Set(INVENTORY_ADMIN_PAGE_GROUPS.flatMap((group) => group.ids));
+  const grouped = INVENTORY_ADMIN_PAGE_GROUPS
+    .map((group) => ({ label: group.label, pages: group.ids.map((id) => byId.get(id)).filter(Boolean) as PortalPage[] }))
+    .filter((group) => group.pages.length > 0);
+  const remaining = portal.pages.filter((page) => !used.has(page.id));
+  return remaining.length ? [...grouped, { label: 'أخرى', pages: remaining }] : grouped;
+}
+
+const PORTAL_PAGES: PortalPagesConfig[] = [
   {
     portalLabel: 'بوابة الموظف', moduleKey: 'employee',
     pages: [
@@ -194,6 +222,123 @@ const PORTAL_PAGES = [
       { id: 'procurement-invoices', label: 'فواتير المشتريات' },
       { id: 'procurement-contracts', label: 'العقود' },
       { id: 'procurement-analytics', label: 'تحليلات المشتريات' },
+    ],
+  },
+  {
+    portalLabel: 'بوابة المخزون والمستودعات', moduleKey: 'inventory',
+    pages: [
+      { id: 'inventory-dashboard', label: 'لوحة المخزون' },
+      { id: 'inventory-foundation', label: 'الأساس التقني' },
+      { id: 'inventory-items', label: 'الأصناف والمواد' },
+      { id: 'inventory-warehouses', label: 'المستودعات والمواقع' },
+      { id: 'inventory-stock', label: 'الأرصدة الحالية' },
+      { id: 'inventory-movements', label: 'الكارت المخزني' },
+      { id: 'inventory-numbering', label: 'الترميز والباركود' },
+      { id: 'inventory-receiving', label: 'الاستلام والعمليات الواردة' },
+      { id: 'inventory-asn', label: 'ASN إشعارات الشحن' },
+      { id: 'inventory-dock-schedule', label: 'جدولة الأرصفة' },
+      { id: 'inventory-receiving-sessions', label: 'جلسات الاستلام' },
+      { id: 'inventory-osd', label: 'OS&D الانحرافات' },
+      { id: 'inventory-quarantine', label: 'الحجر الصحي' },
+      { id: 'inventory-putaway', label: 'مهام الإيداع' },
+      { id: 'inventory-cross-dock', label: 'Cross-Docking' },
+      { id: 'inventory-mobile-scan', label: 'المسح المحمول' },
+      { id: 'inventory-lpn-labels', label: 'ملصقات LPN' },
+      { id: 'inventory-receiving-reports', label: 'تقارير الاستلام' },
+      { id: 'inventory-inbound-notifications', label: 'إشعارات الاستلام' },
+      { id: 'inventory-storage', label: 'التخزين و Slotting' },
+      { id: 'inventory-location-map', label: 'خريطة المواقع' },
+      { id: 'inventory-visual-map', label: 'الخريطة التفاعلية' },
+      { id: 'inventory-storage-heatmap', label: 'Heatmap النشاط' },
+      { id: 'inventory-slotting', label: 'محرك Slotting' },
+      { id: 'inventory-abc', label: 'ABC Classification' },
+      { id: 'inventory-replenishment', label: 'إدارة التجديد' },
+      { id: 'inventory-capacity', label: 'السعة والمساحة' },
+      { id: 'inventory-slow-moving', label: 'المخزون الراكد' },
+      { id: 'inventory-location-labels', label: 'تسمية الخانات' },
+      { id: 'inventory-affinity', label: 'Affinity Slotting' },
+      { id: 'inventory-seasonal-slotting', label: 'Seasonal Slotting' },
+      { id: 'inventory-task-interleaving', label: 'Task Interleaving' },
+      { id: 'inventory-slow-moving-reports', label: 'تقارير الراكد' },
+      { id: 'inventory-picking', label: 'السحب والتنفيذ' },
+      { id: 'inventory-pick-orders', label: 'أوامر السحب' },
+      { id: 'inventory-pick-tasks', label: 'مهام السحب' },
+      { id: 'inventory-pick-waves', label: 'موجات السحب' },
+      { id: 'inventory-pick-exceptions', label: 'استثناءات السحب' },
+      { id: 'inventory-pick-scans', label: 'Scan-to-Confirm' },
+      { id: 'inventory-picking-productivity', label: 'إنتاجية السحب' },
+      { id: 'inventory-picking-kpis', label: 'KPIs السحب' },
+      { id: 'inventory-pick-route-map', label: 'خريطة مسار السحب' },
+      { id: 'inventory-voice-picking', label: 'Voice Picking' },
+      { id: 'inventory-pick-to-light', label: 'Pick-to-Light' },
+      { id: 'inventory-rfid-picking', label: 'RFID Picking' },
+      { id: 'inventory-pick-sorting', label: 'Batch/Cluster Sorting' },
+      { id: 'inventory-zone-handoffs', label: 'Zone Handoffs' },
+      { id: 'inventory-shipping', label: 'الشحن والعمليات الصادرة' },
+      { id: 'inventory-shipping-packages', label: 'التعبئة والطرود' },
+      { id: 'inventory-shipments', label: 'الشحنات' },
+      { id: 'inventory-carriers', label: 'شركات الشحن' },
+      { id: 'inventory-shipping-documents', label: 'وثائق الشحن' },
+      { id: 'inventory-manifests', label: 'Manifest والتحميل' },
+      { id: 'inventory-manifest-completion', label: 'اكتمال Manifest' },
+      { id: 'inventory-rate-quotes', label: 'Rate Shopping' },
+      { id: 'inventory-rate-rules', label: 'قواعد اختيار الناقل' },
+      { id: 'inventory-shipment-tracking', label: 'تتبع الشحنات' },
+      { id: 'inventory-carrier-webhooks', label: 'Carrier Webhooks' },
+      { id: 'inventory-shipping-kpis', label: 'KPIs الشحن' },
+      { id: 'inventory-counting', label: 'الجرد ودقة المخزون' },
+      { id: 'inventory-count-plans', label: 'خطط الجرد' },
+      { id: 'inventory-count-tasks', label: 'مهام العد' },
+      { id: 'inventory-count-variances', label: 'فروق الجرد' },
+      { id: 'inventory-adjustment-approvals', label: 'اعتماد التسويات' },
+      { id: 'inventory-count-completion', label: 'اكتمال الجرد' },
+      { id: 'inventory-expiry-count-report', label: 'تقرير الصلاحية' },
+      { id: 'inventory-mobile-count', label: 'واجهة العد المحمولة' },
+      { id: 'inventory-recount', label: 'العد الثاني/الثالث' },
+      { id: 'inventory-count-freeze', label: 'تجميد الجرد' },
+      { id: 'inventory-annual-count', label: 'الجرد السنوي' },
+      { id: 'inventory-returns', label: 'المرتجعات' },
+      { id: 'inventory-rma', label: 'إدارة RMA' },
+      { id: 'inventory-return-receiving', label: 'استلام المرتجعات' },
+      { id: 'inventory-return-grading', label: 'تقييم A/B/C/D' },
+      { id: 'inventory-return-disposition', label: 'مسارات Disposition' },
+      { id: 'inventory-production-returns', label: 'مرتجعات الإنتاج' },
+      { id: 'inventory-return-rtv', label: 'RTV للموردين' },
+      { id: 'inventory-return-notifications', label: 'إشعارات المرتجعات' },
+      { id: 'inventory-supplier-rtv-reports', label: 'تقارير RTV للموردين' },
+      { id: 'inventory-return-analytics', label: 'تحليلات المرتجعات' },
+      { id: 'inventory-return-quality', label: 'جودة المرتجعات' },
+      { id: 'inventory-return-value-recovery', label: 'استرداد القيمة' },
+      { id: 'inventory-return-capa', label: 'CAPA المرتجعات' },
+      { id: 'inventory-labor', label: 'العمالة والإنتاجية' },
+      { id: 'inventory-labor-standards', label: 'معايير الإنتاجية' },
+      { id: 'inventory-workforce-planning', label: 'تخطيط العمالة' },
+      { id: 'inventory-worker-availability', label: 'توفر العمال' },
+      { id: 'inventory-labor-dispatch', label: 'التوزيع الذكي' },
+      { id: 'inventory-labor-interleaving', label: 'Task Interleaving' },
+      { id: 'inventory-labor-time-tracking', label: 'تتبع الوقت' },
+      { id: 'inventory-employee-performance', label: 'أداء الموظف' },
+      { id: 'inventory-labor-manager-dashboard', label: 'لوحة مدير الوردية' },
+      { id: 'inventory-non-productive-time', label: 'الوقت غير المنتج' },
+      { id: 'inventory-skills-training', label: 'المهارات والتدريب' },
+      { id: 'inventory-labor-incentives', label: 'الحوافز' },
+      { id: 'inventory-labor-reports', label: 'تقارير الإنتاجية' },
+      { id: 'inventory-labor-safety-kpis', label: 'سلامة وKPIs العمالة' },
+      { id: 'inventory-labor-leaderboard', label: 'ترتيب الوردية' },
+      { id: 'inventory-analytics', label: 'تحليلات المستودع' },
+      { id: 'inventory-analytics-executive', label: 'لوحة تنفيذية' },
+      { id: 'inventory-analytics-operations', label: 'لوحة مدير المستودع' },
+      { id: 'inventory-analytics-supervisor', label: 'لوحة مشرف الوردية' },
+      { id: 'inventory-kpi-scorecard', label: 'KPI Scorecard' },
+      { id: 'inventory-kpi-trends', label: 'اتجاهات KPI' },
+      { id: 'inventory-analytics-heatmap', label: 'Heatmap التحليلي' },
+      { id: 'inventory-seasonal-patterns', label: 'الأنماط الموسمية' },
+      { id: 'inventory-root-cause', label: 'Root Cause' },
+      { id: 'inventory-predictive-alerts', label: 'تنبيهات استباقية' },
+      { id: 'inventory-periodic-reports', label: 'تقارير دورية' },
+      { id: 'inventory-report-exports', label: 'تصدير التقارير' },
+      { id: 'inventory-operating-costs', label: 'تكاليف التشغيل' },
+      { id: 'inventory-kpi-targets', label: 'أهداف KPI' },
     ],
   },
 ];
@@ -1062,19 +1207,42 @@ export default function AdminEmployeesPage() {
                                 {allSelected ? 'إلغاء التحديد ❌' : 'تحديد الكل ✅'}
                               </button>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                              {portal.pages.map(pg => {
-                                const checked = form.allowed_pages.includes(pg.id);
+                            <div className="space-y-3">
+                              {getPortalPageGroups(portal).map(group => {
+                                const groupIds = group.pages.map(pg => pg.id);
+                                const groupSelected = groupIds.every(id => form.allowed_pages.includes(id));
                                 return (
-                                  <label key={pg.id} className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${checked ? 'bg-indigo-50 border-indigo-200 text-indigo-800 font-bold' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                                    <input type="checkbox" checked={checked} onChange={() => { setPageSelectionTouched(true); setForm(f => ({
-                                      ...f,
-                                      allowed_pages: checked
-                                        ? f.allowed_pages.filter(id => id !== pg.id)
-                                        : [...f.allowed_pages, pg.id],
-                                    })); }} className="rounded text-indigo-600 focus:ring-indigo-500" />
-                                    <span>{pg.label}</span>
-                                  </label>
+                                  <div key={group.label} className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                                    {portal.moduleKey === 'inventory' && (
+                                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                        <span className="text-[11px] font-black text-slate-600">{group.label}</span>
+                                        <button type="button" onClick={() => { setPageSelectionTouched(true); setForm(f => ({
+                                          ...f,
+                                          allowed_pages: groupSelected
+                                            ? f.allowed_pages.filter(id => !groupIds.includes(id))
+                                            : [...new Set([...f.allowed_pages, ...groupIds])],
+                                        })); }} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800">
+                                          {groupSelected ? 'إلغاء الوحدة' : 'تحديد الوحدة'}
+                                        </button>
+                                      </div>
+                                    )}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                      {group.pages.map(pg => {
+                                        const checked = form.allowed_pages.includes(pg.id);
+                                        return (
+                                          <label key={pg.id} className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${checked ? 'bg-indigo-50 border-indigo-200 text-indigo-800 font-bold' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                                            <input type="checkbox" checked={checked} onChange={() => { setPageSelectionTouched(true); setForm(f => ({
+                                              ...f,
+                                              allowed_pages: checked
+                                                ? f.allowed_pages.filter(id => id !== pg.id)
+                                                : [...f.allowed_pages, pg.id],
+                                            })); }} className="rounded text-indigo-600 focus:ring-indigo-500" />
+                                            <span>{pg.label}</span>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
                                 );
                               })}
                             </div>

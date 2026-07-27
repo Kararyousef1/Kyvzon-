@@ -715,5 +715,176 @@ BEGIN
   RAISE NOTICE 'CHECK AA PASSED — بوابة المشتريات: الوحدات السبع + P0 security hardening موجودة';
 END $$;
 
+
+DO $$
+BEGIN
+  -- Inventory/Warehouse foundation
+  IF to_regclass('public.inventory_items') IS NULL
+     OR to_regclass('public.inventory_warehouses') IS NULL
+     OR to_regclass('public.inventory_locations') IS NULL
+     OR to_regclass('public.inventory_lpn') IS NULL
+     OR to_regclass('public.inventory_stock_balances') IS NULL
+     OR to_regclass('public.inventory_stock_movements') IS NULL
+     OR to_regclass('public.inventory_reservations') IS NULL
+     OR to_regclass('public.inventory_kpis') IS NULL
+     OR to_regclass('public.inventory_reorder_alerts') IS NULL
+     OR to_regprocedure('public.inventory_require_roles(text[])') IS NULL
+     OR to_regprocedure('public.post_inventory_movement(text,uuid,uuid,uuid,numeric,text,uuid,text)') IS NULL
+     OR to_regprocedure('public.reserve_inventory(uuid,uuid,uuid,numeric,text,uuid)') IS NULL
+     OR to_regprocedure('public.release_inventory_reservation(uuid,numeric)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: inventory/warehouse foundation missing';
+  END IF;
+
+  -- Inventory Unit 01: Receiving & Inbound
+  IF to_regclass('public.inventory_asns') IS NULL
+     OR to_regclass('public.inventory_asn_lines') IS NULL
+     OR to_regclass('public.inventory_dock_appointments') IS NULL
+     OR to_regclass('public.inventory_receiving_sessions') IS NULL
+     OR to_regclass('public.inventory_receiving_lines') IS NULL
+     OR to_regclass('public.inventory_osd_cases') IS NULL
+     OR to_regclass('public.inventory_quarantine_holds') IS NULL
+     OR to_regclass('public.inventory_putaway_tasks') IS NULL
+     OR to_regclass('public.inventory_cross_dock_tasks') IS NULL
+     OR to_regclass('public.inventory_receiving_scans') IS NULL
+     OR to_regclass('public.inventory_lpn_label_prints') IS NULL
+     OR to_regclass('public.inventory_inbound_notifications') IS NULL
+     OR to_regclass('public.inventory_receiving_dashboard') IS NULL
+     OR to_regclass('public.inventory_receiving_kpis') IS NULL
+     OR to_regclass('public.inventory_receiving_osd_report') IS NULL
+     OR to_regclass('public.inventory_receiving_productivity') IS NULL
+     OR to_regprocedure('public.create_inventory_asn(uuid,uuid,timestamp with time zone,text,text,text,integer,numeric,jsonb)') IS NULL
+     OR to_regprocedure('public.schedule_inventory_dock_appointment(uuid,uuid,uuid,timestamp with time zone,timestamp with time zone,integer,text)') IS NULL
+     OR to_regprocedure('public.start_inventory_receiving_session(uuid,uuid,uuid,uuid,uuid,text,text,text,text,text)') IS NULL
+     OR to_regprocedure('public.record_inventory_receiving_line(uuid,uuid,numeric,numeric,numeric,numeric,text,text,date,boolean,text,uuid,boolean)') IS NULL
+     OR to_regprocedure('public.scan_inventory_receiving_barcode(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.print_inventory_lpn_label(uuid,text)') IS NULL
+     OR to_regprocedure('public.post_inventory_receiving_session(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: inventory receiving/inbound unit missing';
+  END IF;
+
+  -- Inventory Unit 02: Storage & Slotting
+  IF to_regclass('public.inventory_abc_classifications') IS NULL
+     OR to_regclass('public.inventory_slotting_recommendations') IS NULL
+     OR to_regclass('public.inventory_replenishment_tasks') IS NULL
+     OR to_regclass('public.inventory_location_map') IS NULL
+     OR to_regclass('public.inventory_location_heatmap') IS NULL
+     OR to_regclass('public.inventory_capacity_report') IS NULL
+     OR to_regclass('public.inventory_slow_moving_report') IS NULL
+     OR to_regclass('public.inventory_storage_kpis') IS NULL
+     OR to_regclass('public.inventory_affinity_rules') IS NULL
+     OR to_regclass('public.inventory_seasonal_slotting_plans') IS NULL
+     OR to_regclass('public.inventory_task_interleaving_suggestions') IS NULL
+     OR to_regclass('public.inventory_seasonal_slotting_status') IS NULL
+     OR to_regclass('public.inventory_task_interleaving_queue') IS NULL
+     OR to_regprocedure('public.refresh_inventory_abc_classification(integer)') IS NULL
+     OR to_regprocedure('public.suggest_inventory_putaway_location(uuid,uuid,numeric)') IS NULL
+     OR to_regprocedure('public.generate_inventory_replenishment_tasks()') IS NULL
+     OR to_regprocedure('public.refresh_inventory_affinity_rules(integer)') IS NULL
+     OR to_regprocedure('public.activate_inventory_seasonal_slotting_plan(uuid)') IS NULL
+     OR to_regprocedure('public.generate_inventory_task_interleaving_suggestions(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: inventory storage/slotting unit missing';
+  END IF;
+
+  -- Inventory Unit 03: Picking & Fulfillment
+  IF to_regclass('public.inventory_pick_orders') IS NULL
+     OR to_regclass('public.inventory_pick_tasks') IS NULL
+     OR to_regclass('public.inventory_pick_waves') IS NULL
+     OR to_regclass('public.inventory_pick_exceptions') IS NULL
+     OR to_regclass('public.inventory_pick_task_queue') IS NULL
+     OR to_regclass('public.inventory_picking_kpis') IS NULL
+     OR to_regclass('public.inventory_picking_productivity') IS NULL
+     OR to_regprocedure('public.create_inventory_pick_order(text,uuid,text,uuid,text,text,numeric,timestamp with time zone,jsonb)') IS NULL
+     OR to_regprocedure('public.generate_inventory_pick_list(uuid,text)') IS NULL
+     OR to_regprocedure('public.confirm_inventory_pick_scan(uuid,text,text,text,numeric)') IS NULL
+     OR to_regprocedure('public.release_inventory_pick_wave(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: inventory picking/fulfillment unit missing';
+  END IF;
+
+  -- Inventory Unit 04: Shipping & Outbound
+  IF to_regclass('public.inventory_shipments') IS NULL
+     OR to_regclass('public.inventory_packages') IS NULL
+     OR to_regclass('public.inventory_shipping_documents') IS NULL
+     OR to_regclass('public.inventory_loading_manifests') IS NULL
+     OR to_regclass('public.inventory_shipping_kpis') IS NULL
+     OR to_regclass('public.inventory_rate_shopping_rules') IS NULL
+     OR to_regclass('public.inventory_carrier_webhook_events') IS NULL
+     OR to_regclass('public.inventory_shipment_tracking_timeline') IS NULL
+     OR to_regclass('public.inventory_manifest_completion') IS NULL
+     OR to_regprocedure('public.create_inventory_shipment(text,uuid,text,text,text,text,uuid[])') IS NULL
+     OR to_regprocedure('public.scan_inventory_load_package(uuid,text)') IS NULL
+     OR to_regprocedure('public.close_inventory_loading_manifest(uuid)') IS NULL
+     OR to_regprocedure('public.select_inventory_best_rate_quote(uuid,uuid)') IS NULL
+     OR to_regprocedure('public.receive_inventory_carrier_webhook(uuid,text,text,jsonb)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: inventory shipping/outbound unit missing';
+  END IF;
+
+  -- Inventory Unit 05: Cycle Counting & Accuracy
+  IF to_regclass('public.inventory_cycle_count_plans') IS NULL
+     OR to_regclass('public.inventory_count_tasks') IS NULL
+     OR to_regclass('public.inventory_count_variances') IS NULL
+     OR to_regclass('public.inventory_adjustment_approvals') IS NULL
+     OR to_regclass('public.inventory_ira_dashboard') IS NULL
+     OR to_regprocedure('public.generate_inventory_cycle_count_schedule(text,uuid,integer)') IS NULL
+     OR to_regprocedure('public.submit_inventory_count(uuid,uuid,numeric,text,text,uuid,uuid,text)') IS NULL
+     OR to_regprocedure('public.post_inventory_count_adjustments(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: inventory cycle counting unit missing';
+  END IF;
+
+  -- Inventory Unit 06: Returns Management & Reverse Logistics
+  IF to_regclass('public.inventory_rmas') IS NULL
+     OR to_regclass('public.inventory_rma_lines') IS NULL
+     OR to_regclass('public.inventory_return_receipts') IS NULL
+     OR to_regclass('public.inventory_return_condition_assessments') IS NULL
+     OR to_regclass('public.inventory_return_disposition_tasks') IS NULL
+     OR to_regclass('public.inventory_return_rtv_claims') IS NULL
+     OR to_regclass('public.inventory_production_returns') IS NULL
+     OR to_regclass('public.inventory_return_customer_notifications') IS NULL
+     OR to_regclass('public.inventory_supplier_rtv_reports') IS NULL
+     OR to_regclass('public.inventory_returns_kpis') IS NULL
+     OR to_regprocedure('public.create_inventory_rma(text,uuid,text,uuid,uuid,uuid,uuid,uuid,text,boolean,integer,text,text,jsonb)') IS NULL
+     OR to_regprocedure('public.receive_inventory_return(uuid,uuid,uuid,text,text,text,jsonb)') IS NULL
+     OR to_regprocedure('public.grade_inventory_return_line(uuid,text,text,text,text,text,text,numeric,numeric,jsonb)') IS NULL
+     OR to_regprocedure('public.complete_inventory_return_disposition(uuid,numeric,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: inventory returns/reverse logistics unit missing';
+  END IF;
+
+  -- Inventory Unit 07: Labor Management & Workforce Productivity
+  IF to_regclass('public.inventory_labor_standards') IS NULL
+     OR to_regclass('public.inventory_worker_availability') IS NULL
+     OR to_regclass('public.inventory_labor_workforce_plans') IS NULL
+     OR to_regclass('public.inventory_worker_skills') IS NULL
+     OR to_regclass('public.inventory_labor_dispatch_tasks') IS NULL
+     OR to_regclass('public.inventory_labor_time_logs') IS NULL
+     OR to_regclass('public.inventory_labor_incentive_programs') IS NULL
+     OR to_regclass('public.inventory_labor_shift_leaderboards') IS NULL
+     OR to_regclass('public.inventory_labor_kpis') IS NULL
+     OR to_regprocedure('public.generate_inventory_workforce_plan(date,uuid,text)') IS NULL
+     OR to_regprocedure('public.dispatch_inventory_labor_task(uuid,uuid)') IS NULL
+     OR to_regprocedure('public.start_inventory_labor_task(uuid)') IS NULL
+     OR to_regprocedure('public.complete_inventory_labor_task(uuid,numeric,integer)') IS NULL
+     OR to_regprocedure('public.calculate_inventory_labor_incentives(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: inventory labor/productivity unit missing';
+  END IF;
+
+  -- Inventory Unit 08: Warehouse Analytics & KPI Dashboard
+  IF to_regclass('public.inventory_analytics_kpi_targets') IS NULL
+     OR to_regclass('public.inventory_analytics_kpi_snapshots') IS NULL
+     OR to_regclass('public.inventory_analytics_alerts') IS NULL
+     OR to_regclass('public.inventory_root_cause_analyses') IS NULL
+     OR to_regclass('public.inventory_periodic_report_runs') IS NULL
+     OR to_regclass('public.inventory_report_exports') IS NULL
+     OR to_regclass('public.inventory_executive_dashboard') IS NULL
+     OR to_regclass('public.inventory_kpi_scorecard') IS NULL
+     OR to_regclass('public.inventory_predictive_alerts_queue') IS NULL
+     OR to_regprocedure('public.refresh_inventory_kpi_snapshots(date)') IS NULL
+     OR to_regprocedure('public.generate_inventory_predictive_alerts()') IS NULL
+     OR to_regprocedure('public.generate_inventory_periodic_report(text,date,date)') IS NULL
+     OR to_regprocedure('public.request_inventory_report_export(uuid,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: inventory warehouse analytics/KPI unit missing';
+  END IF;
+
+  RAISE NOTICE 'CHECK INVENTORY PASSED — بوابة المخزون والمستودعات: units 00-08 موجودة';
+END $$;
+
 \echo ''
 \echo '=== ✅ POST-MIGRATION CHECKS: ALL PASS ==='
