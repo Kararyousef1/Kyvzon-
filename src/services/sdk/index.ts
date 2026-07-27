@@ -544,3 +544,40 @@ export type { InventoryLaborStandardRecord, InventoryWorkerAvailabilityRecord, I
 // 🆕 بوابة المخزون — الوحدة 08: تحليلات المستودع ولوحة المؤشرات
 export { inventoryAnalyticsKpiTargetService, inventoryAnalyticsKpiSnapshotService, inventoryAnalyticsAlertRuleService, inventoryAnalyticsAlertService, inventoryRootCauseAnalysisService, inventoryPeriodicReportScheduleService, inventoryPeriodicReportRunService, inventoryReportExportService, inventoryOperatingCostEntryService, inventoryWarehouseAnalyticsService } from './Inventory/AnalyticsService';
 export type { InventoryAnalyticsKpiTargetRecord, InventoryAnalyticsKpiSnapshotRecord, InventoryAnalyticsAlertRuleRecord, InventoryAnalyticsAlertRecord, InventoryRootCauseAnalysisRecord, InventoryPeriodicReportScheduleRecord, InventoryPeriodicReportRunRecord, InventoryReportExportRecord, InventoryOperatingCostEntryRecord } from './Inventory/AnalyticsService';
+
+// 🏭 بوابة التصنيع MRP — الوحدة 00: الأساس التقني
+export { mrpPlantService, mrpAreaService, mrpLineService, mrpWorkCenterService, mrpResourceService, mrpAssetService, mrpCalendarService, mrpShiftService, mrpOperationService, mrpRoutingService, mrpNumberingService, mrpCapacityService, mrpAnalyticsService } from './MrpService';
+export type { MrpPlantRecord, MrpAreaRecord, MrpLineRecord, MrpWorkCenterRecord, MrpResourceRecord, MrpAssetRecord, MrpCalendarRecord, MrpShiftRecord, MrpOperationRecord, MrpRoutingRecord, MrpNumberingRecord } from './MrpService';
+
+// 🏭 بوابة التصنيع MRP — الوحدة 01: BOM & Engineering Change
+export { mrpBomHeaderService, mrpBomVersionService, mrpBomLineService, mrpEcrService, mrpEcoService, mrpBomExplosionService, mrpBomAvailabilityService, mrpBomImportBatchService, mrpBomExportRequestService, mrpBomAnalyticsService } from './MrpBomService';
+export type { MrpBomHeaderRecord, MrpBomVersionRecord, MrpBomLineRecord, MrpEcrRecord, MrpEcoRecord, MrpBomExplosionRunRecord, MrpBomAvailabilityCheckRecord, MrpBomImportBatchRecord, MrpBomExportRequestRecord } from './MrpBomService';
+
+// 🏭 بوابة التصنيع MRP — الوحدة 02: Demand Forecasting & MPS
+export { mrpDemandHistoryService, mrpForecastModelService, mrpForecastRunService, mrpForecastLineService, mrpProductPolicyService, mrpMpsPlanService, mrpMpsLineService, mrpForecastingAnalyticsService } from './MrpForecastingService';
+export type { MrpDemandHistoryRecord, MrpForecastModelRecord, MrpForecastRunRecord, MrpMpsPlanRecord, MrpMpsLineRecord } from './MrpForecastingService';
+
+// 🏭 بوابة التصنيع MRP — الوحدة 03: Production Planning & Work Orders
+export { mrpRunService, mrpPlannedOrderService, mrpWorkOrderService, mrpWorkOrderMaterialService, mrpWorkOrderOperationService, mrpDispatchService, mrpPlanningAnalyticsService } from './MrpPlanningService';
+export type { MrpRunRecord, MrpPlannedOrderRecord, MrpWorkOrderRecord, MrpWorkOrderMaterialRecord, MrpWorkOrderOperationRecord } from './MrpPlanningService';
+
+// 🏭 بوابة التصنيع MRP — الوحدة 04: Manufacturing Inventory & WIP
+export { mrpInventoryValuationPolicyService, mrpWipLocationService, mrpWipMovementService, mrpLotTraceService, mrpInventoryOptimizationService, mrpInventoryAnalyticsService } from './MrpInventoryService';
+
+// 🏭 بوابة التصنيع MRP — الوحدة 05: Procurement Integration
+export { mrpProcurementRecommendationService, mrpSupplierTcoService, mrpProcurementAlertService, mrpProcurementAnalyticsService } from './MrpProcurementService';
+
+// 🏭 بوابة التصنيع MRP — الوحدة 06: Quality Management
+export { mrpQualityPlanService, mrpQualityChecklistService, mrpQualityInspectionService, mrpAqlService, mrpNcrService, mrpCapaService, mrpCalibrationService, mrpSpcService, mrpQuarantineService, mrpQualityAnalyticsService } from './MrpQualityService';
+
+// 🆕 بوابة التصنيع MRP — Unit 07: Shop Floor Control & MES
+export { mrpWorkstationService, mrpTerminalSessionService, mrpShopFloorExecutionService, mrpDowntimeService, mrpDowntimeReasonService, mrpLaborAssignmentService, mrpAndonService, mrpMaintenanceBridgeService, mrpOeeService, mrpShopFloorAnalyticsService } from './MrpShopFloorService';
+
+// 🆕 بوابة التصنيع MRP — Unit 08: Maintenance / CMMS
+export { mrpMaintenanceAssetService, mrpPmPlanService, mrpMaintenanceWorkOrderService, mrpMaintenanceSparePartService, mrpConditionMonitoringService, mrpAnnualShutdownService, mrpMaintenanceAnalyticsService } from './MrpMaintenanceService';
+
+// 🆕 بوابة التصنيع MRP — Unit 09: Manufacturing Costing
+export { mrpCostElementService, mrpCostingProfileService, mrpStandardCostService, mrpCostRollupService, mrpActualCostingService, mrpWipCostService, mrpCostPostingService, mrpCostingAnalyticsService } from './MrpCostingService';
+
+// 🆕 بوابة التصنيع MRP — Unit 10: Manufacturing Analytics
+export { mrpManufacturingKpiTargetService, mrpManufacturingSnapshotService, mrpManufacturingAlertService, mrpManufacturingRcaService, mrpManufacturingReportService, mrpManufacturingAnalyticsService } from './MrpAnalyticsService';

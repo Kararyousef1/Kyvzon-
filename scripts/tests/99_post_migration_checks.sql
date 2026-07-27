@@ -883,7 +883,165 @@ BEGIN
     RAISE EXCEPTION 'FAILED: inventory warehouse analytics/KPI unit missing';
   END IF;
 
-  RAISE NOTICE 'CHECK INVENTORY PASSED — بوابة المخزون والمستودعات: units 00-08 موجودة';
+  -- MRP Unit 00: Manufacturing Foundation
+  IF to_regclass('public.manufacturing_plants') IS NULL
+     OR to_regclass('public.work_centers') IS NULL
+     OR to_regclass('public.manufacturing_operation_catalog') IS NULL
+     OR to_regclass('public.routing_headers') IS NULL
+     OR to_regclass('public.mrp_foundation_dashboard') IS NULL
+     OR to_regprocedure('public.mrp_require_roles(text[])') IS NULL
+     OR to_regprocedure('public.create_mrp_plant(text,text,text,text,text)') IS NULL
+     OR to_regprocedure('public.create_mrp_work_center(uuid,uuid,text,text,text)') IS NULL
+     OR to_regprocedure('public.create_mrp_area(uuid,text,text,text)') IS NULL
+     OR to_regprocedure('public.create_mrp_line(uuid,uuid,text,text,text)') IS NULL
+     OR to_regprocedure('public.create_mrp_shift(text,text,time,time,numeric)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: MRP manufacturing foundation unit missing';
+  END IF;
+
+  -- MRP Unit 01: BOM & Engineering Change
+  IF to_regclass('public.mrp_bom_headers') IS NULL
+     OR to_regclass('public.mrp_bom_versions') IS NULL
+     OR to_regclass('public.mrp_engineering_change_requests') IS NULL
+     OR to_regclass('public.mrp_bom_tree') IS NULL
+     OR to_regprocedure('public.create_mrp_bom(text,uuid,text,text,text,text)') IS NULL
+     OR to_regprocedure('public.explode_mrp_bom(uuid,numeric)') IS NULL
+     OR to_regprocedure('public.add_mrp_bom_line_substitute(uuid,uuid,integer,numeric,text)') IS NULL
+     OR to_regprocedure('public.create_mrp_bom_import_batch(text,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: MRP BOM/ECO unit missing';
+  END IF;
+
+  -- MRP Unit 02: Demand Forecasting & MPS
+  IF to_regclass('public.mrp_forecast_models') IS NULL
+     OR to_regclass('public.mrp_forecast_runs') IS NULL
+     OR to_regclass('public.mrp_mps_plans') IS NULL
+     OR to_regclass('public.mrp_rccp_runs') IS NULL
+     OR to_regclass('public.mrp_mps_board') IS NULL
+     OR to_regprocedure('public.run_mrp_forecast(uuid,date,integer)') IS NULL
+     OR to_regprocedure('public.run_mps_rccp(uuid)') IS NULL
+     OR to_regprocedure('public.upsert_mrp_product_planning_policy(uuid,text,numeric,numeric,numeric,integer,integer,integer,integer,uuid)') IS NULL
+     OR to_regprocedure('public.override_mrp_forecast_line(uuid,numeric,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: MRP forecasting/MPS unit missing';
+  END IF;
+
+  -- MRP Unit 03: Production Planning & Work Orders
+  IF to_regclass('public.mrp_runs') IS NULL
+     OR to_regclass('public.mrp_planned_orders') IS NULL
+     OR to_regclass('public.mrp_work_orders') IS NULL
+     OR to_regclass('public.mrp_work_order_operations') IS NULL
+     OR to_regclass('public.mrp_dispatch_queue') IS NULL
+     OR to_regprocedure('public.run_mrp_from_mps(uuid)') IS NULL
+     OR to_regprocedure('public.release_mrp_work_order(uuid)') IS NULL
+     OR to_regprocedure('public.cancel_mrp_work_order(uuid,text)') IS NULL
+     OR to_regprocedure('public.create_mrp_dispatch_item(uuid,integer)') IS NULL
+     OR to_regprocedure('public.close_mrp_work_order_alert(uuid,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: MRP production planning/work orders unit missing';
+  END IF;
+
+  -- MRP Unit 04: Manufacturing Inventory & WIP
+  IF to_regclass('public.mrp_wip_locations') IS NULL
+     OR to_regclass('public.mrp_wip_balances') IS NULL
+     OR to_regclass('public.mrp_wip_movements') IS NULL
+     OR to_regclass('public.mrp_lot_trace_links') IS NULL
+     OR to_regclass('public.mrp_wip_dashboard') IS NULL
+     OR to_regprocedure('public.record_mrp_wip_movement(uuid,uuid,uuid,uuid,numeric,text,numeric,text)') IS NULL
+     OR to_regprocedure('public.adjust_mrp_wip_balance(uuid,uuid,uuid,uuid,numeric,numeric,text)') IS NULL
+     OR to_regprocedure('public.update_mrp_wip_location_status(uuid,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: MRP manufacturing inventory/WIP unit missing';
+  END IF;
+
+  -- MRP Unit 05: Procurement Integration
+  IF to_regclass('public.mrp_procurement_recommendations') IS NULL
+     OR to_regclass('public.mrp_procurement_links') IS NULL
+     OR to_regclass('public.mrp_supplier_tco_evaluations') IS NULL
+     OR to_regclass('public.mrp_procurement_dashboard') IS NULL
+     OR to_regprocedure('public.create_mrp_procurement_recommendation(uuid,numeric,date,text,text,uuid,uuid,numeric,text)') IS NULL
+     OR to_regprocedure('public.convert_mrp_recommendation_to_pr(uuid)') IS NULL
+     OR to_regprocedure('public.review_mrp_procurement_recommendation(uuid,text,uuid,text)') IS NULL
+     OR to_regprocedure('public.close_mrp_procurement_alert(uuid,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: MRP procurement integration unit missing';
+  END IF;
+
+  -- MRP Unit 06: Quality Management
+  IF to_regclass('public.mrp_quality_inspection_plans') IS NULL
+     OR to_regclass('public.mrp_quality_inspections') IS NULL
+     OR to_regclass('public.mrp_quality_ncrs') IS NULL
+     OR to_regclass('public.mrp_quality_capa_actions') IS NULL
+     OR to_regclass('public.mrp_quality_dashboard') IS NULL
+     OR to_regprocedure('public.start_mrp_quality_inspection(uuid,text,text,uuid,uuid,uuid,uuid,uuid,numeric)') IS NULL
+     OR to_regprocedure('public.create_mrp_quality_ncr(uuid,uuid,uuid,uuid,text,text,text,numeric,text)') IS NULL
+     OR to_regprocedure('public.create_mrp_quality_checklist_template(text,text,text)') IS NULL
+     OR to_regprocedure('public.cancel_mrp_quality_inspection(uuid,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: MRP quality management unit missing';
+  END IF;
+
+  -- MRP Unit 07: Shop Floor Control & MES
+  IF to_regclass('public.mrp_shop_floor_workstations') IS NULL
+     OR to_regclass('public.mrp_production_events') IS NULL
+     OR to_regclass('public.mrp_downtime_events') IS NULL
+     OR to_regclass('public.mrp_andon_signals') IS NULL
+     OR to_regclass('public.mrp_oee_snapshots') IS NULL
+     OR to_regclass('public.mrp_shop_floor_dashboard') IS NULL
+     OR to_regclass('public.mrp_downtime_pareto') IS NULL
+     OR to_regprocedure('public.record_mrp_production_event(uuid,uuid,text,numeric,numeric,numeric,numeric,text,text)') IS NULL
+     OR to_regprocedure('public.raise_mrp_andon_signal(uuid,uuid,uuid,text,text,text,text,boolean,uuid)') IS NULL
+     OR to_regprocedure('public.calculate_mrp_oee_snapshot(uuid,timestamp with time zone,timestamp with time zone,uuid,uuid)') IS NULL
+     OR to_regprocedure('public.update_mrp_workstation_status(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.upsert_mrp_downtime_reason(text,text,text,text,text,boolean,boolean)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: MRP shop floor control/MES unit missing';
+  END IF;
+
+  -- MRP Unit 08: Maintenance / CMMS
+  IF to_regclass('public.mrp_maintenance_assets') IS NULL
+     OR to_regclass('public.mrp_pm_plans') IS NULL
+     OR to_regclass('public.mrp_maintenance_work_orders') IS NULL
+     OR to_regclass('public.mrp_maintenance_spare_parts') IS NULL
+     OR to_regclass('public.mrp_condition_monitoring_readings') IS NULL
+     OR to_regclass('public.mrp_annual_shutdown_plans') IS NULL
+     OR to_regclass('public.mrp_maintenance_dashboard') IS NULL
+     OR to_regprocedure('public.create_mrp_maintenance_work_order(uuid,text,text,text,text,timestamp with time zone,timestamp with time zone,uuid,text,uuid,uuid)') IS NULL
+     OR to_regprocedure('public.convert_shopfloor_request_to_maintenance_wo(uuid,uuid)') IS NULL
+     OR to_regprocedure('public.record_mrp_condition_reading(uuid,text,numeric,text,numeric,numeric,boolean)') IS NULL
+     OR to_regprocedure('public.update_mrp_maintenance_asset_status(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.cancel_mrp_maintenance_work_order(uuid,text)') IS NULL
+     OR to_regprocedure('public.close_mrp_condition_alert(uuid,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: MRP maintenance CMMS unit missing';
+  END IF;
+
+  -- MRP Unit 09: Manufacturing Costing
+  IF to_regclass('public.mrp_cost_elements') IS NULL
+     OR to_regclass('public.mrp_costing_profiles') IS NULL
+     OR to_regclass('public.mrp_standard_cost_versions') IS NULL
+     OR to_regclass('public.mrp_cost_rollup_runs') IS NULL
+     OR to_regclass('public.mrp_work_order_cost_summaries') IS NULL
+     OR to_regclass('public.mrp_cost_variances') IS NULL
+     OR to_regclass('public.mrp_wip_cost_ledger') IS NULL
+     OR to_regclass('public.mrp_finished_goods_costing') IS NULL
+     OR to_regclass('public.mrp_costing_dashboard') IS NULL
+     OR to_regprocedure('public.run_mrp_standard_cost_rollup(uuid,uuid,uuid,uuid,numeric)') IS NULL
+     OR to_regprocedure('public.run_mrp_actual_work_order_costing(uuid,uuid)') IS NULL
+     OR to_regprocedure('public.value_mrp_finished_goods_from_work_order(uuid,text)') IS NULL
+     OR to_regprocedure('public.review_mrp_cost_variance(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.cancel_mrp_cost_posting_draft(uuid,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: MRP manufacturing costing unit missing';
+  END IF;
+
+  -- MRP Unit 10: Manufacturing Analytics
+  IF to_regclass('public.mrp_manufacturing_kpi_targets') IS NULL
+     OR to_regclass('public.mrp_manufacturing_kpi_snapshots') IS NULL
+     OR to_regclass('public.mrp_manufacturing_analytics_alerts') IS NULL
+     OR to_regclass('public.mrp_manufacturing_root_cause_analyses') IS NULL
+     OR to_regclass('public.mrp_manufacturing_report_runs') IS NULL
+     OR to_regclass('public.mrp_manufacturing_executive_dashboard') IS NULL
+     OR to_regclass('public.mrp_manufacturing_kpi_scorecard') IS NULL
+     OR to_regprocedure('public.refresh_mrp_manufacturing_kpi_snapshots(date,text)') IS NULL
+     OR to_regprocedure('public.generate_mrp_manufacturing_predictive_alerts()') IS NULL
+     OR to_regprocedure('public.generate_mrp_manufacturing_periodic_report(text,date,date)') IS NULL
+     OR to_regprocedure('public.update_mrp_manufacturing_analytics_alert_status(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.cancel_mrp_manufacturing_report_run(uuid,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: MRP manufacturing analytics unit missing';
+  END IF;
+
+  RAISE NOTICE 'CHECK INVENTORY + MRP 00-10 PASSED — المخزون 00-08 وMRP 00-10 موجودة';
 END $$;
 
 \echo ''

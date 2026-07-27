@@ -20,6 +20,7 @@ export const ROUTE_MODULE_MAP: Array<{ pathPrefix: string; moduleKey: string; la
   { pathPrefix: '/app/crm', moduleKey: 'crm', label: 'بوابة CRM' },
   { pathPrefix: '/app/procurement', moduleKey: 'procurement', label: 'بوابة المشتريات' },
   { pathPrefix: '/app/inventory', moduleKey: 'inventory', label: 'بوابة المخزون والمستودعات' },
+  { pathPrefix: '/app/mrp', moduleKey: 'mrp', label: 'بوابة التصنيع MRP' },
   { pathPrefix: '/app/insights', moduleKey: 'ai', label: 'رؤى الذكاء الاصطناعي' },
 ];
 

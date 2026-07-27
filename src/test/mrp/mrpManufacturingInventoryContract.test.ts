@@ -1,0 +1,10 @@
+import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+const root=process.cwd(); const read=(p:string)=>readFileSync(join(root,p),'utf8');
+
+describe('MRP unit 04 manufacturing inventory/WIP contract',()=>{
+  it('has official doc and checklist',()=>{expect(read('docs/mrp/04-inventory-management.md')).toContain('Work-in-Progress'); expect(read('docs/mrp/04-manufacturing-inventory-technical-checklist.md')).toContain('WIP');});
+  it('0222 migration implements valuation WIP traceability optimization and views',()=>{const sql=read('supabase/migrations/0222_mrp_manufacturing_inventory_wip.sql'); for(const obj of ['mrp_inventory_valuation_policies','mrp_wip_locations','mrp_wip_balances','mrp_wip_movements','mrp_lot_trace_links','mrp_inventory_optimization_runs','mrp_raw_materials_inventory','mrp_wip_dashboard','mrp_finished_goods_inventory','mrp_lot_forward_traceability','mrp_work_order_material_reconciliation','mrp_inventory_optimization_report','mrp_manufacturing_inventory_kpis']) expect(sql).toContain(obj); for(const fn of ['upsert_mrp_inventory_valuation_policy','create_mrp_wip_location','record_mrp_wip_movement','link_mrp_lot_trace','calculate_mrp_inventory_optimization']) expect(sql).toContain(fn); const ux=read('supabase/migrations/0233_mrp_inventory_wip_ux_actions.sql'); for(const fn of ['update_mrp_wip_location_status','adjust_mrp_wip_balance','deactivate_mrp_inventory_valuation_policy']) expect(ux).toContain(fn); for(const method of ['FIFO','FEFO','WAC','ACTUAL']) expect(sql).toContain(method); expect(sql).not.toContain('p_tenant_id');});
+  it('exports SDK and pages/routes',()=>{expect(read('src/services/sdk/MrpInventoryService.ts')).toContain('mrpInventoryAnalyticsService'); expect(read('src/services/sdk/index.ts')).toContain('mrpInventoryOptimizationService'); expect(read('src/router/AppRouter.tsx')).toContain('path="inventory/wip"'); expect(read('src/router/legacyRedirect.ts')).toContain('mrp-wip'); expect(read('src/shared/components/dashboard/Sidebar.tsx')).toContain('mrp-inventory');});
+});

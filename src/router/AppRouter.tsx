@@ -314,6 +314,149 @@ const ReportExportsPage = lazy(() => import('../pages/app/inventory/analytics/Re
 const OperatingCostsPage = lazy(() => import('../pages/app/inventory/analytics/OperatingCostsPage'));
 const KpiTargetsPage = lazy(() => import('../pages/app/inventory/analytics/KpiTargetsPage'));
 
+
+// ─── Lazy: MRP / Manufacturing Portal ───────────────────────────────────────
+const MrpDashboardPage = lazy(() => import('../pages/app/mrp/Dashboard'));
+const MrpFoundationDashboardPage = lazy(() => import('../pages/app/mrp/foundation/Dashboard'));
+const MrpPlantsPage = lazy(() => import('../pages/app/mrp/foundation/PlantsPage'));
+const MrpAreasPage = lazy(() => import('../pages/app/mrp/foundation/AreasPage'));
+const MrpLinesPage = lazy(() => import('../pages/app/mrp/foundation/LinesPage'));
+const MrpWorkCentersPage = lazy(() => import('../pages/app/mrp/foundation/WorkCentersPage'));
+const MrpResourcesPage = lazy(() => import('../pages/app/mrp/foundation/ResourcesPage'));
+const MrpAssetsPage = lazy(() => import('../pages/app/mrp/foundation/AssetsPage'));
+const MrpCalendarsPage = lazy(() => import('../pages/app/mrp/foundation/CalendarsPage'));
+const MrpShiftsPage = lazy(() => import('../pages/app/mrp/foundation/ShiftsPage'));
+const MrpCapacityPage = lazy(() => import('../pages/app/mrp/foundation/CapacityPage'));
+const MrpOperationsPage = lazy(() => import('../pages/app/mrp/foundation/OperationsPage'));
+const MrpRoutingsPage = lazy(() => import('../pages/app/mrp/foundation/RoutingsPage'));
+const MrpNumberingPage = lazy(() => import('../pages/app/mrp/foundation/NumberingPage'));
+const MrpAuditPage = lazy(() => import('../pages/app/mrp/foundation/AuditPage'));
+
+
+
+
+
+
+const MrpQualityDashboardPage = lazy(() => import('../pages/app/mrp/quality/QualityDashboard'));
+const MrpQualityPlansPage = lazy(() => import('../pages/app/mrp/quality/QualityPlansPage'));
+const MrpQualityChecklistsPage = lazy(() => import('../pages/app/mrp/quality/QualityChecklistsPage'));
+const MrpQualityInspectionsPage = lazy(() => import('../pages/app/mrp/quality/QualityInspectionsPage'));
+const MrpAqlPage = lazy(() => import('../pages/app/mrp/quality/AqlPage'));
+const MrpNcrPage = lazy(() => import('../pages/app/mrp/quality/NcrPage'));
+const MrpCapaPage = lazy(() => import('../pages/app/mrp/quality/CapaPage'));
+const MrpCalibrationPage = lazy(() => import('../pages/app/mrp/quality/CalibrationPage'));
+const MrpSpcPage = lazy(() => import('../pages/app/mrp/quality/SpcPage'));
+const MrpQualityQuarantinePage = lazy(() => import('../pages/app/mrp/quality/QualityQuarantinePage'));
+const MrpQualityReportsPage = lazy(() => import('../pages/app/mrp/quality/QualityReportsPage'));
+const MrpShopFloorDashboardPage = lazy(() => import('../pages/app/mrp/shopfloor/Dashboard'));
+const MrpShopFloorWorkstationsPage = lazy(() => import('../pages/app/mrp/shopfloor/WorkstationsPage'));
+const MrpShopFloorTerminalsPage = lazy(() => import('../pages/app/mrp/shopfloor/TerminalsPage'));
+const MrpProductionTrackingPage = lazy(() => import('../pages/app/mrp/shopfloor/ProductionTrackingPage'));
+const MrpShopFloorConsumptionPage = lazy(() => import('../pages/app/mrp/shopfloor/ConsumptionPage'));
+const MrpOeePage = lazy(() => import('../pages/app/mrp/shopfloor/OeePage'));
+const MrpDowntimePage = lazy(() => import('../pages/app/mrp/shopfloor/DowntimePage'));
+const MrpDowntimeParetoPage = lazy(() => import('../pages/app/mrp/shopfloor/DowntimeParetoPage'));
+const MrpWorkOrderProgressPage = lazy(() => import('../pages/app/mrp/shopfloor/WorkOrderProgressPage'));
+const MrpLaborShiftPage = lazy(() => import('../pages/app/mrp/shopfloor/LaborShiftPage'));
+const MrpAndonPage = lazy(() => import('../pages/app/mrp/shopfloor/AndonPage'));
+const MrpSupervisorShopFloorPage = lazy(() => import('../pages/app/mrp/shopfloor/SupervisorDashboardPage'));
+const MrpProductionManagerPage = lazy(() => import('../pages/app/mrp/shopfloor/ProductionManagerDashboardPage'));
+const MrpMaintenanceBridgePage = lazy(() => import('../pages/app/mrp/shopfloor/MaintenanceBridgePage'));
+const MrpShopFloorReportsPage = lazy(() => import('../pages/app/mrp/shopfloor/ShopFloorReportsPage'));
+const MrpMaintenanceDashboardPage = lazy(() => import('../pages/app/mrp/maintenance/Dashboard'));
+const MrpMaintenanceAssetsPage = lazy(() => import('../pages/app/mrp/maintenance/AssetsPage'));
+const MrpMaintenanceCriticalityPage = lazy(() => import('../pages/app/mrp/maintenance/CriticalityPage'));
+const MrpPmPlansPage = lazy(() => import('../pages/app/mrp/maintenance/PmPlansPage'));
+const MrpPmCalendarPage = lazy(() => import('../pages/app/mrp/maintenance/PmCalendarPage'));
+const MrpMaintenanceWorkOrdersPage = lazy(() => import('../pages/app/mrp/maintenance/MaintenanceWorkOrdersPage'));
+const MrpMaintenanceSparePartsPage = lazy(() => import('../pages/app/mrp/maintenance/SparePartsPage'));
+const MrpConditionMonitoringPage = lazy(() => import('../pages/app/mrp/maintenance/ConditionMonitoringPage'));
+const MrpMaintenanceBreakdownsPage = lazy(() => import('../pages/app/mrp/maintenance/BreakdownsPage'));
+const MrpAnnualShutdownsPage = lazy(() => import('../pages/app/mrp/maintenance/AnnualShutdownsPage'));
+const MrpMaintenanceReportsPage = lazy(() => import('../pages/app/mrp/maintenance/MaintenanceReportsPage'));
+const MrpCostingDashboardPage = lazy(() => import('../pages/app/mrp/costing/Dashboard'));
+const MrpCostElementsPage = lazy(() => import('../pages/app/mrp/costing/CostElementsPage'));
+const MrpCostingProfilesPage = lazy(() => import('../pages/app/mrp/costing/CostingProfilesPage'));
+const MrpStandardCostsPage = lazy(() => import('../pages/app/mrp/costing/StandardCostsPage'));
+const MrpCostRollupPage = lazy(() => import('../pages/app/mrp/costing/CostRollupPage'));
+const MrpWorkOrderCostsPage = lazy(() => import('../pages/app/mrp/costing/WorkOrderCostsPage'));
+const MrpCostVariancesPage = lazy(() => import('../pages/app/mrp/costing/CostVariancesPage'));
+const MrpWipValuationPage = lazy(() => import('../pages/app/mrp/costing/WipValuationPage'));
+const MrpFinishedGoodsValuationPage = lazy(() => import('../pages/app/mrp/costing/FinishedGoodsValuationPage'));
+const MrpCostPostingsPage = lazy(() => import('../pages/app/mrp/costing/CostPostingsPage'));
+const MrpCostingReportsPage = lazy(() => import('../pages/app/mrp/costing/CostingReportsPage'));
+const MrpAnalyticsDashboardPage = lazy(() => import('../pages/app/mrp/analytics/Dashboard'));
+const MrpAnalyticsExecutivePage = lazy(() => import('../pages/app/mrp/analytics/ExecutivePage'));
+const MrpAnalyticsOperationsPage = lazy(() => import('../pages/app/mrp/analytics/OperationsPage'));
+const MrpAnalyticsKpiScorecardPage = lazy(() => import('../pages/app/mrp/analytics/KpiScorecardPage'));
+const MrpAnalyticsOeeTrendsPage = lazy(() => import('../pages/app/mrp/analytics/OeeTrendsPage'));
+const MrpAnalyticsSchedulePage = lazy(() => import('../pages/app/mrp/analytics/SchedulePage'));
+const MrpAnalyticsBottlenecksPage = lazy(() => import('../pages/app/mrp/analytics/BottlenecksPage'));
+const MrpAnalyticsQualityCostPage = lazy(() => import('../pages/app/mrp/analytics/QualityCostPage'));
+const MrpAnalyticsCostVariancePage = lazy(() => import('../pages/app/mrp/analytics/CostVariancePage'));
+const MrpAnalyticsMaintenanceReliabilityPage = lazy(() => import('../pages/app/mrp/analytics/MaintenanceReliabilityPage'));
+const MrpAnalyticsAlertsPage = lazy(() => import('../pages/app/mrp/analytics/AnalyticsAlertsPage'));
+const MrpAnalyticsRootCausePage = lazy(() => import('../pages/app/mrp/analytics/RootCausePage'));
+const MrpAnalyticsReportsPage = lazy(() => import('../pages/app/mrp/analytics/AnalyticsReportsPage'));
+const MrpAnalyticsExportsPage = lazy(() => import('../pages/app/mrp/analytics/AnalyticsExportsPage'));
+const MrpAnalyticsKpiTargetsPage = lazy(() => import('../pages/app/mrp/analytics/KpiTargetsPage'));
+const MrpProcurementDashboardPage = lazy(() => import('../pages/app/mrp/procurement/ProcurementDashboard'));
+const MrpRecommendationsPage = lazy(() => import('../pages/app/mrp/procurement/RecommendationsPage'));
+const MrpPrStatusPage = lazy(() => import('../pages/app/mrp/procurement/PrStatusPage'));
+const MrpRfqTcoPage = lazy(() => import('../pages/app/mrp/procurement/RfqTcoPage'));
+const MrpPoStatusPage = lazy(() => import('../pages/app/mrp/procurement/PoStatusPage'));
+const MrpGrStatusPage = lazy(() => import('../pages/app/mrp/procurement/GrStatusPage'));
+const MrpInvoiceMatchPage = lazy(() => import('../pages/app/mrp/procurement/InvoiceMatchPage'));
+const MrpSupplierScorecardPage = lazy(() => import('../pages/app/mrp/procurement/SupplierScorecardPage'));
+const MrpContractAlertsPage = lazy(() => import('../pages/app/mrp/procurement/ContractAlertsPage'));
+const MrpProcurementAlertsPage = lazy(() => import('../pages/app/mrp/procurement/ProcurementAlertsPage'));
+const MrpProcurementReportsPage = lazy(() => import('../pages/app/mrp/procurement/ProcurementReportsPage'));
+const MrpInventoryDashboardPage = lazy(() => import('../pages/app/mrp/inventory/InventoryDashboard'));
+const MrpRawMaterialsPage = lazy(() => import('../pages/app/mrp/inventory/RawMaterialsPage'));
+const MrpWipPage = lazy(() => import('../pages/app/mrp/inventory/WipPage'));
+const MrpFinishedGoodsPage = lazy(() => import('../pages/app/mrp/inventory/FinishedGoodsPage'));
+const MrpValuationPage = lazy(() => import('../pages/app/mrp/inventory/ValuationPage'));
+const MrpLotsTraceabilityPage = lazy(() => import('../pages/app/mrp/inventory/LotsTraceabilityPage'));
+const MrpSafetyStockPage = lazy(() => import('../pages/app/mrp/inventory/SafetyStockPage'));
+const MrpMaterialIssuesPage = lazy(() => import('../pages/app/mrp/inventory/MaterialIssuesPage'));
+const MrpReconciliationPage = lazy(() => import('../pages/app/mrp/inventory/ReconciliationPage'));
+const MrpInventoryReportsPage = lazy(() => import('../pages/app/mrp/inventory/InventoryReportsPage'));
+const MrpPlanningDashboardPage = lazy(() => import('../pages/app/mrp/planning/PlanningDashboard'));
+const MrpRunsPage = lazy(() => import('../pages/app/mrp/planning/MrpRunsPage'));
+const MrpPlannedOrdersPage = lazy(() => import('../pages/app/mrp/planning/PlannedOrdersPage'));
+const MrpWorkOrdersPage = lazy(() => import('../pages/app/mrp/planning/WorkOrdersPage'));
+const MrpWorkOrderMaterialsPage = lazy(() => import('../pages/app/mrp/planning/WorkOrderMaterialsPage'));
+const MrpWorkOrderOperationsPage = lazy(() => import('../pages/app/mrp/planning/WorkOrderOperationsPage'));
+const MrpProductionSchedulingPage = lazy(() => import('../pages/app/mrp/planning/ProductionSchedulingPage'));
+const MrpDispatchPage = lazy(() => import('../pages/app/mrp/planning/DispatchPage'));
+const MrpWorkOrderAlertsPage = lazy(() => import('../pages/app/mrp/planning/WorkOrderAlertsPage'));
+const MrpPlanningReportsPage = lazy(() => import('../pages/app/mrp/planning/PlanningReportsPage'));
+const MrpForecastingDashboardPage = lazy(() => import('../pages/app/mrp/forecasting/ForecastingDashboard'));
+const MrpDemandHistoryPage = lazy(() => import('../pages/app/mrp/forecasting/DemandHistoryPage'));
+const MrpForecastModelsPage = lazy(() => import('../pages/app/mrp/forecasting/ForecastModelsPage'));
+const MrpForecastRunsPage = lazy(() => import('../pages/app/mrp/forecasting/ForecastRunsPage'));
+const MrpForecastAccuracyPage = lazy(() => import('../pages/app/mrp/forecasting/ForecastAccuracyPage'));
+const MrpPlanningPoliciesPage = lazy(() => import('../pages/app/mrp/forecasting/PlanningPoliciesPage'));
+const MrpMpsDashboardPage = lazy(() => import('../pages/app/mrp/mps/MpsDashboard'));
+const MrpMpsBoardPage = lazy(() => import('../pages/app/mrp/mps/MpsBoardPage'));
+const MrpMpsPlansPage = lazy(() => import('../pages/app/mrp/mps/MpsPlansPage'));
+const MrpMpsLinesPage = lazy(() => import('../pages/app/mrp/mps/MpsLinesPage'));
+const MrpRccpPage = lazy(() => import('../pages/app/mrp/mps/RccpPage'));
+const MrpMpsAlertsPage = lazy(() => import('../pages/app/mrp/mps/MpsAlertsPage'));
+const MrpMpsReportsPage = lazy(() => import('../pages/app/mrp/mps/MpsReportsPage'));
+const MrpBomDashboardPage = lazy(() => import('../pages/app/mrp/bom/BomDashboard'));
+const MrpBomBuilderPage = lazy(() => import('../pages/app/mrp/bom/BomBuilderPage'));
+const MrpBomHeadersPage = lazy(() => import('../pages/app/mrp/bom/BomHeadersPage'));
+const MrpBomVersionsPage = lazy(() => import('../pages/app/mrp/bom/BomVersionsPage'));
+const MrpBomLinesPage = lazy(() => import('../pages/app/mrp/bom/BomLinesPage'));
+const MrpBomExplosionPage = lazy(() => import('../pages/app/mrp/bom/BomExplosionPage'));
+const MrpBomAvailabilityPage = lazy(() => import('../pages/app/mrp/bom/BomAvailabilityPage'));
+const MrpEcrPage = lazy(() => import('../pages/app/mrp/bom/EcrPage'));
+const MrpEcoPage = lazy(() => import('../pages/app/mrp/bom/EcoPage'));
+const MrpBomImportExportPage = lazy(() => import('../pages/app/mrp/bom/BomImportExportPage'));
+const MrpBomReportsPage = lazy(() => import('../pages/app/mrp/bom/BomReportsPage'));
+const MrpIntegrationsPage = lazy(() => import('../pages/app/mrp/foundation/IntegrationsPage'));
+
 // بوابة CRM — الوحدة 1: جهات الاتصال والحسابات (التقرير 01)
 const ContactsLayout        = lazy(() => import('../pages/crmportal/contacts/ContactsLayout'));
 const ContactsOverview      = lazy(() => import('../pages/crmportal/contacts/ContactsOverview'));
@@ -784,6 +927,158 @@ export function AppRoutes() {
               <Route path="analytics/exports" element={<ReportExportsPage />} />
               <Route path="analytics/costs" element={<OperatingCostsPage />} />
               <Route path="analytics/targets" element={<KpiTargetsPage />} />
+            </Route>
+          </Route>
+
+
+          {/* MRP / Manufacturing Portal — بوابة التصنيع */}
+          <Route path="mrp" element={<RequireRole roles={['manufacturing', 'admin', 'developer', 'manager']} />}>
+            <Route element={<RequireModule moduleKey="mrp" />}>
+              <Route index element={<MrpDashboardPage />} />
+              <Route path="dashboard" element={<MrpDashboardPage />} />
+              <Route path="foundation" element={<MrpFoundationDashboardPage />} />
+              <Route path="foundation/plants" element={<MrpPlantsPage />} />
+              <Route path="foundation/areas" element={<MrpAreasPage />} />
+              <Route path="foundation/lines" element={<MrpLinesPage />} />
+              <Route path="foundation/work-centers" element={<MrpWorkCentersPage />} />
+              <Route path="foundation/resources" element={<MrpResourcesPage />} />
+              <Route path="foundation/assets" element={<MrpAssetsPage />} />
+              <Route path="foundation/calendars" element={<MrpCalendarsPage />} />
+              <Route path="foundation/shifts" element={<MrpShiftsPage />} />
+              <Route path="foundation/capacity" element={<MrpCapacityPage />} />
+              <Route path="foundation/operations" element={<MrpOperationsPage />} />
+              <Route path="foundation/routings" element={<MrpRoutingsPage />} />
+              <Route path="foundation/numbering" element={<MrpNumberingPage />} />
+              <Route path="foundation/audit" element={<MrpAuditPage />} />
+              <Route path="foundation/integrations" element={<MrpIntegrationsPage />} />
+
+              <Route path="bom" element={<MrpBomDashboardPage />} />
+              <Route path="bom/builder" element={<MrpBomBuilderPage />} />
+              <Route path="bom/headers" element={<MrpBomHeadersPage />} />
+              <Route path="bom/versions" element={<MrpBomVersionsPage />} />
+              <Route path="bom/lines" element={<MrpBomLinesPage />} />
+              <Route path="bom/explosion" element={<MrpBomExplosionPage />} />
+              <Route path="bom/availability" element={<MrpBomAvailabilityPage />} />
+              <Route path="bom/ecr" element={<MrpEcrPage />} />
+              <Route path="bom/eco" element={<MrpEcoPage />} />
+              <Route path="bom/import-export" element={<MrpBomImportExportPage />} />
+              <Route path="bom/reports" element={<MrpBomReportsPage />} />
+
+              <Route path="forecasting" element={<MrpForecastingDashboardPage />} />
+              <Route path="forecasting/history" element={<MrpDemandHistoryPage />} />
+              <Route path="forecasting/models" element={<MrpForecastModelsPage />} />
+              <Route path="forecasting/runs" element={<MrpForecastRunsPage />} />
+              <Route path="forecasting/accuracy" element={<MrpForecastAccuracyPage />} />
+              <Route path="forecasting/policies" element={<MrpPlanningPoliciesPage />} />
+              <Route path="mps" element={<MrpMpsDashboardPage />} />
+              <Route path="mps/board" element={<MrpMpsBoardPage />} />
+              <Route path="mps/plans" element={<MrpMpsPlansPage />} />
+              <Route path="mps/lines" element={<MrpMpsLinesPage />} />
+              <Route path="mps/rccp" element={<MrpRccpPage />} />
+              <Route path="mps/alerts" element={<MrpMpsAlertsPage />} />
+              <Route path="mps/reports" element={<MrpMpsReportsPage />} />
+
+              <Route path="planning" element={<MrpPlanningDashboardPage />} />
+              <Route path="planning/mrp-runs" element={<MrpRunsPage />} />
+              <Route path="planning/proposals" element={<MrpPlannedOrdersPage />} />
+              <Route path="planning/work-orders" element={<MrpWorkOrdersPage />} />
+              <Route path="planning/materials" element={<MrpWorkOrderMaterialsPage />} />
+              <Route path="planning/operations" element={<MrpWorkOrderOperationsPage />} />
+              <Route path="planning/scheduling" element={<MrpProductionSchedulingPage />} />
+              <Route path="planning/dispatch" element={<MrpDispatchPage />} />
+              <Route path="planning/alerts" element={<MrpWorkOrderAlertsPage />} />
+              <Route path="planning/reports" element={<MrpPlanningReportsPage />} />
+
+              <Route path="inventory" element={<MrpInventoryDashboardPage />} />
+              <Route path="inventory/raw-materials" element={<MrpRawMaterialsPage />} />
+              <Route path="inventory/wip" element={<MrpWipPage />} />
+              <Route path="inventory/finished-goods" element={<MrpFinishedGoodsPage />} />
+              <Route path="inventory/valuation" element={<MrpValuationPage />} />
+              <Route path="inventory/lots-traceability" element={<MrpLotsTraceabilityPage />} />
+              <Route path="inventory/safety-stock" element={<MrpSafetyStockPage />} />
+              <Route path="inventory/material-issues" element={<MrpMaterialIssuesPage />} />
+              <Route path="inventory/reconciliation" element={<MrpReconciliationPage />} />
+              <Route path="inventory/reports" element={<MrpInventoryReportsPage />} />
+
+              <Route path="procurement" element={<MrpProcurementDashboardPage />} />
+              <Route path="procurement/recommendations" element={<MrpRecommendationsPage />} />
+              <Route path="procurement/pr" element={<MrpPrStatusPage />} />
+              <Route path="procurement/rfq" element={<MrpRfqTcoPage />} />
+              <Route path="procurement/po" element={<MrpPoStatusPage />} />
+              <Route path="procurement/gr" element={<MrpGrStatusPage />} />
+              <Route path="procurement/invoices" element={<MrpInvoiceMatchPage />} />
+              <Route path="procurement/suppliers" element={<MrpSupplierScorecardPage />} />
+              <Route path="procurement/contracts" element={<MrpContractAlertsPage />} />
+              <Route path="procurement/alerts" element={<MrpProcurementAlertsPage />} />
+              <Route path="procurement/reports" element={<MrpProcurementReportsPage />} />
+
+              <Route path="quality" element={<MrpQualityDashboardPage />} />
+              <Route path="quality/plans" element={<MrpQualityPlansPage />} />
+              <Route path="quality/checklists" element={<MrpQualityChecklistsPage />} />
+              <Route path="quality/inspections" element={<MrpQualityInspectionsPage />} />
+              <Route path="quality/aql" element={<MrpAqlPage />} />
+              <Route path="quality/ncr" element={<MrpNcrPage />} />
+              <Route path="quality/capa" element={<MrpCapaPage />} />
+              <Route path="quality/calibration" element={<MrpCalibrationPage />} />
+              <Route path="quality/spc" element={<MrpSpcPage />} />
+              <Route path="quality/quarantine" element={<MrpQualityQuarantinePage />} />
+              <Route path="quality/reports" element={<MrpQualityReportsPage />} />
+
+              <Route path="shopfloor" element={<MrpShopFloorDashboardPage />} />
+              <Route path="shopfloor/workstations" element={<MrpShopFloorWorkstationsPage />} />
+              <Route path="shopfloor/terminals" element={<MrpShopFloorTerminalsPage />} />
+              <Route path="shopfloor/tracking" element={<MrpProductionTrackingPage />} />
+              <Route path="shopfloor/consumption" element={<MrpShopFloorConsumptionPage />} />
+              <Route path="shopfloor/oee" element={<MrpOeePage />} />
+              <Route path="shopfloor/downtime" element={<MrpDowntimePage />} />
+              <Route path="shopfloor/pareto" element={<MrpDowntimeParetoPage />} />
+              <Route path="shopfloor/work-order-progress" element={<MrpWorkOrderProgressPage />} />
+              <Route path="shopfloor/labor-shifts" element={<MrpLaborShiftPage />} />
+              <Route path="shopfloor/andon" element={<MrpAndonPage />} />
+              <Route path="shopfloor/supervisor" element={<MrpSupervisorShopFloorPage />} />
+              <Route path="shopfloor/manager" element={<MrpProductionManagerPage />} />
+              <Route path="shopfloor/maintenance" element={<MrpMaintenanceBridgePage />} />
+              <Route path="shopfloor/reports" element={<MrpShopFloorReportsPage />} />
+
+              <Route path="maintenance" element={<MrpMaintenanceDashboardPage />} />
+              <Route path="maintenance/assets" element={<MrpMaintenanceAssetsPage />} />
+              <Route path="maintenance/criticality" element={<MrpMaintenanceCriticalityPage />} />
+              <Route path="maintenance/pm-plans" element={<MrpPmPlansPage />} />
+              <Route path="maintenance/pm-calendar" element={<MrpPmCalendarPage />} />
+              <Route path="maintenance/work-orders" element={<MrpMaintenanceWorkOrdersPage />} />
+              <Route path="maintenance/spare-parts" element={<MrpMaintenanceSparePartsPage />} />
+              <Route path="maintenance/condition" element={<MrpConditionMonitoringPage />} />
+              <Route path="maintenance/breakdowns" element={<MrpMaintenanceBreakdownsPage />} />
+              <Route path="maintenance/shutdowns" element={<MrpAnnualShutdownsPage />} />
+              <Route path="maintenance/reports" element={<MrpMaintenanceReportsPage />} />
+
+              <Route path="costing" element={<MrpCostingDashboardPage />} />
+              <Route path="costing/cost-elements" element={<MrpCostElementsPage />} />
+              <Route path="costing/profiles" element={<MrpCostingProfilesPage />} />
+              <Route path="costing/standard-costs" element={<MrpStandardCostsPage />} />
+              <Route path="costing/rollup" element={<MrpCostRollupPage />} />
+              <Route path="costing/work-order-costs" element={<MrpWorkOrderCostsPage />} />
+              <Route path="costing/variances" element={<MrpCostVariancesPage />} />
+              <Route path="costing/wip" element={<MrpWipValuationPage />} />
+              <Route path="costing/finished-goods" element={<MrpFinishedGoodsValuationPage />} />
+              <Route path="costing/postings" element={<MrpCostPostingsPage />} />
+              <Route path="costing/reports" element={<MrpCostingReportsPage />} />
+
+              <Route path="analytics" element={<MrpAnalyticsDashboardPage />} />
+              <Route path="analytics/executive" element={<MrpAnalyticsExecutivePage />} />
+              <Route path="analytics/operations" element={<MrpAnalyticsOperationsPage />} />
+              <Route path="analytics/scorecard" element={<MrpAnalyticsKpiScorecardPage />} />
+              <Route path="analytics/oee" element={<MrpAnalyticsOeeTrendsPage />} />
+              <Route path="analytics/schedule" element={<MrpAnalyticsSchedulePage />} />
+              <Route path="analytics/bottlenecks" element={<MrpAnalyticsBottlenecksPage />} />
+              <Route path="analytics/quality-cost" element={<MrpAnalyticsQualityCostPage />} />
+              <Route path="analytics/cost-variance" element={<MrpAnalyticsCostVariancePage />} />
+              <Route path="analytics/maintenance" element={<MrpAnalyticsMaintenanceReliabilityPage />} />
+              <Route path="analytics/alerts" element={<MrpAnalyticsAlertsPage />} />
+              <Route path="analytics/root-cause" element={<MrpAnalyticsRootCausePage />} />
+              <Route path="analytics/reports" element={<MrpAnalyticsReportsPage />} />
+              <Route path="analytics/exports" element={<MrpAnalyticsExportsPage />} />
+              <Route path="analytics/kpi-targets" element={<MrpAnalyticsKpiTargetsPage />} />
             </Route>
           </Route>
 

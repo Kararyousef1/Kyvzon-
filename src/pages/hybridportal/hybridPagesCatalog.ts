@@ -276,6 +276,94 @@ const RAW_CATALOG: HybridPageMeta[] = [
   { id: 'inventory-report-exports', label: 'تصدير التقارير', icon: FileText, module: 'inventory', group: 'operations', roles: ['inventory', 'admin'] },
   { id: 'inventory-operating-costs', label: 'تكاليف التشغيل', icon: DollarSign, module: 'inventory', group: 'operations', roles: ['inventory', 'admin'] },
   { id: 'inventory-kpi-targets', label: 'أهداف KPI', icon: Target, module: 'inventory', group: 'operations', roles: ['inventory', 'admin'] },
+
+  // ─── بوابة التصنيع MRP ────────────────────────────────────────
+  { id: 'mrp-dashboard', label: 'لوحة التصنيع', icon: LayoutDashboard, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-foundation', label: 'الأساس التقني للتصنيع', icon: Building2, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+
+  { id: 'mrp-bom', label: 'BOM والتغييرات الهندسية', icon: Layers, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-bom-builder', label: 'منشئ BOM', icon: Layers, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-bom-headers', label: 'BOM Headers', icon: FileText, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-bom-versions', label: 'BOM Versions', icon: FileText, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-bom-explosion', label: 'BOM Explosion', icon: ArrowRightLeft, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-bom-availability', label: 'Availability Check', icon: ShieldCheck, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-ecr', label: 'ECR', icon: ClipboardList, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-eco', label: 'ECO', icon: ClipboardCheck, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+
+  { id: 'mrp-forecasting', label: 'التنبؤ بالطلب', icon: TrendingUp, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-demand-history', label: 'تاريخ الطلب', icon: Clock, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-forecast-models', label: 'نماذج التنبؤ', icon: BarChart2, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-forecast-runs', label: 'تشغيلات التنبؤ', icon: RefreshCw, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-forecast-accuracy', label: 'دقة التنبؤ', icon: Target, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-mps', label: 'MPS', icon: CalendarClock, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-mps-board', label: 'لوحة MPS', icon: LayoutDashboard, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-rccp', label: 'RCCP', icon: BarChart3, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-mps-alerts', label: 'تنبيهات MPS', icon: ShieldAlert, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+
+
+  { id: 'mrp-plants', label: 'المصانع', icon: Building2, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-work-centers', label: 'مراكز العمل', icon: Settings, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-operations', label: 'العمليات', icon: ClipboardList, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-routings', label: 'Routing', icon: ArrowRightLeft, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-capacity', label: 'الطاقة', icon: BarChart3, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-integrations', label: 'التكاملات', icon: Server, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+
+  { id: 'mrp-shopfloor', label: 'أرضية المصنع MES/SFC', icon: Radio, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-workstations', label: 'محطات العمل الرقمية', icon: Radio, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-terminals', label: 'جلسات الطرفيات', icon: Clock, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-tracking', label: 'تتبع الإنتاج اللحظي', icon: RefreshCw, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-consumption', label: 'الاستهلاك الفعلي', icon: Package, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-oee', label: 'OEE', icon: BarChart3, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-downtime', label: 'إدارة التوقفات', icon: ShieldAlert, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-pareto', label: 'Downtime Pareto', icon: BarChart2, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-progress', label: 'تقدم أوامر العمل', icon: ClipboardCheck, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-labor', label: 'العمالة والورديات', icon: Users, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-andon', label: 'Andon الرقمي', icon: ShieldAlert, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-supervisor', label: 'لوحة المشرف', icon: LayoutDashboard, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-manager', label: 'لوحة مدير الإنتاج', icon: FileBarChart, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-maintenance', label: 'جسر الصيانة', icon: Settings, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-shopfloor-reports', label: 'تقارير أرضية المصنع', icon: FileText, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+
+  { id: 'mrp-maintenance', label: 'الصيانة CMMS', icon: Settings, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-maintenance-assets', label: 'سجل الأصول', icon: Database, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-maintenance-criticality', label: 'تصنيف الأهمية', icon: ShieldAlert, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-maintenance-pm-plans', label: 'خطط PM', icon: CalendarClock, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-maintenance-pm-calendar', label: 'تقويم الصيانة', icon: CalendarClock, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-maintenance-work-orders', label: 'أوامر الصيانة', icon: ClipboardCheck, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-maintenance-spare-parts', label: 'قطع الغيار', icon: Package, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-maintenance-condition', label: 'قراءات الحالة', icon: BarChart3, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-maintenance-breakdowns', label: 'بلاغات الأعطال', icon: ShieldAlert, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-maintenance-shutdowns', label: 'التوقف السنوي', icon: Clock, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-maintenance-reports', label: 'تقارير الصيانة', icon: FileText, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+
+  { id: 'mrp-costing', label: 'تكاليف التصنيع', icon: DollarSign, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-cost-elements', label: 'عناصر التكلفة', icon: DollarSign, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-costing-profiles', label: 'Costing Profiles', icon: Settings, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-standard-costs', label: 'التكاليف القياسية', icon: FileText, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-cost-rollup', label: 'BOM/Routing Cost Rollup', icon: RefreshCw, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-work-order-costs', label: 'تكلفة أوامر العمل', icon: ClipboardCheck, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-cost-variances', label: 'فروقات التكلفة', icon: BarChart2, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-wip-valuation', label: 'تقييم WIP', icon: Package, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-fg-valuation', label: 'تقييم Finished Goods', icon: Package, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-cost-postings', label: 'قيود التكلفة المسودة', icon: Receipt, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-costing-reports', label: 'تقارير تكلفة التصنيع', icon: FileBarChart, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+
+  { id: 'mrp-analytics', label: 'تحليلات التصنيع', icon: BarChart3, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-executive', label: 'لوحة تنفيذية', icon: LayoutDashboard, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-operations', label: 'لوحة تشغيلية', icon: LayoutDashboard, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-scorecard', label: 'KPI Scorecard', icon: Target, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-oee', label: 'OEE Trends', icon: BarChart3, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-schedule', label: 'Schedule Attainment', icon: CalendarClock, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-bottlenecks', label: 'Bottlenecks', icon: ShieldAlert, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-quality-cost', label: 'Quality Cost', icon: ShieldCheck, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-cost-variance', label: 'Cost Variance', icon: DollarSign, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-maintenance', label: 'Maintenance Reliability', icon: Settings, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-alerts', label: 'Analytics Alerts', icon: ShieldAlert, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-root-cause', label: 'Root Cause', icon: ClipboardList, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-reports', label: 'Analytics Reports', icon: FileBarChart, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-exports', label: 'Exports', icon: FileText, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+  { id: 'mrp-analytics-kpi-targets', label: 'KPI Targets', icon: Target, module: 'mrp', group: 'operations', roles: ['manufacturing', 'admin'] },
+
 ];
 
 /**
@@ -285,10 +373,11 @@ const RAW_CATALOG: HybridPageMeta[] = [
  * ملاحظة: "الإشعارات" لا تُدرَج هنا لأنها تُعرَض بتصميم خاص في الـ footer
  * (مع عدّاد unreadCount)؛ إدراجها هنا كان يُظهرها مرتين.
  */
-const ALL_ROLES: UserRole[] = ['employee','supervisor','manager','hr','admin','gatekeeper','it_admin','tech','finance','marketing','sales','procurement','inventory'];
+const ALL_ROLES: UserRole[] = ['employee','supervisor','manager','hr','admin','gatekeeper','it_admin','tech','finance','marketing','sales','procurement','inventory','manufacturing'];
 export const HYBRID_ALWAYS_ON: HybridPageMeta[] = [
   { id: 'employee-problems', label: 'البلاغات', icon: FolderKanban, module: 'employee', group: 'work',     roles: ALL_ROLES },
   { id: 'employee-profile',  label: 'حسابي',    icon: User,         module: 'employee', group: 'personal', roles: ALL_ROLES },
+
 ];
 
 /** الكتالوج النهائي مع حقن المسار (path) تلقائياً من VIEW_TO_PATH */
@@ -323,6 +412,7 @@ function moduleByPrefix(pageId: string): string {
   if (pageId.startsWith('finance-')) return 'finance';
   if (pageId.startsWith('tawathul-')) return 'tawathul';
   if (pageId.startsWith('inventory-')) return 'inventory';
+  if (pageId.startsWith('mrp-')) return 'mrp';
   return '';
 }
 
@@ -373,6 +463,7 @@ export const HYBRID_ALWAYS_ALLOWED_PATHS: string[] = [
   '/app/employee/profile',
   '/app/employee/problems',
   '/billing',
+
 ];
 
 /**
