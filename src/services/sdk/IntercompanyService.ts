@@ -1,6 +1,20 @@
 import { BaseService } from './BaseService';
-class IntercompanyService extends BaseService<any> {
-  constructor() { super('intercompany_transactions'); }
-  async findPending() { return this.findAll({ filters: { status: 'pending' }, orderBy: 'created_at', ascending: false }); }
+import { supabase } from '../supabase/supabase';
+
+export interface IntercompanyTransactionRecord { id:string; tenant_id:string; source_legal_entity_id:string; target_legal_entity_id:string; transaction_type:'transfer'|'fee'|'loan'|'recharge'|'royalty'|'dividend'; amount:number; currency:string; reference?:string|null; description?:string|null; status:'pending'|'matched'|'eliminated'|'voided'; created_at:string; }
+export interface IntercompanyTransactionBoardRecord extends IntercompanyTransactionRecord { source_entity_code:string; source_entity_name:string; target_entity_code:string; target_entity_name:string; }
+export interface ConsolidationEntryRecord { id:string; tenant_id:string; legal_entity_id:string; counterparty_legal_entity_id?:string|null; intercompany_transaction_id?:string|null; entry_date:string; description?:string|null; debit_amount:number; credit_amount:number; elimination_type:string; status:'draft'|'posted'|'voided'; reason?:string|null; entity_code?:string; entity_name?:string; counterparty_entity_code?:string|null; counterparty_entity_name?:string|null; }
+export interface IntercompanyDashboardRecord { tenant_id:string; legal_entity_id:string; entity_code:string; entity_name:string; pending_transactions:number; matched_transactions:number; eliminated_transactions:number; open_intercompany_amount:number; posted_eliminations:number; }
+
+class IntercompanyService extends BaseService<IntercompanyTransactionRecord> {
+  constructor(){ super('intercompany_transactions'); }
+  async findPending(){ return this.findAll({ filters: { status: 'pending' }, orderBy: 'created_at', ascending: false }); }
+  async findBoard(legalEntityId?: string): Promise<IntercompanyTransactionBoardRecord[]> { let q=supabase.from('finance_intercompany_transaction_board').select('*').order('created_at',{ascending:false}); if(legalEntityId) q=q.or(`source_legal_entity_id.eq.${legalEntityId},target_legal_entity_id.eq.${legalEntityId}`); const {data,error}=await q; if(error) throw new Error(error.message); return (data||[]) as IntercompanyTransactionBoardRecord[]; }
+  async findConsolidationEntries(legalEntityId?: string): Promise<ConsolidationEntryRecord[]> { let q=supabase.from('finance_consolidation_entry_board').select('*').order('entry_date',{ascending:false}); if(legalEntityId) q=q.eq('legal_entity_id',legalEntityId); const {data,error}=await q; if(error) throw new Error(error.message); return (data||[]) as ConsolidationEntryRecord[]; }
+  async findDashboard(legalEntityId?: string): Promise<IntercompanyDashboardRecord[]> { let q=supabase.from('finance_intercompany_dashboard').select('*').order('entity_code'); if(legalEntityId) q=q.eq('legal_entity_id',legalEntityId); const {data,error}=await q; if(error) throw new Error(error.message); return (data||[]) as IntercompanyDashboardRecord[]; }
+  async createControlled(input:{sourceLegalEntityId:string; targetLegalEntityId:string; transactionType:string; amount:number; currency:string; reference?:string; description?:string}): Promise<IntercompanyTransactionRecord>{ const {data,error}=await supabase.rpc('create_intercompany_transaction_controlled',{p_source_legal_entity_id:input.sourceLegalEntityId,p_target_legal_entity_id:input.targetLegalEntityId,p_transaction_type:input.transactionType,p_amount:input.amount,p_currency:input.currency,p_reference:input.reference||null,p_description:input.description||null}); if(error) throw new Error(error.message); return data as IntercompanyTransactionRecord; }
+  async match(id:string,reason:string): Promise<IntercompanyTransactionRecord>{ const {data,error}=await supabase.rpc('match_intercompany_transaction',{p_transaction_id:id,p_reason:reason}); if(error) throw new Error(error.message); return data as IntercompanyTransactionRecord; }
+  async eliminate(id:string,reason:string): Promise<IntercompanyTransactionRecord>{ const {data,error}=await supabase.rpc('eliminate_intercompany_transaction',{p_transaction_id:id,p_reason:reason}); if(error) throw new Error(error.message); return data as IntercompanyTransactionRecord; }
+  async void(id:string,reason:string): Promise<IntercompanyTransactionRecord>{ const {data,error}=await supabase.rpc('void_intercompany_transaction',{p_transaction_id:id,p_reason:reason}); if(error) throw new Error(error.message); return data as IntercompanyTransactionRecord; }
 }
 export const intercompanyService = new IntercompanyService();

@@ -1,88 +1,32 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { BadgePercent, Loader2, Plus, RefreshCw, Search, X, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { taxService, type TaxCodeRecord } from '../../../services/sdk/TaxService';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, BadgePercent, Loader2, Plus, RefreshCw, Search, X } from 'lucide-react';
+import { taxService, type TaxCodeBoardRecord, type TaxDashboardRecord, type TaxFilingBoardRecord, type TaxFilingLineRecord } from '../../../services/sdk/TaxService';
+import { legalEntityService, type LegalEntityRecord } from '../../../services/sdk/FinanceFoundationService';
 import { getErrorMessage } from '../../../services/errors';
 import { useUIStore } from '../../../core/stores';
+import { FinanceUnitNav } from './shared/FinanceUnitNav';
 
-export default function TaxManagementPage() {
-  const { addToast } = useUIStore();
-  const [rows, setRows] = useState<TaxCodeRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [show, setShow] = useState(false);
-  const [q, setQ] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ code: '', name: '', rate: '', is_active: true });
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      setRows(await taxService.findActive());
-    } catch (e) {
-      addToast(`تعذر التحميل: ${getErrorMessage(e)}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await taxService.createWithValidation({
-        code: form.code.toUpperCase(),
-        name: form.name,
-        rate: Number(form.rate),
-        is_active: form.is_active,
-      } as any);
-      addToast('تم إنشاء كود الضريبة — configuration فقط', 'success');
-      setShow(false);
-      setForm({ code: '', name: '', rate: '', is_active: true });
-      await load();
-    } catch (err) {
-      addToast(getErrorMessage(err), 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const filtered = rows.filter(r => `${r.code} ${r.name}`.toLowerCase().includes(q.toLowerCase()));
-
-  return (
-    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
-      <div className="flex justify-between flex-wrap gap-3">
-        <div>
-          <p className="text-sm font-bold text-amber-700 flex items-center gap-2"><ShieldCheck size={14} /> Tax Configuration — Wave 6 (Beta) — لا حسابات مفترضة</p>
-          <h1 className="text-3xl font-black">الضرائب (Configuration)</h1>
-          <p className="text-slate-500 mt-2">الضرائب العراقية بصيغة configuration قابلة للاعتماد قانونياً — النسب والتواريخ من مستشار ضريبي، لا حساب مفترض.</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => void load()} className="border rounded-xl px-4 py-2 font-bold"><RefreshCw size={15} className="inline ml-1" />تحديث</button>
-          <button onClick={() => setShow(true)} className="bg-amber-600 text-white rounded-xl px-4 py-2 font-bold"><Plus size={15} className="inline ml-1" />كود ضريبي</button>
-        </div>
-      </div>
-
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900 flex gap-2">
-        <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-        <div><p className="font-bold">مبدأ عدم الافتراض:</p><p className="mt-1 leading-relaxed">لا يتم احتساب ضريبة تلقائياً في القيود حتى يعتمد المستشار الضريبي العراقي الأكواد والنسب وتواريخ السريان. هذه الشاشة هي configuration فقط.</p></div>
-      </div>
-
-      <label className="flex gap-2 border rounded-xl p-3 bg-white max-w-md"><Search size={16} /><input value={q} onChange={e => setQ(e.target.value)} placeholder="بحث بالكود أو الاسم..." className="w-full outline-none" /></label>
-
-      {loading ? <div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3" />جارٍ التحميل...</div> : (
-        <div className="bg-white border rounded-2xl overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="p-3 text-right">الكود</th><th className="p-3 text-right">الاسم</th><th className="p-3 text-right">النسبة</th><th className="p-3 text-right">نشط</th></tr></thead>
-            <tbody className="divide-y">
-              {filtered.map(r => <tr key={r.id}><td className="p-3 font-mono font-bold">{r.code}</td><td className="p-3">{r.name}</td><td className="p-3 font-black">{(Number(r.rate)*100).toFixed(2)}%</td><td className="p-3">{r.is_active ? '✅' : '—'}</td></tr>)}
-              {!filtered.length && <tr><td colSpan={4} className="p-16 text-center text-slate-500"><BadgePercent className="mx-auto mb-3 text-slate-300" />لا توجد أكواد ضريبية — أنشئ أول كود configuration.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {show && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" onClick={() => !saving && setShow(false)}><form onSubmit={submit} onClick={e => e.stopPropagation()} className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-3"><div className="flex justify-between items-center gap-3 flex-wrap"><h2 className="font-black text-xl">كود ضريبي جديد — Configuration</h2><button type="button" onClick={() => setShow(false)}><X /></button></div><div className="grid grid-cols-2 gap-3"><input required placeholder="الكود مثل VAT-15" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="border rounded-xl p-2.5" dir="ltr" /><input required type="number" step="0.0001" min="0" max="1" placeholder="النسبة 0.15 = 15%" value={form.rate} onChange={e => setForm(f => ({ ...f, rate: e.target.value }))} className="border rounded-xl p-2.5" dir="ltr" /></div><input required placeholder="الاسم مثل ضريبة القيمة المضافة 15% (معتمد من مستشار)" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full border rounded-xl p-2.5" /><button disabled={saving} className="w-full bg-amber-600 text-white rounded-xl py-3 font-bold">{saving ? 'جارٍ الحفظ...' : 'حفظ كـ configuration'}</button><p className="text-[11px] text-slate-400 text-center">يُحفظ في tax_codes مع rate NUMERIC(5,4) — لا يُستخدم في حساب تلقائي حتى الاعتماد القانوني</p></form></div>}
-    </div>
-  );
+type Action = { type: 'code_status'; code: TaxCodeBoardRecord } | { type: 'submitted'|'approved'|'rejected'|'paid'|'voided'; filing: TaxFilingBoardRecord };
+export default function TaxManagementPage(){
+ const {addToast}=useUIStore(); const [entities,setEntities]=useState<LegalEntityRecord[]>([]),[entityId,setEntityId]=useState(''),[codes,setCodes]=useState<TaxCodeBoardRecord[]>([]),[filings,setFilings]=useState<TaxFilingBoardRecord[]>([]),[lines,setLines]=useState<TaxFilingLineRecord[]>([]),[dashboard,setDashboard]=useState<TaxDashboardRecord|null>(null),[selectedFiling,setSelectedFiling]=useState(''),[loading,setLoading]=useState(true),[showCode,setShowCode]=useState(false),[showFiling,setShowFiling]=useState(false),[q,setQ]=useState(''),[saving,setSaving]=useState(false),[action,setAction]=useState<Action|null>(null),[reason,setReason]=useState(''),[paymentRef,setPaymentRef]=useState('');
+ const [form,setForm]=useState({code:'',name:'',rate:'',tax_type:'vat',effective_from:new Date().toISOString().slice(0,10),effective_to:'',requires_filing:true});
+ const [filingForm,setFilingForm]=useState({filing_type:'vat',period_start:'',period_end:''});
+ const load=useCallback(async()=>{setLoading(true);try{const es=await legalEntityService.findActive();setEntities(es);const id=entityId||es[0]?.id||'';if(!entityId&&id)setEntityId(id);if(!id)return;const [c,f,d]=await Promise.all([taxService.findCodes(id),taxService.findFilings(id),taxService.findDashboard(id)]);setCodes(c);setFilings(f);setDashboard(d[0]||null);const fid=selectedFiling&&f.some(x=>x.id===selectedFiling)?selectedFiling:f[0]?.id||'';setSelectedFiling(fid);setLines(fid?await taxService.findLines(fid):[])}catch(e){addToast(`تعذر التحميل: ${getErrorMessage(e)}`,'error')}finally{setLoading(false)}},[addToast,entityId,selectedFiling]);
+ useEffect(()=>{void load()},[load]);
+ const submitCode=async(e:FormEvent)=>{e.preventDefault();if(!entityId)return;setSaving(true);try{await taxService.upsertCode({legalEntityId:entityId,code:form.code,name:form.name,rate:Number(form.rate),taxType:form.tax_type,effectiveFrom:form.effective_from,effectiveTo:form.effective_to||undefined,requiresFiling:form.requires_filing});addToast('تم حفظ الكود الضريبي عبر RPC','success');setShowCode(false);setForm({code:'',name:'',rate:'',tax_type:'vat',effective_from:new Date().toISOString().slice(0,10),effective_to:'',requires_filing:true});await load()}catch(e){addToast(getErrorMessage(e),'error')}finally{setSaving(false)}};
+ const generateFiling=async()=>{if(!entityId||!filingForm.period_start||!filingForm.period_end)return addToast('أكمل الفترة','error');try{const f=await taxService.generateFilingDraft({legalEntityId:entityId,filingType:filingForm.filing_type,periodStart:filingForm.period_start,periodEnd:filingForm.period_end});addToast('تم توليد ملف ضريبي draft','success');setShowFiling(false);setSelectedFiling(f.id);await load()}catch(e){addToast(getErrorMessage(e),'error')}};
+ const execute=async()=>{if(!action||!reason.trim())return addToast('السبب مطلوب للتدقيق','error');try{if(action.type==='code_status')await taxService.updateCodeStatus(action.code.id,!action.code.is_active,reason.trim());else await taxService.updateFilingStatus(action.filing.id,action.type,reason.trim(),paymentRef||undefined);addToast('تم تنفيذ العملية وتسجيل السبب','success');setAction(null);setReason('');setPaymentRef('');await load()}catch(e){addToast(getErrorMessage(e),'error')}};
+ const filtered=codes.filter(r=>`${r.code} ${r.name} ${r.tax_type}`.toLowerCase().includes(q.toLowerCase()));
+ return <div className="space-y-5 max-w-[1700px] mx-auto" dir="rtl"><FinanceUnitNav unit="tax"/><div className="flex justify-between flex-wrap gap-3"><div><p className="text-sm font-bold text-amber-700">Finance Unit 07 · Tax Management & Filing</p><h1 className="text-3xl font-black">إدارة الضرائب والتقديم</h1><p className="text-slate-500 mt-2">أكواد ضريبية وملفات ضريبة ناتجة من AR/AP مع أسباب وتدقيق.</p></div><div className="flex gap-2"><button onClick={()=>void load()} className="border rounded-xl px-4 py-2 font-bold bg-white"><RefreshCw size={15} className="inline ml-1"/>تحديث</button><button onClick={()=>setShowCode(true)} className="bg-amber-600 text-white rounded-xl px-4 py-2 font-bold"><Plus size={15} className="inline ml-1"/>كود ضريبي</button><button onClick={()=>setShowFiling(true)} className="bg-slate-900 text-white rounded-xl px-4 py-2 font-bold">توليد ملف</button></div></div>
+ <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900 flex gap-2"><AlertTriangle size={16}/><span>لا يتم افتراض ضريبة قانونية؛ الأكواد والنسب والتواريخ configuration قابلة للتدقيق وتعتمدها الشركة/المستشار.</span></div>
+ <section className="grid md:grid-cols-5 gap-3"><Metric title="أكواد نشطة" value={dashboard?.active_tax_codes||0}/><Metric title="مسودات" value={dashboard?.draft_filings||0}/><Metric title="مرسلة" value={dashboard?.submitted_filings||0}/><Metric title="معتمدة" value={dashboard?.approved_filings||0}/><Metric title="صافي مستحق" value={Number(dashboard?.open_net_tax_due||0).toLocaleString()}/></section>
+ <div className="grid md:grid-cols-2 gap-3"><select value={entityId} onChange={e=>setEntityId(e.target.value)} className="border rounded-xl p-3 bg-white">{entities.map(e=><option key={e.id} value={e.id}>{e.code} — {e.name_ar}</option>)}</select><label className="flex gap-2 border rounded-xl p-3 bg-white"><Search size={16}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="بحث بالكود أو الاسم..." className="w-full outline-none"/></label></div>
+ {loading?<div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3"/>جارٍ التحميل...</div>:<section className="grid xl:grid-cols-[1fr_430px] gap-4"><div className="bg-white border rounded-2xl overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="p-3 text-right">الكود</th><th className="p-3 text-right">الاسم</th><th className="p-3 text-right">النوع</th><th className="p-3 text-right">النسبة</th><th className="p-3 text-right">الحالة</th><th className="p-3"/></tr></thead><tbody className="divide-y">{filtered.map(r=><tr key={r.id}><td className="p-3 font-mono font-bold">{r.code}</td><td className="p-3">{r.name}</td><td className="p-3">{r.tax_type}</td><td className="p-3 font-black">{(Number(r.rate)*100).toFixed(2)}%</td><td className="p-3">{r.is_active?'نشط':'معطل'}</td><td className="p-3"><button onClick={()=>{setAction({type:'code_status',code:r});setReason('')}} className={r.is_active?'text-rose-700 font-bold':'text-emerald-700 font-bold'}>{r.is_active?'تعطيل':'تفعيل'}</button></td></tr>)}{!filtered.length&&<tr><td colSpan={6} className="p-16 text-center text-slate-500"><BadgePercent className="mx-auto mb-3 text-slate-300"/>لا توجد أكواد.</td></tr>}</tbody></table></div><aside className="bg-white border rounded-2xl p-5"><h2 className="font-black">ملفات الضريبة</h2><div className="space-y-2 mt-3">{filings.map(f=><div key={f.id} className={`border rounded-xl p-3 text-sm ${selectedFiling===f.id?'bg-amber-50':'bg-slate-50'}`}><button onClick={()=>setSelectedFiling(f.id)} className="font-bold">{f.tax_period}</button><p>{f.filing_type} · {f.status} · صافي {Number(f.net_tax_due).toLocaleString()}</p><div className="flex gap-2 mt-2 flex-wrap"><FilingActions filing={f} onAction={(type)=>{setAction({type,filing:f});setReason('')}}/></div></div>)}</div><h3 className="font-black mt-5">سطور الملف</h3><div className="space-y-1 mt-2">{lines.map(l=><div key={l.id} className="text-xs border rounded-lg p-2"><b>{l.direction}</b> {l.source_type} · ضريبة {Number(l.tax_amount).toLocaleString()}</div>)}</div></aside></section>}
+ {showCode&&<Modal title="كود ضريبي" onClose={()=>setShowCode(false)}><form onSubmit={submitCode} className="space-y-3"><div className="grid grid-cols-2 gap-3"><input required placeholder="الكود" value={form.code} onChange={e=>setForm(f=>({...f,code:e.target.value.toUpperCase()}))} className="border rounded-xl p-2.5" dir="ltr"/><input required type="number" step="0.0001" min="0" max="1" placeholder="0.15 = 15%" value={form.rate} onChange={e=>setForm(f=>({...f,rate:e.target.value}))} className="border rounded-xl p-2.5" dir="ltr"/></div><input required placeholder="الاسم" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} className="w-full border rounded-xl p-2.5"/><div className="grid grid-cols-2 gap-3"><select value={form.tax_type} onChange={e=>setForm(f=>({...f,tax_type:e.target.value}))} className="border rounded-xl p-2.5"><option value="vat">VAT</option><option value="withholding">Withholding</option><option value="sales">Sales</option><option value="purchase">Purchase</option><option value="other">Other</option></select><input type="date" value={form.effective_from} onChange={e=>setForm(f=>({...f,effective_from:e.target.value}))} className="border rounded-xl p-2.5"/></div><button disabled={saving} className="w-full bg-amber-600 text-white rounded-xl py-3 font-bold">حفظ</button></form></Modal>}
+ {showFiling&&<Modal title="توليد ملف ضريبي" onClose={()=>setShowFiling(false)}><div className="space-y-3"><select value={filingForm.filing_type} onChange={e=>setFilingForm(f=>({...f,filing_type:e.target.value}))} className="w-full border rounded-xl p-2.5"><option value="vat">VAT</option><option value="withholding">Withholding</option></select><div className="grid grid-cols-2 gap-3"><input type="date" value={filingForm.period_start} onChange={e=>setFilingForm(f=>({...f,period_start:e.target.value}))} className="border rounded-xl p-2.5"/><input type="date" value={filingForm.period_end} onChange={e=>setFilingForm(f=>({...f,period_end:e.target.value}))} className="border rounded-xl p-2.5"/></div><button onClick={()=>void generateFiling()} className="w-full bg-slate-900 text-white rounded-xl py-3 font-bold">توليد المسودة</button></div></Modal>}
+ {action&&<Modal title="سبب العملية" onClose={()=>setAction(null)}><textarea value={reason} onChange={e=>setReason(e.target.value)} className="w-full min-h-28 border rounded-xl p-3" placeholder="سبب إلزامي..."/>{action.type==='paid'&&<input value={paymentRef} onChange={e=>setPaymentRef(e.target.value)} className="w-full border rounded-xl p-3 mt-3" placeholder="مرجع الدفع"/>}<button disabled={!reason.trim()} onClick={()=>void execute()} className="w-full bg-amber-600 text-white rounded-xl py-3 font-bold mt-3 disabled:opacity-50">تنفيذ</button></Modal>}
+ </div>;
 }
+function FilingActions({filing,onAction}:{filing:TaxFilingBoardRecord;onAction:(t:'submitted'|'approved'|'rejected'|'paid'|'voided')=>void}){return <>{['draft','pending','rejected'].includes(filing.status)&&<button onClick={()=>onAction('submitted')} className="text-blue-700 font-bold">إرسال</button>}{filing.status==='submitted'&&<><button onClick={()=>onAction('approved')} className="text-emerald-700 font-bold">اعتماد</button><button onClick={()=>onAction('rejected')} className="text-rose-700 font-bold">رفض</button></>}{filing.status==='approved'&&<button onClick={()=>onAction('paid')} className="text-emerald-700 font-bold">دفع</button>}{['draft','pending'].includes(filing.status)&&<button onClick={()=>onAction('voided')} className="text-rose-700 font-bold">إلغاء</button>}</>}
+function Metric({title,value}:{title:string;value:ReactNode}){return <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black">{value}</p><p className="text-sm font-bold text-slate-500 mt-1">{title}</p></div>}
+function Modal({title,children,onClose}:{title:string;children:ReactNode;onClose:()=>void}){return <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4"><div className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-4"><div className="flex justify-between"><h2 className="font-black text-xl">{title}</h2><button onClick={onClose}><X/></button></div>{children}</div></div>}

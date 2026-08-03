@@ -100,6 +100,29 @@ function splitInventorySection(section: NavSection): NavSection[] {
     ];
     return [{ ...section, items: section.items.filter((item) => mainIds.includes(item.id)) }];
   }
+  if (section.key === 'finance-main') {
+    // الشريط الجانبي يعرض الوحدات الرئيسية فقط.
+    // صفحات كل وحدة تظهر داخلها عبر FinanceUnitNav (بطاقات أفقية).
+    const mainIds = [
+      'finance-dashboard',
+      'finance-foundation',
+      'finance-coa',
+      'finance-journal',
+      'finance-periods',
+      'finance-payable',
+      'finance-receivable',
+      'finance-cash',
+      'finance-tax',
+      'finance-budget',
+      'finance-fixed-assets',
+      'finance-revenue',
+      'finance-intercompany',
+      'finance-project-accounting',
+      'finance-reports',
+      'finance-integrations',
+    ];
+    return [{ ...section, items: section.items.filter((item) => mainIds.includes(item.id)) }];
+  }
   return [section];
 }
 
@@ -448,16 +471,38 @@ const NAV_SECTIONS: NavSection[] = [
   {
     key: 'finance-main', label: 'البوابة المالية', roles: ['finance', 'admin'],
     items: [
-      { id: 'finance-dashboard', label: 'الدفتر العام', icon: LayoutDashboard, roles: ['finance', 'admin'], section: 'finance-main' },
+      // ── الوحدات الرئيسية (تظهر في الشريط الجانبي) ──
+      { id: 'finance-dashboard', label: 'لوحة المالية', icon: LayoutDashboard, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-foundation', label: 'الأساس المالي', icon: Building2, roles: ['finance', 'admin'], section: 'finance-main' },
       { id: 'finance-coa', label: 'دليل الحسابات', icon: BookOpen, roles: ['finance', 'admin'], section: 'finance-main' },
-      { id: 'finance-journal', label: 'قيود اليومية', icon: ClipboardList, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-journal', label: 'القيود والدفتر العام', icon: ClipboardList, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-periods', label: 'الفترات والإغلاق', icon: Clock, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-payable', label: 'الذمم الدائنة', icon: Receipt, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-receivable', label: 'الذمم المدينة والتحصيل', icon: CreditCard, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-cash', label: 'النقد والبنوك', icon: DollarSign, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-tax', label: 'الضرائب والتقديم', icon: FileText, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-budget', label: 'الموازنات والتنبؤات', icon: BarChart3, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-fixed-assets', label: 'الأصول الثابتة', icon: Boxes, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-revenue', label: 'الاعتراف بالإيرادات', icon: TrendingUp, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-intercompany', label: 'المعاملات البينية والتوحيد', icon: ArrowRightLeft, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-project-accounting', label: 'محاسبة المشاريع', icon: FolderKanban, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-reports', label: 'التقارير والتحليلات', icon: FileBarChart, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-integrations', label: 'التكاملات المالية', icon: Layers, roles: ['finance', 'admin'], section: 'finance-main' },
+
+      // ── صفحات فرعية: مسجَّلة للتوجيه، وتظهر داخل وحداتها عبر FinanceUnitNav ──
+      { id: 'finance-setup', label: 'إعداد المالية', icon: Settings, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-multi-entity', label: 'الكيانات المتعددة', icon: Building2, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-entity-memberships', label: 'عضويات الكيان', icon: ShieldCheck, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-cost-centers', label: 'مراكز التكلفة', icon: Layers, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-projects', label: 'المشاريع', icon: FolderKanban, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-exchange-rates', label: 'أسعار الصرف', icon: RefreshCw, roles: ['finance', 'admin'], section: 'finance-main' },
       { id: 'finance-trial-balance', label: 'ميزان المراجعة', icon: BarChart2, roles: ['finance', 'admin'], section: 'finance-main' },
       { id: 'finance-ledger', label: 'دفتر الأستاذ', icon: ScrollText, roles: ['finance', 'admin'], section: 'finance-main' },
-      { id: 'finance-reports', label: 'التقارير المالية', icon: FileBarChart, roles: ['finance', 'admin'], section: 'finance-main' },
-      { id: 'finance-periods', label: 'الفترات المحاسبية', icon: Clock, roles: ['finance', 'admin'], section: 'finance-main' },
       { id: 'finance-vendors', label: 'الموردين', icon: Users, roles: ['finance', 'admin'], section: 'finance-main' },
-      { id: 'finance-payable', label: 'الحسابات الدائنة', icon: Receipt, roles: ['finance', 'admin'], section: 'finance-main' },
-      { id: 'finance-setup', label: 'إعداد المالية', icon: Settings, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-bank-import', label: 'استيراد كشوف البنك', icon: FileText, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-forecast', label: 'التنبؤ النقدي', icon: TrendingUp, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-budget-variance', label: 'تحليل التباين', icon: BarChart2, roles: ['finance', 'admin'], section: 'finance-main' },
+      { id: 'finance-system-notes', label: 'التدقيق المالي', icon: ShieldCheck, roles: ['finance', 'admin'], section: 'finance-main' },
     ],
   },
 
@@ -489,6 +534,27 @@ const NAV_SECTIONS: NavSection[] = [
 // ════════════════════════════════════════════════════════════════
 //  Module Gate Mapping
 // ════════════════════════════════════════════════════════════════
+
+/**
+ * توافق خلفي لوحدات المالية بعد إعادة الهيكلة.
+ * المفتاح = معرّف الوحدة الجديد، القيمة = المعرّفات القديمة/الفرعية التي
+ * إن وُجد أحدها في allowed_pages تُعتبر الوحدة مسموحة.
+ */
+const FINANCE_UNIT_FALLBACK: Record<string, string[]> = {
+  'finance-foundation': ['finance-setup', 'finance-multi-entity', 'finance-entity-memberships', 'finance-cost-centers', 'finance-projects', 'finance-exchange-rates'],
+  'finance-journal': ['finance-ledger', 'finance-trial-balance'],
+  'finance-periods': ['finance-system-notes'],
+  'finance-payable': ['finance-vendors'],
+  'finance-cash': ['finance-bank', 'finance-bank-import', 'finance-forecast'],
+  'finance-receivable': ['finance-collections'],
+  'finance-budget': ['finance-budget-variance', 'finance-forecast'],
+  'finance-fixed-assets': ['finance-assets'],
+  'finance-revenue': ['finance-revenue-recognition'],
+  'finance-intercompany': ['finance-consolidation'],
+  'finance-tax': ['finance-tax-management'],
+  'finance-reports': ['finance-trial-balance', 'finance-ledger'],
+  'finance-integrations': ['finance-integration'],
+};
 
 const ITEM_MODULE_MAP: Record<string, string> = {
   'employee-dashboard': 'employee',
@@ -943,6 +1009,13 @@ export default function Sidebar() {
       // توافق للمستخدمين الذين مُنحوا صفحات الأساس قبل إضافة مدخل inventory-foundation.
       if (item.id === 'inventory-foundation') {
         return allowedPages.includes('inventory-foundation') || ['inventory-items', 'inventory-warehouses', 'inventory-stock', 'inventory-movements'].some(id => allowedPages.includes(id));
+      }
+      // توافق خلفي للمالية: المستخدمون الذين مُنحوا صفحات المالية قبل إعادة
+      // هيكلتها إلى وحدات لا تحتوي allowed_pages لديهم المعرّفات الجديدة.
+      // نمنحهم الوحدة إذا كان لديهم أي صفحة تابعة لها.
+      const financeFallback = FINANCE_UNIT_FALLBACK[item.id];
+      if (financeFallback) {
+        return allowedPages.includes(item.id) || financeFallback.some(id => allowedPages.includes(id));
       }
       return allowedPages.includes(item.id);
     }

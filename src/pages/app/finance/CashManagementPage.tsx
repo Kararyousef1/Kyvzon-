@@ -1,94 +1,30 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Wallet, Loader2, Plus, RefreshCw, Search, X, Landmark, DollarSign } from 'lucide-react';
-import { bankAccountService, type BankAccountRecord } from '../../../services/sdk/BankStatementImportService';
-import { currencyService, type CurrencyRecord } from '../../../services/sdk/FinanceFoundationService';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { Landmark, Loader2, Plus, RefreshCw, Search, X } from 'lucide-react';
+import { bankAccountService, bankReconciliationService, cashBankDashboardService, type BankAccountBoardRecord, type BankReconciliationRecord, type CashBankDashboardRecord } from '../../../services/sdk/BankStatementImportService';
+import { currencyService, legalEntityService, type CurrencyRecord, type LegalEntityRecord } from '../../../services/sdk/FinanceFoundationService';
 import { getErrorMessage } from '../../../services/errors';
 import { useUIStore } from '../../../core/stores';
+import { FinanceUnitNav } from './shared/FinanceUnitNav';
 
-export default function CashManagementPage() {
-  const { addToast } = useUIStore();
-  const [accounts, setAccounts] = useState<BankAccountRecord[]>([]);
-  const [currencies, setCurrencies] = useState<CurrencyRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [show, setShow] = useState(false);
-  const [q, setQ] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ account_name: '', account_number: '', bank_name: '', currency: 'IQD', balance: '' });
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [acc, curr] = await Promise.all([bankAccountService.findAll({ orderBy: 'account_name' }) as any, currencyService.findActive()]);
-      setAccounts(acc || []);
-      setCurrencies(curr);
-    } catch (e) {
-      addToast(`تعذر التحميل: ${getErrorMessage(e)}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await (bankAccountService as any).create({
-        account_name: form.account_name,
-        account_number: form.account_number,
-        bank_name: form.bank_name,
-        currency: form.currency,
-        balance: Number(form.balance) || 0,
-        is_active: true,
-      });
-      addToast('تم إنشاء الحساب البنكي', 'success');
-      setShow(false);
-      setForm({ account_name: '', account_number: '', bank_name: '', currency: 'IQD', balance: '' });
-      await load();
-    } catch (err) {
-      addToast(getErrorMessage(err), 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const total = accounts.reduce((s, a) => s + Number(a.balance || 0), 0);
-  const filtered = accounts.filter(a => `${a.account_name} ${a.bank_name} ${a.account_number}`.toLowerCase().includes(q.toLowerCase()));
-
-  return (
-    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
-      <div className="flex justify-between flex-wrap gap-3">
-        <div>
-          <p className="text-sm font-bold text-emerald-700">Cash Management — Wave 5 (Beta) — Real SDK ✅</p>
-          <h1 className="text-3xl font-black">إدارة النقد والبنوك</h1>
-          <p className="text-slate-500 mt-2">حسابات بنكية ونقدية مع أرصدة، عملات، وحالة — أساس التسوية والتنبؤ.</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => void load()} className="border rounded-xl px-4 py-2 font-bold"><RefreshCw size={15} className="inline ml-1" />تحديث</button>
-          <button onClick={() => setShow(true)} className="bg-emerald-600 text-white rounded-xl px-4 py-2 font-bold"><Plus size={15} className="inline ml-1" />حساب جديد</button>
-        </div>
-      </div>
-
-      <div className="grid sm:grid-cols-3 gap-3">
-        <div className="bg-white border rounded-2xl p-5"><p className="text-xs text-slate-500">إجمالي الأرصدة</p><p className="text-2xl font-black mt-1">{total.toLocaleString()} IQD</p><p className="text-[11px] text-emerald-600 mt-1">من {accounts.length} حساب</p></div>
-        <label className="bg-white border rounded-xl p-3 flex gap-2 items-center"><Search size={16} /><input value={q} onChange={e => setQ(e.target.value)} placeholder="بحث باسم البنك أو الحساب..." className="w-full outline-none" /></label>
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-900 flex gap-2"><Wallet size={16} className="shrink-0" /><span>الأرصدة هنا دفترية — التسوية الحقيقية في BankStatementImport + Reconciliation.</span></div>
-      </div>
-
-      {loading ? <div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3" />جارٍ التحميل...</div> : (
-        <div className="bg-white border rounded-2xl overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="p-3 text-right">البنك</th><th className="p-3 text-right">الحساب</th><th className="p-3 text-right">الرقم</th><th className="p-3 text-right">العملة</th><th className="p-3 text-right">الرصيد</th></tr></thead>
-            <tbody className="divide-y">
-              {filtered.map(a => <tr key={a.id}><td className="p-3 font-bold">{a.bank_name}</td><td className="p-3">{a.account_name}</td><td className="p-3 font-mono text-xs">{a.account_number}</td><td className="p-3">{a.currency}</td><td className="p-3 font-black">{Number(a.balance).toLocaleString()}</td></tr>)}
-              {!filtered.length && <tr><td colSpan={5} className="p-16 text-center text-slate-500"><Landmark className="mx-auto mb-3 text-slate-300" />لا توجد حسابات بنكية — أنشئ أول حساب عبر SDK.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {show && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" onClick={() => !saving && setShow(false)}><form onSubmit={submit} onClick={e => e.stopPropagation()} className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-3"><div className="flex justify-between items-center gap-3 flex-wrap"><h2 className="font-black text-xl">حساب بنكي جديد</h2><button type="button" onClick={() => setShow(false)}><X /></button></div><div className="grid grid-cols-2 gap-3"><input required placeholder="اسم البنك *" value={form.bank_name} onChange={e => setForm(f => ({ ...f, bank_name: e.target.value }))} className="border rounded-xl p-2.5" /><input required placeholder="اسم الحساب *" value={form.account_name} onChange={e => setForm(f => ({ ...f, account_name: e.target.value }))} className="border rounded-xl p-2.5" /></div><input required placeholder="رقم الحساب *" value={form.account_number} onChange={e => setForm(f => ({ ...f, account_number: e.target.value }))} className="w-full border rounded-xl p-2.5" dir="ltr" /><div className="grid grid-cols-2 gap-3"><select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} className="border rounded-xl p-2.5">{currencies.map(c => <option key={c.code}>{c.code}</option>)}</select><input type="number" placeholder="الرصيد" value={form.balance} onChange={e => setForm(f => ({ ...f, balance: e.target.value }))} className="border rounded-xl p-2.5" /></div><button disabled={saving} className="w-full bg-emerald-600 text-white rounded-xl py-3 font-bold">{saving ? 'جارٍ الحفظ...' : 'حفظ عبر SDK'}</button></form></div>}
-    </div>
-  );
+type Action = { type: 'status'; account: BankAccountBoardRecord } | { type: 'complete' | 'void'; reconciliation: BankReconciliationRecord };
+export default function CashManagementPage(){
+ const {addToast}=useUIStore(); const [entities,setEntities]=useState<LegalEntityRecord[]>([]),[entityId,setEntityId]=useState(''),[accounts,setAccounts]=useState<BankAccountBoardRecord[]>([]),[currencies,setCurrencies]=useState<CurrencyRecord[]>([]),[dashboard,setDashboard]=useState<CashBankDashboardRecord|null>(null),[recons,setRecons]=useState<BankReconciliationRecord[]>([]),[selectedAccount,setSelectedAccount]=useState(''),[loading,setLoading]=useState(true),[show,setShow]=useState(false),[showRecon,setShowRecon]=useState(false),[q,setQ]=useState(''),[saving,setSaving]=useState(false),[action,setAction]=useState<Action|null>(null),[reason,setReason]=useState('');
+ const [form,setForm]=useState({account_name:'',account_number:'',bank_name:'',currency:'IQD',account_type:'bank',opening_balance:''});
+ const [reconForm,setReconForm]=useState({reconciliation_date:new Date().toISOString().slice(0,10),statement_balance:'',book_balance:'',period_start:'',period_end:'',notes:''});
+ const load=useCallback(async()=>{setLoading(true);try{const [es,cur]=await Promise.all([legalEntityService.findActive(),currencyService.findActive()]);setEntities(es);setCurrencies(cur);const id=entityId||es[0]?.id||'';if(!entityId&&id)setEntityId(id);if(!id)return;const [acc,dash]=await Promise.all([bankAccountService.findBoard(id),cashBankDashboardService.find(id)]);setAccounts(acc);setDashboard(dash[0]||null);const aid=selectedAccount&&acc.some(a=>a.id===selectedAccount)?selectedAccount:acc[0]?.id||'';setSelectedAccount(aid);setRecons(aid?await bankReconciliationService.findForAccount(aid):[])}catch(e){addToast(`تعذر التحميل: ${getErrorMessage(e)}`,'error')}finally{setLoading(false)}},[addToast,entityId,selectedAccount]);
+ useEffect(()=>{void load()},[load]);
+ const submit=async(e:FormEvent)=>{e.preventDefault();if(!entityId)return;setSaving(true);try{const acc=await bankAccountService.upsert({legalEntityId:entityId,accountName:form.account_name,accountNumber:form.account_number,bankName:form.bank_name,currency:form.currency,accountType:form.account_type,openingBalance:Number(form.opening_balance)||0});addToast('تم حفظ الحساب البنكي عبر RPC','success');setShow(false);setSelectedAccount(acc.id);setForm({account_name:'',account_number:'',bank_name:'',currency:'IQD',account_type:'bank',opening_balance:''});await load()}catch(e){addToast(getErrorMessage(e),'error')}finally{setSaving(false)}};
+ const createRecon=async()=>{if(!selectedAccount)return;try{await bankReconciliationService.create({bankAccountId:selectedAccount,reconciliationDate:reconForm.reconciliation_date,statementBalance:Number(reconForm.statement_balance),bookBalance:Number(reconForm.book_balance),periodStart:reconForm.period_start||undefined,periodEnd:reconForm.period_end||undefined,notes:reconForm.notes});addToast('تم إنشاء التسوية','success');setShowRecon(false);await load()}catch(e){addToast(getErrorMessage(e),'error')}};
+ const execute=async()=>{if(!action||!reason.trim())return addToast('السبب مطلوب','error');try{if(action.type==='status')await bankAccountService.updateStatus(action.account.id,!action.account.is_active,reason.trim());else if(action.type==='complete')await bankReconciliationService.complete(action.reconciliation.id,reason.trim());else await bankReconciliationService.void(action.reconciliation.id,reason.trim());addToast('تم تنفيذ العملية وتسجيل السبب','success');setAction(null);setReason('');await load()}catch(e){addToast(getErrorMessage(e),'error')}};
+ const filtered=accounts.filter(a=>`${a.account_name} ${a.bank_name} ${a.account_number}`.toLowerCase().includes(q.toLowerCase()));
+ return <div className="space-y-5 max-w-[1700px] mx-auto" dir="rtl"><FinanceUnitNav unit="cash"/><div className="flex justify-between flex-wrap gap-3"><div><p className="text-sm font-bold text-emerald-700">Finance Unit 06 · Cash & Bank</p><h1 className="text-3xl font-black">إدارة النقد والبنوك</h1><p className="text-slate-500 mt-2">حسابات بنكية وتسويات محكومة بالأسباب والتدقيق.</p></div><div className="flex gap-2"><button onClick={()=>void load()} className="border rounded-xl px-4 py-2 font-bold bg-white"><RefreshCw size={15} className="inline ml-1"/>تحديث</button><button onClick={()=>setShow(true)} className="bg-emerald-600 text-white rounded-xl px-4 py-2 font-bold"><Plus size={15} className="inline ml-1"/>حساب جديد</button><button onClick={()=>setShowRecon(true)} disabled={!selectedAccount} className="bg-slate-900 text-white rounded-xl px-4 py-2 font-bold disabled:opacity-50">تسوية</button></div></div>
+ <section className="grid md:grid-cols-5 gap-3"><Metric title="الحسابات" value={dashboard?.active_bank_accounts||0}/><Metric title="الرصيد" value={Number(dashboard?.total_cash_balance||0).toLocaleString()}/><Metric title="استيرادات معلقة" value={dashboard?.pending_imports||0}/><Metric title="سطور غير مطابقة" value={dashboard?.unmatched_statement_lines||0}/><Metric title="تسويات مفتوحة" value={dashboard?.open_reconciliations||0}/></section>
+ <div className="grid md:grid-cols-2 gap-3"><select value={entityId} onChange={e=>setEntityId(e.target.value)} className="border rounded-xl p-3 bg-white">{entities.map(e=><option key={e.id} value={e.id}>{e.code} — {e.name_ar}</option>)}</select><label className="bg-white border rounded-xl p-3 flex gap-2 items-center"><Search size={16}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="بحث باسم البنك أو الحساب..." className="w-full outline-none"/></label></div>
+ {loading?<div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3"/>جارٍ التحميل...</div>:<section className="grid xl:grid-cols-[1fr_390px] gap-4"><div className="bg-white border rounded-2xl overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="p-3 text-right">البنك</th><th className="p-3 text-right">الحساب</th><th className="p-3 text-right">الرقم</th><th className="p-3 text-right">العملة</th><th className="p-3 text-right">الرصيد</th><th className="p-3 text-right">الحالة</th><th className="p-3"/></tr></thead><tbody className="divide-y">{filtered.map(a=><tr key={a.id} className={selectedAccount===a.id?'bg-emerald-50/50':''}><td className="p-3 font-bold"><button onClick={()=>setSelectedAccount(a.id)}>{a.bank_name}</button></td><td className="p-3">{a.account_name}</td><td className="p-3 font-mono text-xs">{a.account_number}</td><td className="p-3">{a.currency}</td><td className="p-3 font-black">{Number(a.balance).toLocaleString()}</td><td className="p-3">{a.is_active?'نشط':'معطل'}</td><td className="p-3"><button onClick={()=>{setAction({type:'status',account:a});setReason('')}} className={a.is_active?'text-rose-700 font-bold':'text-emerald-700 font-bold'}>{a.is_active?'تعطيل':'تفعيل'}</button></td></tr>)}{!filtered.length&&<tr><td colSpan={7} className="p-16 text-center text-slate-500"><Landmark className="mx-auto mb-3 text-slate-300"/>لا توجد حسابات.</td></tr>}</tbody></table></div><aside className="bg-white border rounded-2xl p-5"><h2 className="font-black">التسويات</h2><div className="space-y-2 mt-3">{recons.map(r=><div key={r.id} className="bg-slate-50 border rounded-xl p-3 text-sm"><b>{r.reconciliation_date}</b><p>فرق: {Number(r.difference).toLocaleString()} · {r.status}</p>{r.status!=='completed'&&r.status!=='voided'&&<div className="flex gap-2 mt-2"><button onClick={()=>{setAction({type:'complete',reconciliation:r});setReason('')}} className="text-emerald-700 font-bold">إكمال</button><button onClick={()=>{setAction({type:'void',reconciliation:r});setReason('')}} className="text-rose-700 font-bold">إلغاء</button></div>}</div>)}</div></aside></section>}
+ {show&&<Modal title="حساب بنكي جديد" onClose={()=>setShow(false)}><form onSubmit={submit} className="space-y-3"><div className="grid grid-cols-2 gap-3"><input required placeholder="اسم البنك" value={form.bank_name} onChange={e=>setForm(f=>({...f,bank_name:e.target.value}))} className="border rounded-xl p-2.5"/><input required placeholder="اسم الحساب" value={form.account_name} onChange={e=>setForm(f=>({...f,account_name:e.target.value}))} className="border rounded-xl p-2.5"/></div><input required placeholder="رقم الحساب" value={form.account_number} onChange={e=>setForm(f=>({...f,account_number:e.target.value}))} className="w-full border rounded-xl p-2.5" dir="ltr"/><div className="grid grid-cols-3 gap-3"><select value={form.currency} onChange={e=>setForm(f=>({...f,currency:e.target.value}))} className="border rounded-xl p-2.5">{currencies.map(c=><option key={c.code}>{c.code}</option>)}</select><select value={form.account_type} onChange={e=>setForm(f=>({...f,account_type:e.target.value}))} className="border rounded-xl p-2.5"><option value="bank">Bank</option><option value="cash">Cash</option><option value="wallet">Wallet</option></select><input type="number" placeholder="رصيد افتتاحي" value={form.opening_balance} onChange={e=>setForm(f=>({...f,opening_balance:e.target.value}))} className="border rounded-xl p-2.5"/></div><button disabled={saving} className="w-full bg-emerald-600 text-white rounded-xl py-3 font-bold">حفظ</button></form></Modal>}
+ {showRecon&&<Modal title="تسوية بنكية" onClose={()=>setShowRecon(false)}><div className="space-y-3"><input type="date" value={reconForm.reconciliation_date} onChange={e=>setReconForm(f=>({...f,reconciliation_date:e.target.value}))} className="w-full border rounded-xl p-2.5"/><div className="grid grid-cols-2 gap-3"><input type="number" placeholder="رصيد كشف البنك" value={reconForm.statement_balance} onChange={e=>setReconForm(f=>({...f,statement_balance:e.target.value}))} className="border rounded-xl p-2.5"/><input type="number" placeholder="الرصيد الدفتري" value={reconForm.book_balance} onChange={e=>setReconForm(f=>({...f,book_balance:e.target.value}))} className="border rounded-xl p-2.5"/></div><textarea placeholder="ملاحظات" value={reconForm.notes} onChange={e=>setReconForm(f=>({...f,notes:e.target.value}))} className="w-full border rounded-xl p-2.5"/><button onClick={()=>void createRecon()} className="w-full bg-slate-900 text-white rounded-xl py-3 font-bold">إنشاء التسوية</button></div></Modal>}
+ {action&&<Modal title="سبب العملية" onClose={()=>setAction(null)}><textarea value={reason} onChange={e=>setReason(e.target.value)} className="w-full min-h-28 border rounded-xl p-3" placeholder="سبب إلزامي..."/><button disabled={!reason.trim()} onClick={()=>void execute()} className="w-full bg-emerald-600 text-white rounded-xl py-3 font-bold mt-3 disabled:opacity-50">تنفيذ</button></Modal>}
+ </div>;
 }
+function Metric({title,value}:{title:string;value:ReactNode}){return <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black">{value}</p><p className="text-sm font-bold text-slate-500 mt-1">{title}</p></div>}
+function Modal({title,children,onClose}:{title:string;children:ReactNode;onClose:()=>void}){return <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4"><div className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-4"><div className="flex justify-between"><h2 className="font-black text-xl">{title}</h2><button onClick={onClose}><X/></button></div>{children}</div></div>}

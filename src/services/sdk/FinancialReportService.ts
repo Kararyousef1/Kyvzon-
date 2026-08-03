@@ -1,42 +1,19 @@
 import { supabase } from '../supabase/supabase';
 
-export interface TrialBalanceRow {
-  account_id: string;
-  account_code: string;
-  account_name: string;
-  account_name_ar?: string | null;
-  account_type: string;
-  debit_balance: number;
-  credit_balance: number;
-}
-
-export interface GeneralLedgerRow {
-  entry_id: string;
-  entry_number: string;
-  entry_date: string;
-  description?: string | null;
-  reference?: string | null;
-  debit: number;
-  credit: number;
-  running_balance: number;
-}
+export interface TrialBalanceRow { account_id:string; account_code:string; account_name:string; account_name_ar?:string|null; account_type:string; debit_balance:number; credit_balance:number; }
+export interface GeneralLedgerRow { entry_id:string; entry_number:string; entry_date:string; description?:string|null; reference?:string|null; debit:number; credit:number; running_balance:number; }
+export interface FinanceReportRunRecord { id:string; tenant_id:string; legal_entity_id:string; report_type:string; report_name:string; period_start?:string|null; period_end?:string|null; status:'generated'|'cancelled'|'failed'; parameters:Record<string,unknown>; report_payload:unknown; generated_at:string; export_count?:number; entity_code?:string; entity_name?:string; }
+export interface FinanceReportExportRecord { id:string; tenant_id:string; legal_entity_id:string; report_run_id:string; export_format:'xlsx'|'pdf'|'csv'|'json'; status:string; file_url?:string|null; requested_at:string; report_type?:string; report_name?:string; }
+export interface FinanceExecutiveKpiRecord { tenant_id:string; legal_entity_id:string; entity_code:string; entity_name:string; posted_debits:number; posted_credits:number; ap_outstanding:number; ar_outstanding:number; cash_balance:number; open_tax_due:number; fixed_asset_book_value:number; recognized_revenue:number; }
 
 export class FinancialReportService {
-  async getGeneralLedger(legalEntityId: string, accountId: string, fromDate?: string, toDate?: string): Promise<GeneralLedgerRow[]> {
-    const { data, error } = await supabase.rpc('get_general_ledger', { p_legal_entity_id: legalEntityId, p_account_id: accountId, p_from_date: fromDate || null, p_to_date: toDate || null });
-    if (error) throw new Error(error.message);
-    return (data || []) as GeneralLedgerRow[];
-  }
-
-  async getTrialBalance(legalEntityId: string, fromDate?: string, toDate?: string): Promise<TrialBalanceRow[]> {
-    const { data, error } = await supabase.rpc('get_trial_balance', {
-      p_legal_entity_id: legalEntityId,
-      p_from_date: fromDate || null,
-      p_to_date: toDate || null,
-    });
-    if (error) throw new Error(error.message);
-    return (data || []) as TrialBalanceRow[];
-  }
+  async getGeneralLedger(legalEntityId:string, accountId:string, fromDate?:string, toDate?:string): Promise<GeneralLedgerRow[]> { const {data,error}=await supabase.rpc('get_general_ledger',{p_legal_entity_id:legalEntityId,p_account_id:accountId,p_from_date:fromDate||null,p_to_date:toDate||null}); if(error) throw new Error(error.message); return (data||[]) as GeneralLedgerRow[]; }
+  async getTrialBalance(legalEntityId:string, fromDate?:string, toDate?:string): Promise<TrialBalanceRow[]> { const {data,error}=await supabase.rpc('get_trial_balance',{p_legal_entity_id:legalEntityId,p_from_date:fromDate||null,p_to_date:toDate||null}); if(error) throw new Error(error.message); return (data||[]) as TrialBalanceRow[]; }
+  async findExecutiveKpis(legalEntityId?:string): Promise<FinanceExecutiveKpiRecord[]> { let q=supabase.from('finance_executive_kpi_dashboard').select('*').order('entity_code'); if(legalEntityId) q=q.eq('legal_entity_id',legalEntityId); const {data,error}=await q; if(error) throw new Error(error.message); return (data||[]) as FinanceExecutiveKpiRecord[]; }
+  async findReportRuns(legalEntityId:string): Promise<FinanceReportRunRecord[]> { const {data,error}=await supabase.from('finance_report_run_board').select('*').eq('legal_entity_id',legalEntityId).order('generated_at',{ascending:false}).limit(100); if(error) throw new Error(error.message); return (data||[]) as FinanceReportRunRecord[]; }
+  async findReportExports(reportRunId?:string): Promise<FinanceReportExportRecord[]> { let q=supabase.from('finance_report_export_board').select('*').order('requested_at',{ascending:false}).limit(100); if(reportRunId) q=q.eq('report_run_id',reportRunId); const {data,error}=await q; if(error) throw new Error(error.message); return (data||[]) as FinanceReportExportRecord[]; }
+  async generateReportRun(input:{legalEntityId:string; reportType:string; periodStart?:string; periodEnd?:string; parameters?:Record<string,unknown>}): Promise<FinanceReportRunRecord>{ const {data,error}=await supabase.rpc('generate_finance_report_run',{p_legal_entity_id:input.legalEntityId,p_report_type:input.reportType,p_period_start:input.periodStart||null,p_period_end:input.periodEnd||null,p_parameters:input.parameters||{}}); if(error) throw new Error(error.message); return data as FinanceReportRunRecord; }
+  async requestExport(reportRunId:string, exportFormat:'xlsx'|'pdf'|'csv'|'json'): Promise<FinanceReportExportRecord>{ const {data,error}=await supabase.rpc('request_finance_report_export',{p_report_run_id:reportRunId,p_export_format:exportFormat}); if(error) throw new Error(error.message); return data as FinanceReportExportRecord; }
+  async cancelReportRun(reportRunId:string, reason:string): Promise<FinanceReportRunRecord>{ const {data,error}=await supabase.rpc('cancel_finance_report_run',{p_report_run_id:reportRunId,p_reason:reason}); if(error) throw new Error(error.message); return data as FinanceReportRunRecord; }
 }
-
 export const financialReportService = new FinancialReportService();

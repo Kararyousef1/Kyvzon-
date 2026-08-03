@@ -1,49 +1,27 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Repeat, Loader2, RefreshCw, CheckCircle, Clock } from 'lucide-react';
-import { intercompanyService } from '../../../services/sdk/IntercompanyService';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { Loader2, Plus, RefreshCw, Repeat, X } from 'lucide-react';
+import { intercompanyService, type ConsolidationEntryRecord, type IntercompanyDashboardRecord, type IntercompanyTransactionBoardRecord } from '../../../services/sdk/IntercompanyService';
+import { currencyService, legalEntityService, type CurrencyRecord, type LegalEntityRecord } from '../../../services/sdk/FinanceFoundationService';
 import { getErrorMessage } from '../../../services/errors';
 import { useUIStore } from '../../../core/stores';
+import { FinanceUnitNav } from './shared/FinanceUnitNav';
 
-export default function IntercompanyPage() {
-  const { addToast } = useUIStore();
-  const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      setRows(await intercompanyService.findPending() as any[]);
-    } catch (e) {
-      addToast(`تعذر التحميل: ${getErrorMessage(e)}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  return (
-    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
-      <div className="flex justify-between flex-wrap gap-3">
-        <div>
-          <p className="text-sm font-bold text-violet-700">Intercompany — Wave 3 (Beta) — Real SDK ✅</p>
-          <h1 className="text-3xl font-black">المعاملات البينية</h1>
-          <p className="text-slate-500 mt-2">معاملات due-to/due-from بين كيانات، matching، و elimination — من intercompany_transactions.</p>
-        </div>
-        <button onClick={() => void load()} className="border rounded-xl px-4 py-2 font-bold"><RefreshCw size={15} className="inline ml-1" />تحديث</button>
-      </div>
-
-      {loading ? <div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3" />جارٍ التحميل...</div> : (
-        <div className="bg-white border rounded-2xl overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="p-3 text-right">النوع</th><th className="p-3 text-right">المبلغ</th><th className="p-3 text-right">العملة</th><th className="p-3 text-right">المرجع</th><th className="p-3 text-right">الحالة</th></tr></thead>
-            <tbody className="divide-y">
-              {rows.map(r => <tr key={r.id}><td className="p-3 font-bold">{r.transaction_type}</td><td className="p-3 font-black">{Number(r.amount).toLocaleString()}</td><td className="p-3">{r.currency}</td><td className="p-3 font-mono text-xs">{r.reference || '—'}</td><td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-bold border ${r.status==='matched' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>{r.status}</span></td></tr>)}
-              {!rows.length && <tr><td colSpan={5} className="p-16 text-center text-slate-500"><Repeat className="mx-auto mb-3 text-slate-300" />لا توجد معاملات بينية معلقة.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
+type Action={type:'match'|'eliminate'|'void';tx:IntercompanyTransactionBoardRecord};
+export default function IntercompanyPage(){
+ const {addToast}=useUIStore(); const [entities,setEntities]=useState<LegalEntityRecord[]>([]),[entityId,setEntityId]=useState(''),[currencies,setCurrencies]=useState<CurrencyRecord[]>([]),[rows,setRows]=useState<IntercompanyTransactionBoardRecord[]>([]),[entries,setEntries]=useState<ConsolidationEntryRecord[]>([]),[dashboard,setDashboard]=useState<IntercompanyDashboardRecord|null>(null),[loading,setLoading]=useState(true),[show,setShow]=useState(false),[saving,setSaving]=useState(false),[action,setAction]=useState<Action|null>(null),[reason,setReason]=useState('');
+ const [form,setForm]=useState({target_entity_id:'',transaction_type:'transfer',amount:'',currency:'IQD',reference:'',description:''});
+ const load=useCallback(async()=>{setLoading(true);try{const [es,cs]=await Promise.all([legalEntityService.findActive(),currencyService.findActive()]);setEntities(es);setCurrencies(cs);const id=entityId||es[0]?.id||'';if(!entityId&&id)setEntityId(id);if(!id)return;const [tx,ce,d]=await Promise.all([intercompanyService.findBoard(id),intercompanyService.findConsolidationEntries(id),intercompanyService.findDashboard(id)]);setRows(tx);setEntries(ce);setDashboard(d[0]||null)}catch(e){addToast(`تعذر التحميل: ${getErrorMessage(e)}`,'error')}finally{setLoading(false)}},[addToast,entityId]);
+ useEffect(()=>{void load()},[load]);
+ const submit=async(e:FormEvent)=>{e.preventDefault();if(!entityId||!form.target_entity_id)return;setSaving(true);try{await intercompanyService.createControlled({sourceLegalEntityId:entityId,targetLegalEntityId:form.target_entity_id,transactionType:form.transaction_type,amount:Number(form.amount),currency:form.currency,reference:form.reference,description:form.description});addToast('تم إنشاء المعاملة البينية','success');setShow(false);setForm({target_entity_id:'',transaction_type:'transfer',amount:'',currency:'IQD',reference:'',description:''});await load()}catch(e){addToast(getErrorMessage(e),'error')}finally{setSaving(false)}};
+ const execute=async()=>{if(!action||!reason.trim())return addToast('السبب مطلوب للتدقيق','error');try{if(action.type==='match')await intercompanyService.match(action.tx.id,reason.trim());else if(action.type==='eliminate')await intercompanyService.eliminate(action.tx.id,reason.trim());else await intercompanyService.void(action.tx.id,reason.trim());addToast('تم تنفيذ العملية وتسجيل السبب','success');setAction(null);setReason('');await load()}catch(e){addToast(getErrorMessage(e),'error')}};
+ return <div className="space-y-5 max-w-[1700px] mx-auto" dir="rtl"><FinanceUnitNav unit="intercompany"/><div className="flex justify-between flex-wrap gap-3"><div><p className="text-sm font-bold text-violet-700">Finance Unit 11 · Intercompany & Consolidation</p><h1 className="text-3xl font-black">المعاملات البينية والتوحيد</h1><p className="text-slate-500 mt-2">Due-to/Due-from بين الكيانات مع matching وelimination وتدقيق.</p></div><div className="flex gap-2"><button onClick={()=>void load()} className="border rounded-xl px-4 py-2 font-bold bg-white"><RefreshCw size={15} className="inline ml-1"/>تحديث</button><button onClick={()=>setShow(true)} className="bg-violet-600 text-white rounded-xl px-4 py-2 font-bold"><Plus size={15} className="inline ml-1"/>معاملة جديدة</button></div></div>
+ <section className="grid md:grid-cols-5 gap-3"><Metric title="معلقة" value={dashboard?.pending_transactions||0}/><Metric title="مطابقة" value={dashboard?.matched_transactions||0}/><Metric title="ملغاة بالتوحيد" value={dashboard?.eliminated_transactions||0}/><Metric title="مبلغ مفتوح" value={Number(dashboard?.open_intercompany_amount||0).toLocaleString()}/><Metric title="قيود توحيد" value={dashboard?.posted_eliminations||0}/></section>
+ <select value={entityId} onChange={e=>setEntityId(e.target.value)} className="border rounded-xl p-3 bg-white w-full md:w-96">{entities.map(e=><option key={e.id} value={e.id}>{e.code} — {e.name_ar}</option>)}</select>
+ {loading?<div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3"/>جارٍ التحميل...</div>:<section className="grid xl:grid-cols-[1fr_430px] gap-4"><div className="bg-white border rounded-2xl overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="p-3 text-right">المصدر</th><th className="p-3 text-right">الهدف</th><th className="p-3 text-right">النوع</th><th className="p-3 text-right">المبلغ</th><th className="p-3 text-right">المرجع</th><th className="p-3 text-right">الحالة</th><th className="p-3"/></tr></thead><tbody className="divide-y">{rows.map(r=><tr key={r.id}><td className="p-3 font-bold">{r.source_entity_code}</td><td className="p-3 font-bold">{r.target_entity_code}</td><td className="p-3">{r.transaction_type}</td><td className="p-3 font-black">{Number(r.amount).toLocaleString()} {r.currency}</td><td className="p-3 font-mono text-xs">{r.reference||'—'}</td><td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-bold border ${r.status==='eliminated'?'bg-emerald-50 border-emerald-200 text-emerald-700':'bg-amber-50 border-amber-200 text-amber-700'}`}>{r.status}</span></td><td className="p-3"><Actions tx={r} onAction={(type)=>{setAction({type,tx:r});setReason('')}}/></td></tr>)}{!rows.length&&<tr><td colSpan={7} className="p-16 text-center text-slate-500"><Repeat className="mx-auto mb-3 text-slate-300"/>لا توجد معاملات بينية.</td></tr>}</tbody></table></div><aside className="bg-white border rounded-2xl p-5"><h2 className="font-black">قيود التوحيد</h2><div className="space-y-2 mt-3 max-h-[520px] overflow-auto">{entries.map(e=><div key={e.id} className="bg-slate-50 border rounded-xl p-3 text-sm"><b>{e.entry_date} · {e.elimination_type}</b><p>{e.entity_code} ↔ {e.counterparty_entity_code||'—'}</p><p>مدين {Number(e.debit_amount).toLocaleString()} / دائن {Number(e.credit_amount).toLocaleString()}</p><p className="text-xs text-slate-400">{e.status} · {e.reason||''}</p></div>)}</div></aside></section>}
+ {show&&<Modal title="معاملة بينية جديدة" onClose={()=>setShow(false)}><form onSubmit={submit} className="space-y-3"><select value={form.target_entity_id} onChange={e=>setForm(f=>({...f,target_entity_id:e.target.value}))} className="w-full border rounded-xl p-2.5"><option value="">اختر الكيان المقابل</option>{entities.filter(e=>e.id!==entityId).map(e=><option key={e.id} value={e.id}>{e.code} — {e.name_ar}</option>)}</select><div className="grid grid-cols-3 gap-3"><select value={form.transaction_type} onChange={e=>setForm(f=>({...f,transaction_type:e.target.value}))} className="border rounded-xl p-2.5"><option value="transfer">Transfer</option><option value="fee">Fee</option><option value="loan">Loan</option><option value="recharge">Recharge</option><option value="royalty">Royalty</option><option value="dividend">Dividend</option></select><input required type="number" placeholder="المبلغ" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} className="border rounded-xl p-2.5"/><select value={form.currency} onChange={e=>setForm(f=>({...f,currency:e.target.value}))} className="border rounded-xl p-2.5">{currencies.map(c=><option key={c.code}>{c.code}</option>)}</select></div><input placeholder="مرجع" value={form.reference} onChange={e=>setForm(f=>({...f,reference:e.target.value}))} className="w-full border rounded-xl p-2.5"/><textarea placeholder="وصف" value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} className="w-full border rounded-xl p-2.5"/><button disabled={saving} className="w-full bg-violet-600 text-white rounded-xl py-3 font-bold">حفظ</button></form></Modal>}
+ {action&&<Modal title={action.type==='match'?'مطابقة المعاملة':action.type==='eliminate'?'إلغاء بالتوحيد':'إبطال المعاملة'} onClose={()=>setAction(null)}><textarea value={reason} onChange={e=>setReason(e.target.value)} className="w-full min-h-28 border rounded-xl p-3" placeholder="سبب إلزامي..."/><button disabled={!reason.trim()} onClick={()=>void execute()} className="w-full bg-violet-600 text-white rounded-xl py-3 font-bold mt-3 disabled:opacity-50">تنفيذ</button></Modal>}
+ </div>;
 }
+function Actions({tx,onAction}:{tx:IntercompanyTransactionBoardRecord;onAction:(t:Action['type'])=>void}){return <div className="flex gap-2 justify-center flex-wrap">{tx.status==='pending'&&<button onClick={()=>onAction('match')} className="text-blue-700 font-bold">مطابقة</button>}{['pending','matched'].includes(tx.status)&&<button onClick={()=>onAction('eliminate')} className="text-emerald-700 font-bold">Eliminate</button>}{['pending','matched'].includes(tx.status)&&<button onClick={()=>onAction('void')} className="text-rose-700 font-bold">إبطال</button>}</div>}
+function Metric({title,value}:{title:string;value:ReactNode}){return <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black">{value}</p><p className="text-sm font-bold text-slate-500 mt-1">{title}</p></div>}
+function Modal({title,children,onClose}:{title:string;children:ReactNode;onClose:()=>void}){return <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4"><div className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-4"><div className="flex justify-between"><h2 className="font-black text-xl">{title}</h2><button onClick={onClose}><X/></button></div>{children}</div></div>}

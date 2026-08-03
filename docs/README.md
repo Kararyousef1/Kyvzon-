@@ -25,6 +25,19 @@ docs/
 
 ---
 
+## Mandatory AI / Developer Onboarding Documents
+
+قبل تنفيذ أي مهمة كبيرة على المشروع، اقرأ هذه الملفات بالترتيب:
+
+1. [`AI_HANDOFF_README_AR.md`](AI_HANDOFF_README_AR.md) — ملخص تسليم المعرفة وقواعد العمل العامة.
+2. [`KYVZON_PROJECT_CONTEXT_FOR_AI_AR.md`](KYVZON_PROJECT_CONTEXT_FOR_AI_AR.md) — السياق الكامل للمنصة والبوابات وحالة المشروع.
+3. [`DEVELOPER_PORTAL_CONTROL_PLANE_AR.md`](DEVELOPER_PORTAL_CONTROL_PLANE_AR.md) — شرح أن بوابة المطورين هي Control Plane لإدارة الشركات والاشتراكات والبوابات.
+4. [`PORTAL_ENGINEERING_METHODOLOGY_AR.md`](PORTAL_ENGINEERING_METHODOLOGY_AR.md) — المنهجية الصارمة لإنشاء أو تعديل أي بوابة.
+
+هذه الوثائق ملزمة لأي ذكاء اصطناعي أو مطور جديد. أي عمل لا يراعيها يعتبر ناقصاً حتى لو نجح البناء تقنياً.
+
+---
+
 ## Key Documents
 
 | Document | Purpose | Audience |

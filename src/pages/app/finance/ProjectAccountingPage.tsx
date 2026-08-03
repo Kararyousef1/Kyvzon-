@@ -1,92 +1,31 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { FolderKanban, Loader2, Plus, RefreshCw, X, Search } from 'lucide-react';
-import { supabase } from '../../../services/supabase/supabase';
-import { requireTenantId } from '../../../services/sdk/BaseService';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { FolderKanban, Loader2, Plus, RefreshCw, Search, X } from 'lucide-react';
+import { projectAccountingService, type ProjectAccountingDashboardRecord, type ProjectAccountingRecord, type ProjectActualSnapshotRecord, type ProjectBudgetLineRecord } from '../../../services/sdk/ProjectAccountingService';
+import { chartOfAccountService, type FinancePostingAccountLookupRecord } from '../../../services/sdk/ChartOfAccountService';
+import { financeCostCenterService, legalEntityService, type CostCenterRecord, type LegalEntityRecord } from '../../../services/sdk/FinanceFoundationService';
 import { getErrorMessage } from '../../../services/errors';
 import { useUIStore } from '../../../core/stores';
+import { FinanceUnitNav } from './shared/FinanceUnitNav';
 
-export default function ProjectAccountingPage() {
-  const { addToast } = useUIStore();
-  const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [show, setShow] = useState(false);
-  const [form, setForm] = useState({ code: '', name_ar: '', status: 'active' });
-  const [saving, setSaving] = useState(false);
-  const [q, setQ] = useState('');
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.from('finance_projects').select('*').order('code');
-      if (error) throw error;
-      setRows(data || []);
-    } catch (e) {
-      addToast(`تعذر التحميل: ${getErrorMessage(e)}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const tenant_id = requireTenantId();
-      const legal_entity_id = (await supabase.from('legal_entities').select('id').eq('tenant_id', tenant_id).limit(1).single()).data?.id;
-      if (!legal_entity_id) throw new Error('لا يوجد كيان قانوني — أنشئ من Finance Setup');
-      const { error } = await supabase.from('finance_projects').insert({
-        tenant_id,
-        legal_entity_id,
-        code: form.code.toUpperCase(),
-        name_ar: form.name_ar,
-        status: form.status,
-      });
-      if (error) throw error;
-      addToast('تم إنشاء المشروع', 'success');
-      setShow(false);
-      setForm({ code: '', name_ar: '', status: 'active' });
-      await load();
-    } catch (err) {
-      addToast(getErrorMessage(err), 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const filtered = rows.filter(r => `${r.code} ${r.name_ar}`.toLowerCase().includes(q.toLowerCase()));
-
-  return (
-    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
-      <div className="flex justify-between flex-wrap gap-3">
-        <div>
-          <p className="text-sm font-bold text-violet-700">Project Accounting — Wave 3 (Beta) — Real SDK ✅</p>
-          <h1 className="text-3xl font-black">محاسبة المشاريع</h1>
-          <p className="text-slate-500 mt-2">مشاريع + مراكز تكلفة + تخصيص تكاليف — من finance_projects و cost_centers.</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => void load()} className="border rounded-xl px-4 py-2 font-bold"><RefreshCw size={15} className="inline ml-1" />تحديث</button>
-          <button onClick={() => setShow(true)} className="bg-violet-600 text-white rounded-xl px-4 py-2 font-bold"><Plus size={15} className="inline ml-1" />مشروع جديد</button>
-        </div>
-      </div>
-
-      <label className="flex gap-2 border rounded-xl p-3 bg-white max-w-md"><Search size={16} /><input value={q} onChange={e => setQ(e.target.value)} placeholder="بحث بالكود أو الاسم..." className="w-full outline-none" /></label>
-
-      {loading ? <div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3" />جارٍ التحميل...</div> : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(r => (
-            <div key={r.id} className="bg-white border rounded-2xl p-5">
-              <div className="flex items-center gap-2"><FolderKanban size={18} className="text-violet-600" /><span className="font-mono font-bold text-sm">{r.code}</span><span className={`ml-auto text-xs px-2 py-1 rounded-full border ${r.status==='active' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-100'}`}>{r.status}</span></div>
-              <h3 className="font-black mt-3">{r.name_ar}</h3>
-              <p className="text-xs text-slate-400 mt-2">{new Date(r.created_at).toLocaleDateString('ar-EG')}</p>
-            </div>
-          ))}
-          {!filtered.length && <div className="col-span-full bg-white border border-dashed rounded-2xl p-16 text-center text-slate-500"><FolderKanban className="mx-auto mb-3 text-slate-300" />لا توجد مشاريع — أنشئ أول مشروع.</div>}
-        </div>
-      )}
-
-      {show && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" onClick={() => !saving && setShow(false)}><form onSubmit={submit} onClick={e => e.stopPropagation()} className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-3"><div className="flex justify-between items-center gap-3 flex-wrap"><h2 className="font-black text-xl">مشروع جديد</h2><button type="button" onClick={() => setShow(false)}><X /></button></div><div className="grid grid-cols-2 gap-3"><input required placeholder="كود المشروع *" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="border rounded-xl p-2.5" dir="ltr" /><select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className="border rounded-xl p-2.5"><option value="active">نشط</option><option value="on_hold">معلق</option><option value="closed">مقفل</option></select></div><input required placeholder="اسم المشروع بالعربية *" value={form.name_ar} onChange={e => setForm(f => ({ ...f, name_ar: e.target.value }))} className="w-full border rounded-xl p-2.5" /><button disabled={saving} className="w-full bg-violet-600 text-white rounded-xl py-3 font-bold">{saving ? 'جارٍ الحفظ...' : 'حفظ'}</button></form></div>}
-    </div>
-  );
+type Action={type:'status'|'snapshot';project:ProjectAccountingRecord};
+export default function ProjectAccountingPage(){
+ const {addToast}=useUIStore(); const [entities,setEntities]=useState<LegalEntityRecord[]>([]),[entityId,setEntityId]=useState(''),[projects,setProjects]=useState<ProjectAccountingRecord[]>([]),[budgetLines,setBudgetLines]=useState<ProjectBudgetLineRecord[]>([]),[snapshots,setSnapshots]=useState<ProjectActualSnapshotRecord[]>([]),[dashboard,setDashboard]=useState<ProjectAccountingDashboardRecord|null>(null),[accounts,setAccounts]=useState<FinancePostingAccountLookupRecord[]>([]),[costCenters,setCostCenters]=useState<CostCenterRecord[]>([]),[selectedId,setSelectedId]=useState(''),[loading,setLoading]=useState(true),[show,setShow]=useState(false),[showLine,setShowLine]=useState(false),[saving,setSaving]=useState(false),[q,setQ]=useState(''),[action,setAction]=useState<Action|null>(null),[reason,setReason]=useState(''),[status,setStatus]=useState<'active'|'on_hold'|'closed'|'archived'>('closed'),[asOf,setAsOf]=useState(new Date().toISOString().slice(0,10));
+ const [form,setForm]=useState({code:'',name_ar:'',name_en:'',project_type:'operational',budget_amount:'',billing_method:'none',start_date:'',end_date:''});
+ const [line,setLine]=useState({account_id:'',budget_amount:'',line_type:'cost',cost_center_id:'',period_start:'',period_end:'',notes:''});
+ const load=useCallback(async()=>{setLoading(true);try{const es=await legalEntityService.findActive();setEntities(es);const id=entityId||es[0]?.id||'';if(!entityId&&id)setEntityId(id);if(!id)return;const [ps,dash,acc,cc]=await Promise.all([projectAccountingService.findBoard(id),projectAccountingService.findDashboard(id),chartOfAccountService.findPostingLookup(id),financeCostCenterService.findAll({filters:{legal_entity_id:id,is_active:true},orderBy:'code'})]);setProjects(ps);setDashboard(dash[0]||null);setAccounts(acc);setCostCenters(cc);const pid=selectedId&&ps.some(p=>p.id===selectedId)?selectedId:ps[0]?.id||'';setSelectedId(pid);setBudgetLines(pid?await projectAccountingService.findBudgetLines(pid):[]);setSnapshots(pid?await projectAccountingService.findActuals(pid):[])}catch(e){addToast(`تعذر التحميل: ${getErrorMessage(e)}`,'error')}finally{setLoading(false)}},[addToast,entityId,selectedId]);
+ useEffect(()=>{void load()},[load]);
+ const submit=async(e:FormEvent)=>{e.preventDefault();if(!entityId)return;setSaving(true);try{const p=await projectAccountingService.upsertProject({legalEntityId:entityId,code:form.code,nameAr:form.name_ar,nameEn:form.name_en,projectType:form.project_type,budgetAmount:Number(form.budget_amount||0),billingMethod:form.billing_method,startDate:form.start_date||undefined,endDate:form.end_date||undefined});addToast('تم حفظ المشروع عبر RPC','success');setShow(false);setSelectedId(p.id);setForm({code:'',name_ar:'',name_en:'',project_type:'operational',budget_amount:'',billing_method:'none',start_date:'',end_date:''});await load()}catch(e){addToast(getErrorMessage(e),'error')}finally{setSaving(false)}};
+ const submitLine=async()=>{if(!selectedId||!line.account_id)return addToast('اختر المشروع والحساب','error');try{await projectAccountingService.upsertBudgetLine({projectId:selectedId,accountId:line.account_id,budgetAmount:Number(line.budget_amount||0),lineType:line.line_type as 'cost'|'revenue'|'capex',costCenterId:line.cost_center_id||undefined,periodStart:line.period_start||undefined,periodEnd:line.period_end||undefined,notes:line.notes});addToast('تم حفظ سطر موازنة المشروع','success');setShowLine(false);setLine({account_id:'',budget_amount:'',line_type:'cost',cost_center_id:'',period_start:'',period_end:'',notes:''});await load()}catch(e){addToast(getErrorMessage(e),'error')}};
+ const execute=async()=>{if(!action)return; if(action.type==='status'&&!reason.trim())return addToast('السبب مطلوب','error');try{if(action.type==='snapshot')await projectAccountingService.generateSnapshot(action.project.id,asOf);else await projectAccountingService.updateStatus(action.project.id,status,reason.trim());addToast('تم تنفيذ العملية','success');setAction(null);setReason('');await load()}catch(e){addToast(getErrorMessage(e),'error')}};
+ const filtered=projects.filter(p=>`${p.code} ${p.name_ar} ${p.status}`.toLowerCase().includes(q.toLowerCase()));
+ return <div className="space-y-5 max-w-[1700px] mx-auto" dir="rtl"><FinanceUnitNav unit="project"/><div className="flex justify-between flex-wrap gap-3"><div><p className="text-sm font-bold text-violet-700">Finance Unit 12 · Project Accounting</p><h1 className="text-3xl font-black">محاسبة المشاريع</h1><p className="text-slate-500 mt-2">مشاريع، موازنات، actuals من القيود، وSnapshots.</p></div><div className="flex gap-2"><button onClick={()=>void load()} className="border rounded-xl px-4 py-2 font-bold bg-white"><RefreshCw size={15} className="inline ml-1"/>تحديث</button><button onClick={()=>setShow(true)} className="bg-violet-600 text-white rounded-xl px-4 py-2 font-bold"><Plus size={15} className="inline ml-1"/>مشروع جديد</button><button onClick={()=>setShowLine(true)} disabled={!selectedId} className="bg-slate-900 text-white rounded-xl px-4 py-2 font-bold disabled:opacity-50">سطر موازنة</button></div></div>
+ <section className="grid md:grid-cols-5 gap-3"><Metric title="نشطة" value={dashboard?.active_projects||0}/><Metric title="معلقة" value={dashboard?.on_hold_projects||0}/><Metric title="مغلقة" value={dashboard?.closed_projects||0}/><Metric title="موازنة" value={Number(dashboard?.project_budget_total||0).toLocaleString()}/><Metric title="Actual Cost" value={Number(dashboard?.latest_actual_cost||0).toLocaleString()}/></section>
+ <div className="grid md:grid-cols-2 gap-3"><select value={entityId} onChange={e=>setEntityId(e.target.value)} className="border rounded-xl p-3 bg-white">{entities.map(e=><option key={e.id} value={e.id}>{e.code} — {e.name_ar}</option>)}</select><label className="flex gap-2 border rounded-xl p-3 bg-white"><Search size={16}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="بحث بالكود أو الاسم..." className="w-full outline-none"/></label></div>
+ {loading?<div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3"/>جارٍ التحميل...</div>:<section className="grid xl:grid-cols-[1fr_430px] gap-4"><div className="bg-white border rounded-2xl overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="p-3 text-right">الكود</th><th className="p-3 text-right">المشروع</th><th className="p-3 text-right">النوع</th><th className="p-3 text-right">الموازنة</th><th className="p-3 text-right">Actual</th><th className="p-3 text-right">الحالة</th><th className="p-3"/></tr></thead><tbody className="divide-y">{filtered.map(p=><tr key={p.id} className={selectedId===p.id?'bg-violet-50/50':''}><td className="p-3"><button onClick={()=>setSelectedId(p.id)} className="font-mono font-bold text-violet-700">{p.code}</button></td><td className="p-3">{p.name_ar}</td><td className="p-3">{p.project_type}</td><td className="p-3 font-black">{Number(p.budget_amount||p.budget_lines_total||0).toLocaleString()}</td><td className="p-3">{Number(p.latest_actual_cost||0).toLocaleString()}</td><td className="p-3">{p.status}</td><td className="p-3"><div className="flex gap-2 flex-wrap"><button onClick={()=>{setAction({type:'snapshot',project:p});setAsOf(new Date().toISOString().slice(0,10))}} className="text-blue-700 font-bold">Snapshot</button>{!['closed','archived'].includes(p.status)&&<button onClick={()=>{setAction({type:'status',project:p});setStatus('closed');setReason('')}} className="text-rose-700 font-bold">حالة</button>}</div></td></tr>)}{!filtered.length&&<tr><td colSpan={7} className="p-16 text-center text-slate-500"><FolderKanban className="mx-auto mb-3 text-slate-300"/>لا توجد مشاريع.</td></tr>}</tbody></table></div><aside className="bg-white border rounded-2xl p-5"><h2 className="font-black">موازنة وActuals</h2><div className="space-y-2 mt-3"><h3 className="font-bold text-sm">سطور الموازنة</h3>{budgetLines.map(l=><div key={l.id} className="bg-slate-50 border rounded-xl p-3 text-sm"><b>{l.account_code} — {l.account_name}</b><p>{l.line_type} · {Number(l.budget_amount).toLocaleString()}</p><p className="text-xs text-slate-400">{l.cost_center_code||'بدون مركز'}</p></div>)}<h3 className="font-bold text-sm pt-3">Snapshots</h3>{snapshots.map(s=><div key={s.id} className="bg-slate-50 border rounded-xl p-3 text-sm"><b>{s.as_of_date}</b><p>Cost {Number(s.actual_cost).toLocaleString()} · Revenue {Number(s.actual_revenue).toLocaleString()}</p><p className="text-xs text-slate-400">Variance {Number(s.variance_amount).toLocaleString()}</p></div>)}</div></aside></section>}
+ {show&&<Modal title="مشروع جديد" onClose={()=>setShow(false)}><form onSubmit={submit} className="space-y-3"><div className="grid grid-cols-2 gap-3"><input required placeholder="الكود" value={form.code} onChange={e=>setForm(f=>({...f,code:e.target.value.toUpperCase()}))} className="border rounded-xl p-2.5"/><input required placeholder="الاسم" value={form.name_ar} onChange={e=>setForm(f=>({...f,name_ar:e.target.value}))} className="border rounded-xl p-2.5"/></div><div className="grid grid-cols-3 gap-3"><select value={form.project_type} onChange={e=>setForm(f=>({...f,project_type:e.target.value}))} className="border rounded-xl p-2.5"><option value="operational">Operational</option><option value="capex">Capex</option><option value="customer">Customer</option><option value="internal">Internal</option></select><select value={form.billing_method} onChange={e=>setForm(f=>({...f,billing_method:e.target.value}))} className="border rounded-xl p-2.5"><option value="none">None</option><option value="fixed_fee">Fixed Fee</option><option value="time_material">T&M</option><option value="milestone">Milestone</option></select><input type="number" placeholder="الموازنة" value={form.budget_amount} onChange={e=>setForm(f=>({...f,budget_amount:e.target.value}))} className="border rounded-xl p-2.5"/></div><button className="w-full bg-violet-600 text-white rounded-xl py-3 font-bold">حفظ</button></form></Modal>}
+ {showLine&&<Modal title="سطر موازنة مشروع" onClose={()=>setShowLine(false)}><div className="space-y-3"><select value={line.account_id} onChange={e=>setLine(f=>({...f,account_id:e.target.value}))} className="w-full border rounded-xl p-2.5"><option value="">حساب</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.code} — {a.display_name}</option>)}</select><div className="grid grid-cols-3 gap-3"><select value={line.line_type} onChange={e=>setLine(f=>({...f,line_type:e.target.value}))} className="border rounded-xl p-2.5"><option value="cost">Cost</option><option value="revenue">Revenue</option><option value="capex">Capex</option></select><input type="number" placeholder="المبلغ" value={line.budget_amount} onChange={e=>setLine(f=>({...f,budget_amount:e.target.value}))} className="border rounded-xl p-2.5"/><select value={line.cost_center_id} onChange={e=>setLine(f=>({...f,cost_center_id:e.target.value}))} className="border rounded-xl p-2.5"><option value="">مركز</option>{costCenters.map(c=><option key={c.id} value={c.id}>{c.code}</option>)}</select></div><button onClick={()=>void submitLine()} className="w-full bg-slate-900 text-white rounded-xl py-3 font-bold">حفظ</button></div></Modal>}
+ {action&&<Modal title={action.type==='snapshot'?'توليد Snapshot':'تغيير حالة المشروع'} onClose={()=>setAction(null)}>{action.type==='snapshot'&&<input type="date" value={asOf} onChange={e=>setAsOf(e.target.value)} className="w-full border rounded-xl p-3"/>}{action.type==='status'&&<><select value={status} onChange={e=>setStatus(e.target.value as typeof status)} className="w-full border rounded-xl p-3 mb-3"><option value="active">Active</option><option value="on_hold">On Hold</option><option value="closed">Closed</option><option value="archived">Archived</option></select><textarea value={reason} onChange={e=>setReason(e.target.value)} className="w-full min-h-28 border rounded-xl p-3" placeholder="سبب إلزامي..."/></>}<button disabled={action.type==='status'&&!reason.trim()} onClick={()=>void execute()} className="w-full bg-violet-600 text-white rounded-xl py-3 font-bold mt-3 disabled:opacity-50">تنفيذ</button></Modal>}
+ </div>;
 }
+function Metric({title,value}:{title:string;value:ReactNode}){return <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black">{value}</p><p className="text-sm font-bold text-slate-500 mt-1">{title}</p></div>}
+function Modal({title,children,onClose}:{title:string;children:ReactNode;onClose:()=>void}){return <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4"><div className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-4"><div className="flex justify-between"><h2 className="font-black text-xl">{title}</h2><button onClick={onClose}><X/></button></div>{children}</div></div>}

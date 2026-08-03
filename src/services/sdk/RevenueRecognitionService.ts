@@ -1,8 +1,22 @@
 import { BaseService } from './BaseService';
-class RevenueRecognitionService extends BaseService<any> {
-  constructor() { super('revenue_contracts'); }
-  async findActive() { return this.findAll({ filters: { status: 'active' }, orderBy: 'contract_start', ascending: false }); }
-  async createContract(data: Partial<any>) { return this.create(data); }
-  async completeContract(id: string) { return this.update(id, { status: 'completed' }); }
+import { supabase } from '../supabase/supabase';
+
+export interface RevenueContractRecord { id:string; tenant_id:string; legal_entity_id:string; contract_number:string; customer_name?:string|null; customer_id?:string|null; total_amount:number; recognized_amount:number; contract_start:string; contract_end?:string|null; recognition_method:'straight_line'|'milestone'|'usage_based'; currency_code:string; status:'draft'|'active'|'completed'|'cancelled'|'voided'; created_at:string; }
+export interface RevenueContractBoardRecord extends RevenueContractRecord { entity_code?:string; entity_name?:string; schedule_count:number; recognized_schedule_count:number; schedule_recognized_total:number; }
+export interface RevenueScheduleRecord { id:string; contract_id:string; tenant_id:string; legal_entity_id:string; period_start:string; period_end:string; recognized_amount:number; cumulative_amount:number; status:'scheduled'|'recognized'|'adjusted'|'voided'; recognized_at?:string|null; contract_number?:string; customer_name?:string|null; recognition_method?:string; }
+export interface RevenueDashboardRecord { tenant_id:string; legal_entity_id:string; entity_code:string; entity_name:string; active_contracts:number; completed_contracts:number; contracted_revenue:number; recognized_revenue:number; scheduled_lines:number; }
+
+class RevenueRecognitionService extends BaseService<RevenueContractRecord> {
+  constructor(){ super('revenue_contracts'); }
+  async findActive(){ return this.findAll({ filters: { status: 'active' }, orderBy: 'contract_start', ascending: false }); }
+  async findBoard(legalEntityId:string): Promise<RevenueContractBoardRecord[]> { const {data,error}=await supabase.from('finance_revenue_contract_board').select('*').eq('legal_entity_id',legalEntityId).order('contract_start',{ascending:false}); if(error) throw new Error(error.message); return (data||[]) as RevenueContractBoardRecord[]; }
+  async findDashboard(legalEntityId?:string): Promise<RevenueDashboardRecord[]> { let q=supabase.from('finance_revenue_dashboard').select('*').order('entity_code'); if(legalEntityId) q=q.eq('legal_entity_id',legalEntityId); const {data,error}=await q; if(error) throw new Error(error.message); return (data||[]) as RevenueDashboardRecord[]; }
+  async findSchedule(contractId:string): Promise<RevenueScheduleRecord[]> { const {data,error}=await supabase.from('finance_revenue_schedule_board').select('*').eq('contract_id',contractId).order('period_start'); if(error) throw new Error(error.message); return (data||[]) as RevenueScheduleRecord[]; }
+  async upsertContract(input:{legalEntityId:string; contractNumber:string; customerName?:string; customerId?:string; totalAmount:number; contractStart:string; contractEnd?:string; recognitionMethod?:string; currencyCode?:string; contractId?:string|null}): Promise<RevenueContractRecord>{ const {data,error}=await supabase.rpc('upsert_finance_revenue_contract',{p_legal_entity_id:input.legalEntityId,p_contract_number:input.contractNumber,p_customer_name:input.customerName||null,p_total_amount:input.totalAmount,p_contract_start:input.contractStart,p_contract_end:input.contractEnd||null,p_recognition_method:input.recognitionMethod||'straight_line',p_currency_code:input.currencyCode||null,p_customer_id:input.customerId||null,p_contract_id:input.contractId||null}); if(error) throw new Error(error.message); return data as RevenueContractRecord; }
+  async generateSchedule(contractId:string): Promise<RevenueScheduleRecord[]> { const {data,error}=await supabase.rpc('generate_revenue_recognition_schedule',{p_contract_id:contractId}); if(error) throw new Error(error.message); return (data||[]) as RevenueScheduleRecord[]; }
+  async recognizeLine(scheduleId:string,reason:string): Promise<RevenueScheduleRecord>{ const {data,error}=await supabase.rpc('recognize_revenue_schedule_line',{p_schedule_id:scheduleId,p_reason:reason}); if(error) throw new Error(error.message); return data as RevenueScheduleRecord; }
+  async updateStatus(contractId:string,status:'active'|'completed'|'cancelled'|'voided',reason:string): Promise<RevenueContractRecord>{ const {data,error}=await supabase.rpc('update_revenue_contract_status',{p_contract_id:contractId,p_status:status,p_reason:reason}); if(error) throw new Error(error.message); return data as RevenueContractRecord; }
+  async createContract(data: Partial<RevenueContractRecord>) { return this.upsertContract({ legalEntityId: String(data.legal_entity_id), contractNumber: String(data.contract_number), customerName: data.customer_name || undefined, totalAmount: Number(data.total_amount || 0), contractStart: String(data.contract_start), contractEnd: data.contract_end || undefined, recognitionMethod: data.recognition_method }); }
+  async completeContract(id: string) { return this.updateStatus(id,'completed','إكمال عقد الإيراد'); }
 }
 export const revenueRecognitionService = new RevenueRecognitionService();

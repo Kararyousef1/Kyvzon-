@@ -21,6 +21,18 @@
 
 @layer components {
 
+  /* شريط تنقل وحدات المالية: إخفاء شريط التمرير مع إبقاء التمرير فعالاً */
+  .finance-nav-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .finance-nav-scroll::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
   .card {
     background: white;
     border-radius: 1rem;

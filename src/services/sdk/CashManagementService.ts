@@ -1,6 +1,9 @@
-import { BaseService } from './BaseService';
-class CashManagementService extends BaseService<any> {
-  constructor() { super('bank_accounts'); }
-  async getBalance() { const all = await this.findAll(); return all.reduce((s,a:any)=>s+(a.balance||0),0); }
-}
-export const cashManagementService = new CashManagementService();
+import { bankAccountService, cashBankDashboardService } from './BankStatementImportService';
+
+export const cashManagementService = {
+  async getBalance(legalEntityId?: string): Promise<number> {
+    const rows = await cashBankDashboardService.find(legalEntityId);
+    return rows.reduce((sum, row) => sum + Number(row.total_cash_balance || 0), 0);
+  },
+  findBankAccounts: bankAccountService.findBoard.bind(bankAccountService),
+};

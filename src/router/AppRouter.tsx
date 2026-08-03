@@ -62,11 +62,30 @@ const ChartOfAccountsPage   = lazy(() => import('../pages/app/finance/ChartOfAcc
 const JournalEntriesPage    = lazy(() => import('../pages/app/finance/JournalEntriesPage'));
 const TrialBalancePage      = lazy(() => import('../pages/app/finance/TrialBalancePage'));
 const FinanceSetupPage      = lazy(() => import('../pages/app/finance/FinanceSetupPage'));
+const FinanceFoundationDashboardPage = lazy(() => import('../pages/app/finance/FinanceFoundationDashboard'));
+const MultiEntityPage       = lazy(() => import('../pages/app/finance/MultiEntityPage'));
+const EntityMembershipsPage = lazy(() => import('../pages/app/finance/EntityMembershipsPage'));
+const CostCentersPage       = lazy(() => import('../pages/app/finance/CostCentersPage'));
+const FinanceProjectsPage   = lazy(() => import('../pages/app/finance/FinanceProjectsPage'));
+const ExchangeRatesPage     = lazy(() => import('../pages/app/finance/ExchangeRatesPage'));
+const SystemNotesPage       = lazy(() => import('../pages/app/finance/SystemNotesPage'));
+const CashManagementPage    = lazy(() => import('../pages/app/finance/CashManagementPage'));
+const BankStatementImportPage = lazy(() => import('../pages/app/finance/BankStatementImportPage'));
+const CashForecastPage      = lazy(() => import('../pages/app/finance/CashForecastPage'));
+const TaxManagementPage     = lazy(() => import('../pages/app/finance/TaxManagementPage'));
+const BudgetPage            = lazy(() => import('../pages/app/finance/BudgetPage'));
+const AdvancedVariancePage  = lazy(() => import('../pages/app/finance/AdvancedVariancePage'));
+const FixedAssetsPage       = lazy(() => import('../pages/app/finance/FixedAssetsPage'));
+const RevenueRecognitionPage = lazy(() => import('../pages/app/finance/RevenueRecognitionPage'));
+const IntercompanyPage     = lazy(() => import('../pages/app/finance/IntercompanyPage'));
+const ProjectAccountingPage = lazy(() => import('../pages/app/finance/ProjectAccountingPage'));
+const FinanceIntegrationsPage = lazy(() => import('../pages/app/finance/FinanceIntegrationsPage'));
 const AccountingPeriodsPage = lazy(() => import('../pages/app/finance/AccountingPeriodsPage'));
 const GeneralLedgerPage     = lazy(() => import('../pages/app/finance/GeneralLedgerPage'));
 const FinancialReportsPage  = lazy(() => import('../pages/app/finance/FinancialReportsPage'));
 const VendorsPage           = lazy(() => import('../pages/app/finance/VendorsPage'));
 const AccountsPayablePage   = lazy(() => import('../pages/app/finance/AccountsPayablePage'));
+const AccountsReceivablePage = lazy(() => import('../pages/app/finance/AccountsReceivablePage'));
 const APAgingPage           = lazy(() => import('../pages/app/finance/APAgingPage'));
 const VendorPaymentsPage    = lazy(() => import('../pages/app/finance/VendorPaymentsPage'));
 
@@ -1210,12 +1229,31 @@ export function AppRoutes() {
               <Route path="chart-of-accounts" element={<ChartOfAccountsPage />} />
               <Route path="journal-entries" element={<JournalEntriesPage />} />
               <Route path="trial-balance" element={<TrialBalancePage />} />
+              <Route path="foundation" element={<FinanceFoundationDashboardPage />} />
               <Route path="setup" element={<FinanceSetupPage />} />
+              <Route path="multi-entity" element={<MultiEntityPage />} />
+              <Route path="entity-memberships" element={<EntityMembershipsPage />} />
+              <Route path="cost-centers" element={<CostCentersPage />} />
+              <Route path="projects" element={<FinanceProjectsPage />} />
+              <Route path="exchange-rates" element={<ExchangeRatesPage />} />
+              <Route path="system-notes" element={<SystemNotesPage />} />
+              <Route path="cash-management" element={<CashManagementPage />} />
+              <Route path="bank-statement-import" element={<BankStatementImportPage />} />
+              <Route path="cash-forecast" element={<CashForecastPage />} />
+              <Route path="tax-management" element={<TaxManagementPage />} />
+              <Route path="budget" element={<BudgetPage />} />
+              <Route path="budget-variance" element={<AdvancedVariancePage />} />
+              <Route path="fixed-assets" element={<FixedAssetsPage />} />
+              <Route path="revenue-recognition" element={<RevenueRecognitionPage />} />
+              <Route path="intercompany" element={<IntercompanyPage />} />
+              <Route path="project-accounting" element={<ProjectAccountingPage />} />
+              <Route path="integrations" element={<FinanceIntegrationsPage />} />
               <Route path="accounting-periods" element={<AccountingPeriodsPage />} />
               <Route path="general-ledger" element={<GeneralLedgerPage />} />
               <Route path="reports" element={<FinancialReportsPage />} />
               <Route path="vendors" element={<VendorsPage />} />
               <Route path="accounts-payable" element={<AccountsPayablePage />} />
+              <Route path="accounts-receivable" element={<AccountsReceivablePage />} />
               <Route path="accounts-payable/aging" element={<APAgingPage />} />
               <Route path="vendor-payments" element={<VendorPaymentsPage />} />
             </Route>

@@ -1,85 +1,34 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Calculator, Loader2, Plus, RefreshCw, Search, X, TrendingUp, BarChart3 } from 'lucide-react';
-import { budgetService, type BudgetRecord } from '../../../services/sdk/BudgetService';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { BarChart3, Calculator, Loader2, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { budgetService, type BudgetBoardRecord, type BudgetDashboardRecord, type BudgetLineBoardRecord } from '../../../services/sdk/BudgetService';
+import { chartOfAccountService, type FinancePostingAccountLookupRecord } from '../../../services/sdk/ChartOfAccountService';
+import { currencyService, financeCostCenterService, financeProjectService, legalEntityService, type CostCenterRecord, type CurrencyRecord, type FinanceProjectRecord, type LegalEntityRecord } from '../../../services/sdk/FinanceFoundationService';
 import { getErrorMessage } from '../../../services/errors';
 import { useUIStore } from '../../../core/stores';
+import { FinanceUnitNav } from './shared/FinanceUnitNav';
 
-export default function BudgetPage() {
-  const { addToast } = useUIStore();
-  const [budgets, setBudgets] = useState<BudgetRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [show, setShow] = useState(false);
-  const [q, setQ] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ budget_name: '', fiscal_year: new Date().getFullYear(), start_date: '', end_date: '', status: 'draft' as const });
+type DraftLine = { key:string; account_id:string; budget_amount:number; forecast_amount:number; period_start:string; period_end:string; cost_center_id:string; project_id:string; notes:string };
+type Action = { type:'submitted'|'approved'|'closed'|'voided'; budget:BudgetBoardRecord };
+const emptyLine=():DraftLine=>({key:crypto.randomUUID(),account_id:'',budget_amount:0,forecast_amount:0,period_start:'',period_end:'',cost_center_id:'',project_id:'',notes:''});
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const rows = await budgetService.findAll({ orderBy: 'fiscal_year', ascending: false });
-      setBudgets(rows as any);
-    } catch (e) {
-      addToast(`تعذر التحميل: ${getErrorMessage(e)}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await (budgetService as any).create({
-        budget_name: form.budget_name,
-        fiscal_year: Number(form.fiscal_year),
-        start_date: form.start_date || null,
-        end_date: form.end_date || null,
-        status: form.status,
-      });
-      addToast('تم إنشاء الموازنة', 'success');
-      setShow(false);
-      setForm({ budget_name: '', fiscal_year: new Date().getFullYear(), start_date: '', end_date: '', status: 'draft' });
-      await load();
-    } catch (err) {
-      addToast(getErrorMessage(err), 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const filtered = budgets.filter(b => b.budget_name.toLowerCase().includes(q.toLowerCase()));
-
-  return (
-    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
-      <div className="flex justify-between flex-wrap gap-3">
-        <div>
-          <p className="text-sm font-bold text-indigo-700">Budget — Wave 6 (Beta) — Real SDK ✅</p>
-          <h1 className="text-3xl font-black">الموازنات</h1>
-          <p className="text-slate-500 mt-2">إدارة الموازنات السنوية مع حالات draft/approved/closed — مرتبطة بـ budget_lines و variance.</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => void load()} className="border rounded-xl px-4 py-2 font-bold"><RefreshCw size={15} className="inline ml-1" />تحديث</button>
-          <button onClick={() => setShow(true)} className="bg-indigo-600 text-white rounded-xl px-4 py-2 font-bold"><Plus size={15} className="inline ml-1" />موازنة جديدة</button>
-        </div>
-      </div>
-
-      <label className="flex gap-2 border rounded-xl p-3 bg-white max-w-md"><Search size={16} /><input value={q} onChange={e => setQ(e.target.value)} placeholder="بحث باسم الموازنة..." className="w-full outline-none" /></label>
-
-      {loading ? <div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3" />جارٍ التحميل عبر SDK...</div> : (
-        <div className="bg-white border rounded-2xl overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="p-3 text-right">الاسم</th><th className="p-3 text-right">السنة</th><th className="p-3 text-right">البداية</th><th className="p-3 text-right">النهاية</th><th className="p-3 text-right">الحالة</th><th className="p-3 text-right">إجراءات</th></tr></thead>
-            <tbody className="divide-y">
-              {filtered.map(b => <tr key={b.id}><td className="p-3 font-bold">{b.budget_name}</td><td className="p-3 font-mono">{b.fiscal_year}</td><td className="p-3">{b.start_date || '—'}</td><td className="p-3">{b.end_date || '—'}</td><td className="p-3"><span className="px-2 py-1 bg-slate-100 rounded-full text-xs font-bold">{b.status}</span></td><td className="p-3"><button className="text-indigo-600 text-xs font-bold flex gap-1"><BarChart3 size={12} /> تباين</button></td></tr>)}
-              {!filtered.length && <tr><td colSpan={6} className="p-16 text-center text-slate-500"><Calculator className="mx-auto mb-3 text-slate-300" />لا توجد موازنات — أنشئ أول موازنة عبر SDK حقيقي.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {show && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" onClick={() => !saving && setShow(false)}><form onSubmit={submit} onClick={e => e.stopPropagation()} className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-3"><div className="flex justify-between items-center gap-3 flex-wrap"><h2 className="font-black text-xl">موازنة جديدة — SDK</h2><button type="button" onClick={() => setShow(false)}><X /></button></div><input required placeholder="اسم الموازنة *" value={form.budget_name} onChange={e => setForm(f => ({ ...f, budget_name: e.target.value }))} className="w-full border rounded-xl p-2.5" /><div className="grid grid-cols-2 gap-3"><input required type="number" placeholder="السنة المالية" value={form.fiscal_year} onChange={e => setForm(f => ({ ...f, fiscal_year: Number(e.target.value) }))} className="border rounded-xl p-2.5" /><select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as any }))} className="border rounded-xl p-2.5"><option value="draft">مسودة</option><option value="approved">معتمدة</option><option value="closed">مقفلة</option></select></div><div className="grid grid-cols-2 gap-3"><input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} className="border rounded-xl p-2.5" /><input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} className="border rounded-xl p-2.5" /></div><button disabled={saving} className="w-full bg-indigo-600 text-white rounded-xl py-3 font-bold">{saving ? 'جارٍ الحفظ...' : 'حفظ عبر SDK'}</button><p className="text-[11px] text-slate-400 text-center">يُحفظ في budgets مع tenant_id تلقائي + RLS</p></form></div>}
-    </div>
-  );
+export default function BudgetPage(){
+ const {addToast}=useUIStore(); const [entities,setEntities]=useState<LegalEntityRecord[]>([]),[entityId,setEntityId]=useState(''),[currencies,setCurrencies]=useState<CurrencyRecord[]>([]),[budgets,setBudgets]=useState<BudgetBoardRecord[]>([]),[budgetLines,setBudgetLines]=useState<BudgetLineBoardRecord[]>([]),[dashboard,setDashboard]=useState<BudgetDashboardRecord|null>(null),[accounts,setAccounts]=useState<FinancePostingAccountLookupRecord[]>([]),[costCenters,setCostCenters]=useState<CostCenterRecord[]>([]),[projects,setProjects]=useState<FinanceProjectRecord[]>([]),[selectedId,setSelectedId]=useState(''),[loading,setLoading]=useState(true),[show,setShow]=useState(false),[q,setQ]=useState(''),[saving,setSaving]=useState(false),[action,setAction]=useState<Action|null>(null),[reason,setReason]=useState('');
+ const [form,setForm]=useState({budget_name:'',fiscal_year:new Date().getFullYear(),start_date:'',end_date:'',currency_code:'IQD',description:''}); const [lines,setLines]=useState<DraftLine[]>([emptyLine()]);
+ const load=useCallback(async()=>{setLoading(true);try{const [es,cs]=await Promise.all([legalEntityService.findActive(),currencyService.findActive()]);setEntities(es);setCurrencies(cs);const id=entityId||es[0]?.id||'';if(!entityId&&id)setEntityId(id);if(!id)return;const [b,d,a,cc,pr]=await Promise.all([budgetService.findBoard(id),budgetService.findDashboard(id),chartOfAccountService.findPostingLookup(id),financeCostCenterService.findAll({filters:{legal_entity_id:id,is_active:true},orderBy:'code'}),financeProjectService.findAll({filters:{legal_entity_id:id,status:'active'},orderBy:'code'})]);setBudgets(b);setDashboard(d[0]||null);setAccounts(a);setCostCenters(cc);setProjects(pr);const bid=selectedId&&b.some(x=>x.id===selectedId)?selectedId:b[0]?.id||'';setSelectedId(bid);setBudgetLines(bid?await budgetService.findLines(bid):[])}catch(e){addToast(`تعذر التحميل: ${getErrorMessage(e)}`,'error')}finally{setLoading(false)}},[addToast,entityId,selectedId]);
+ useEffect(()=>{void load()},[load]);
+ const total=useMemo(()=>lines.reduce((s,l)=>s+Number(l.budget_amount||0),0),[lines]); const filtered=budgets.filter(b=>`${b.budget_name} ${b.status}`.toLowerCase().includes(q.toLowerCase()));
+ const updateLine=(key:string,patch:Partial<DraftLine>)=>setLines(cur=>cur.map(l=>l.key===key?{...l,...patch}:l));
+ const submit=async(e:FormEvent)=>{e.preventDefault();if(!entityId||!form.budget_name.trim()||!lines.every(l=>l.account_id&&Number(l.budget_amount)>=0))return addToast('أكمل الموازنة والسطور','error');setSaving(true);try{const b=await budgetService.upsertBudget({legalEntityId:entityId,budgetName:form.budget_name,fiscalYear:Number(form.fiscal_year),startDate:form.start_date||undefined,endDate:form.end_date||undefined,currencyCode:form.currency_code,description:form.description});for(const l of lines){await budgetService.upsertLine({budgetId:b.id,accountId:l.account_id,budgetAmount:Number(l.budget_amount),forecastAmount:Number(l.forecast_amount||0),periodStart:l.period_start||undefined,periodEnd:l.period_end||undefined,costCenterId:l.cost_center_id||undefined,projectId:l.project_id||undefined,notes:l.notes||undefined});}addToast('تم حفظ الموازنة والسطور عبر RPC','success');setShow(false);setSelectedId(b.id);setLines([emptyLine()]);setForm({budget_name:'',fiscal_year:new Date().getFullYear(),start_date:'',end_date:'',currency_code:'IQD',description:''});await load()}catch(e){addToast(getErrorMessage(e),'error')}finally{setSaving(false)}};
+ const execute=async()=>{if(!action||!reason.trim())return addToast('السبب مطلوب للتدقيق','error');try{await budgetService.updateStatus(action.budget.id,action.type,reason.trim());addToast('تم تحديث حالة الموازنة','success');setAction(null);setReason('');await load()}catch(e){addToast(getErrorMessage(e),'error')}};
+ return <div className="space-y-5 max-w-[1700px] mx-auto" dir="rtl"><FinanceUnitNav unit="budget"/><div className="flex justify-between flex-wrap gap-3"><div><p className="text-sm font-bold text-indigo-700">Finance Unit 08 · Budgeting</p><h1 className="text-3xl font-black">الموازنات والتخطيط</h1><p className="text-slate-500 mt-2">موازنات بسطور وأبعاد ودورة اعتماد وتدقيق.</p></div><div className="flex gap-2"><button onClick={()=>void load()} className="border rounded-xl px-4 py-2 font-bold bg-white"><RefreshCw size={15} className="inline ml-1"/>تحديث</button><button onClick={()=>setShow(true)} className="bg-indigo-600 text-white rounded-xl px-4 py-2 font-bold"><Plus size={15} className="inline ml-1"/>موازنة جديدة</button></div></div>
+ <section className="grid md:grid-cols-5 gap-3"><Metric title="مسودات" value={dashboard?.draft_budgets||0}/><Metric title="مرسلة" value={dashboard?.submitted_budgets||0}/><Metric title="معتمدة" value={dashboard?.approved_budgets||0}/><Metric title="إجمالي معتمد" value={Number(dashboard?.approved_budget_total||0).toLocaleString()}/><Metric title="Forecast معتمد" value={dashboard?.approved_forecasts||0}/></section>
+ <div className="grid md:grid-cols-2 gap-3"><select value={entityId} onChange={e=>setEntityId(e.target.value)} className="border rounded-xl p-3 bg-white">{entities.map(e=><option key={e.id} value={e.id}>{e.code} — {e.name_ar}</option>)}</select><label className="flex gap-2 border rounded-xl p-3 bg-white"><Search size={16}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="بحث باسم الموازنة..." className="w-full outline-none"/></label></div>
+ {loading?<div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3"/>جارٍ التحميل...</div>:<section className="grid xl:grid-cols-[1fr_420px] gap-4"><div className="bg-white border rounded-2xl overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="p-3 text-right">الاسم</th><th className="p-3 text-right">السنة</th><th className="p-3 text-right">الإجمالي</th><th className="p-3 text-right">السطور</th><th className="p-3 text-right">الحالة</th><th className="p-3"/></tr></thead><tbody className="divide-y">{filtered.map(b=><tr key={b.id} className={selectedId===b.id?'bg-indigo-50/50':''}><td className="p-3"><button onClick={()=>setSelectedId(b.id)} className="font-bold text-indigo-700">{b.budget_name}</button></td><td className="p-3 font-mono">{b.fiscal_year}</td><td className="p-3 font-black">{Number(b.total_budget).toLocaleString()}</td><td className="p-3">{b.line_count}</td><td className="p-3">{b.status}</td><td className="p-3"><Actions budget={b} onAction={(type)=>{setAction({type,budget:b});setReason('')}}/></td></tr>)}{!filtered.length&&<tr><td colSpan={6} className="p-16 text-center text-slate-500"><Calculator className="mx-auto mb-3 text-slate-300"/>لا توجد موازنات.</td></tr>}</tbody></table></div><aside className="bg-white border rounded-2xl p-5"><h2 className="font-black">سطور الموازنة</h2><div className="space-y-2 mt-3">{budgetLines.map(l=><div key={l.id} className="bg-slate-50 border rounded-xl p-3 text-sm"><b>{l.account_code} — {l.account_name}</b><p>موازنة: {Number(l.budget_amount).toLocaleString()} · Forecast: {Number(l.forecast_amount).toLocaleString()}</p><p className="text-[11px] text-slate-400">{l.cost_center_code||'بدون مركز'} · {l.project_code||'بدون مشروع'}</p></div>)}</div></aside></section>}
+ {show&&<div className="fixed inset-0 z-50 bg-slate-950/50 p-4 overflow-y-auto"><form onSubmit={submit} className="max-w-5xl mx-auto bg-white rounded-2xl p-6 space-y-4"><div className="flex justify-between"><h2 className="font-black text-xl">موازنة جديدة</h2><button type="button" onClick={()=>setShow(false)}><X/></button></div><div className="grid md:grid-cols-3 gap-3"><Input label="اسم الموازنة"><input required value={form.budget_name} onChange={e=>setForm(f=>({...f,budget_name:e.target.value}))}/></Input><Input label="السنة"><input type="number" value={form.fiscal_year} onChange={e=>setForm(f=>({...f,fiscal_year:Number(e.target.value)}))}/></Input><Input label="العملة"><select value={form.currency_code} onChange={e=>setForm(f=>({...f,currency_code:e.target.value}))}>{currencies.map(c=><option key={c.code}>{c.code}</option>)}</select></Input><Input label="من"><input type="date" value={form.start_date} onChange={e=>setForm(f=>({...f,start_date:e.target.value}))}/></Input><Input label="إلى"><input type="date" value={form.end_date} onChange={e=>setForm(f=>({...f,end_date:e.target.value}))}/></Input><Input label="وصف"><input value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))}/></Input></div><div className="border rounded-xl overflow-x-auto"><table className="w-full text-sm"><tbody>{lines.map(l=><tr key={l.key} className="border-t"><td className="p-2"><select value={l.account_id} onChange={e=>updateLine(l.key,{account_id:e.target.value})} className="w-64 border rounded p-2"><option value="">حساب</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.code} — {a.display_name}</option>)}</select></td><td className="p-2"><select value={l.cost_center_id} onChange={e=>updateLine(l.key,{cost_center_id:e.target.value})} className="border rounded p-2"><option value="">مركز</option>{costCenters.map(c=><option key={c.id} value={c.id}>{c.code}</option>)}</select></td><td className="p-2"><select value={l.project_id} onChange={e=>updateLine(l.key,{project_id:e.target.value})} className="border rounded p-2"><option value="">مشروع</option>{projects.map(p=><option key={p.id} value={p.id}>{p.code}</option>)}</select></td><td className="p-2"><input type="number" min="0" placeholder="الموازنة" value={l.budget_amount||''} onChange={e=>updateLine(l.key,{budget_amount:Number(e.target.value)})} className="w-32 border rounded p-2"/></td><td className="p-2"><input type="number" min="0" placeholder="Forecast" value={l.forecast_amount||''} onChange={e=>updateLine(l.key,{forecast_amount:Number(e.target.value)})} className="w-32 border rounded p-2"/></td><td>{lines.length>1&&<button type="button" onClick={()=>setLines(x=>x.filter(y=>y.key!==l.key))} className="text-rose-600"><Trash2 size={15}/></button>}</td></tr>)}</tbody></table></div><button type="button" onClick={()=>setLines(x=>[...x,emptyLine()])} className="text-indigo-700 font-bold"><Plus size={15} className="inline ml-1"/>سطر</button><div className="bg-indigo-50 rounded-xl p-3 font-black">الإجمالي: {total.toLocaleString()}</div><button disabled={saving} className="w-full bg-indigo-600 text-white rounded-xl py-3 font-bold">حفظ</button></form></div>}
+ {action&&<Modal title="سبب تغيير الحالة" onClose={()=>setAction(null)}><textarea value={reason} onChange={e=>setReason(e.target.value)} className="w-full min-h-28 border rounded-xl p-3" placeholder="سبب إلزامي..."/><button disabled={!reason.trim()} onClick={()=>void execute()} className="w-full bg-indigo-600 text-white rounded-xl py-3 font-bold mt-3 disabled:opacity-50">تنفيذ</button></Modal>}
+ </div>;
 }
+function Actions({budget,onAction}:{budget:BudgetBoardRecord;onAction:(t:Action['type'])=>void}){return <div className="flex gap-2 justify-center flex-wrap">{budget.status==='draft'&&<button onClick={()=>onAction('submitted')} className="text-blue-700 font-bold">إرسال</button>}{budget.status==='submitted'&&<button onClick={()=>onAction('approved')} className="text-emerald-700 font-bold">اعتماد</button>}{budget.status==='approved'&&<button onClick={()=>onAction('closed')} className="text-slate-700 font-bold">إغلاق</button>}{['draft','submitted'].includes(budget.status)&&<button onClick={()=>onAction('voided')} className="text-rose-700 font-bold">إلغاء</button>}</div>}
+function Metric({title,value}:{title:string;value:ReactNode}){return <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black">{value}</p><p className="text-sm font-bold text-slate-500 mt-1">{title}</p></div>}
+function Input({label,children}:{label:string;children:ReactNode}){return <label className="block text-sm font-bold space-y-1"><span>{label}</span><div className="[&>input]:w-full [&>input]:border [&>input]:rounded-xl [&>input]:p-2.5 [&>select]:w-full [&>select]:border [&>select]:rounded-xl [&>select]:p-2.5">{children}</div></label>}
+function Modal({title,children,onClose}:{title:string;children:ReactNode;onClose:()=>void}){return <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4"><div className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-4"><div className="flex justify-between"><h2 className="font-black text-xl">{title}</h2><button onClick={onClose}><X/></button></div>{children}</div></div>}

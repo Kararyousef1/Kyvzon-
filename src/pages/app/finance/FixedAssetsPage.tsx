@@ -1,88 +1,27 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Building2, Loader2, Plus, RefreshCw, Search, X, Calculator, Calendar } from 'lucide-react';
-import { fixedAssetService } from '../../../services/sdk/FixedAssetService';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { Building2, Loader2, Plus, RefreshCw, Search, X } from 'lucide-react';
+import { fixedAssetService, type DepreciationScheduleRecord, type FixedAssetBoardRecord, type FixedAssetDashboardRecord, type FixedAssetRecord } from '../../../services/sdk/FixedAssetService';
+import { legalEntityService, type LegalEntityRecord } from '../../../services/sdk/FinanceFoundationService';
 import { getErrorMessage } from '../../../services/errors';
 import { useUIStore } from '../../../core/stores';
+import { FinanceUnitNav } from './shared/FinanceUnitNav';
 
-export default function FixedAssetsPage() {
-  const { addToast } = useUIStore();
-  const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [show, setShow] = useState(false);
-  const [q, setQ] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ asset_code: '', asset_name: '', asset_category: 'equipment', purchase_date: new Date().toISOString().slice(0,10), purchase_cost: '', useful_life_years: '5', status: 'active' });
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fixedAssetService.findActive() as any[];
-      setRows(data);
-    } catch (e) {
-      addToast(`تعذر التحميل: ${getErrorMessage(e)}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await (fixedAssetService as any).create({
-        asset_code: form.asset_code.toUpperCase(),
-        asset_name: form.asset_name,
-        asset_category: form.asset_category,
-        purchase_date: form.purchase_date,
-        purchase_cost: Number(form.purchase_cost),
-        useful_life_years: Number(form.useful_life_years),
-        status: form.status,
-        book_value: Number(form.purchase_cost),
-      });
-      addToast('تم إنشاء الأصل الثابت', 'success');
-      setShow(false);
-      setForm({ asset_code: '', asset_name: '', asset_category: 'equipment', purchase_date: new Date().toISOString().slice(0,10), purchase_cost: '', useful_life_years: '5', status: 'active' });
-      await load();
-    } catch (err) {
-      addToast(getErrorMessage(err), 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const filtered = rows.filter(r => `${r.asset_code} ${r.asset_name}`.toLowerCase().includes(q.toLowerCase()));
-
-  return (
-    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
-      <div className="flex justify-between flex-wrap gap-3">
-        <div>
-          <p className="text-sm font-bold text-violet-700">Fixed Assets — Wave 6 (Beta) — Real SDK ✅</p>
-          <h1 className="text-3xl font-black">الأصول الثابتة والإهلاك</h1>
-          <p className="text-slate-500 mt-2">أصول مع إهلاك، قيمة دفترية، وحياة إنتاجية — مرتبطة بـ depreciation_schedules.</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => void load()} className="border rounded-xl px-4 py-2 font-bold"><RefreshCw size={15} className="inline ml-1" />تحديث</button>
-          <button onClick={() => setShow(true)} className="bg-violet-600 text-white rounded-xl px-4 py-2 font-bold"><Plus size={15} className="inline ml-1" />أصل جديد</button>
-        </div>
-      </div>
-
-      <label className="flex gap-2 border rounded-xl p-3 bg-white max-w-md"><Search size={16} /><input value={q} onChange={e => setQ(e.target.value)} placeholder="بحث بالكود أو الاسم..." className="w-full outline-none" /></label>
-
-      {loading ? <div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3" />جارٍ التحميل...</div> : (
-        <div className="bg-white border rounded-2xl overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="p-3 text-right">الكود</th><th className="p-3 text-right">الاسم</th><th className="p-3 text-right">الفئة</th><th className="p-3 text-right">التكلفة</th><th className="p-3 text-right">القيمة الدفترية</th><th className="p-3 text-right">الحالة</th></tr></thead>
-            <tbody className="divide-y">
-              {filtered.map(r => <tr key={r.id}><td className="p-3 font-mono font-bold">{r.asset_code}</td><td className="p-3">{r.asset_name}</td><td className="p-3">{r.asset_category}</td><td className="p-3 font-black">{Number(r.purchase_cost).toLocaleString()}</td><td className="p-3">{Number(r.book_value ?? r.purchase_cost).toLocaleString()}</td><td className="p-3"><span className="px-2 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-xs font-bold">{r.status}</span></td></tr>)}
-              {!filtered.length && <tr><td colSpan={6} className="p-16 text-center text-slate-500"><Building2 className="mx-auto mb-3 text-slate-300" />لا توجد أصول — أنشئ أول أصل.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {show && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" onClick={() => !saving && setShow(false)}><form onSubmit={submit} onClick={e => e.stopPropagation()} className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-3"><div className="flex justify-between items-center gap-3 flex-wrap"><h2 className="font-black text-xl">أصل ثابت جديد — SDK</h2><button type="button" onClick={() => setShow(false)}><X /></button></div><div className="grid grid-cols-2 gap-3"><input required placeholder="كود الأصل *" value={form.asset_code} onChange={e => setForm(f => ({ ...f, asset_code: e.target.value }))} className="border rounded-xl p-2.5" dir="ltr" /><select value={form.asset_category} onChange={e => setForm(f => ({ ...f, asset_category: e.target.value }))} className="border rounded-xl p-2.5"><option value="equipment">معدات</option><option value="vehicle">مركبة</option><option value="building">مبنى</option><option value="furniture">أثاث</option><option value="computer">حاسب</option></select></div><input required placeholder="اسم الأصل *" value={form.asset_name} onChange={e => setForm(f => ({ ...f, asset_name: e.target.value }))} className="w-full border rounded-xl p-2.5" /><div className="grid grid-cols-2 gap-3"><input required type="date" value={form.purchase_date} onChange={e => setForm(f => ({ ...f, purchase_date: e.target.value }))} className="border rounded-xl p-2.5" /><input required type="number" placeholder="التكلفة *" value={form.purchase_cost} onChange={e => setForm(f => ({ ...f, purchase_cost: e.target.value }))} className="border rounded-xl p-2.5" /></div><div className="grid grid-cols-2 gap-3"><input type="number" placeholder="العمر الإنتاجي سنوات" value={form.useful_life_years} onChange={e => setForm(f => ({ ...f, useful_life_years: e.target.value }))} className="border rounded-xl p-2.5" /><select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className="border rounded-xl p-2.5"><option value="active">نشط</option><option value="disposed">مستبعد</option><option value="maintenance">صيانة</option></select></div><button disabled={saving} className="w-full bg-violet-600 text-white rounded-xl py-3 font-bold">{saving ? 'جارٍ الحفظ...' : 'حفظ عبر SDK'}</button></form></div>}
-    </div>
-  );
+type Action = { type:'schedule'|'depreciate'|'status'; asset: FixedAssetBoardRecord };
+export default function FixedAssetsPage(){
+ const {addToast}=useUIStore(); const [entities,setEntities]=useState<LegalEntityRecord[]>([]),[entityId,setEntityId]=useState(''),[rows,setRows]=useState<FixedAssetBoardRecord[]>([]),[dashboard,setDashboard]=useState<FixedAssetDashboardRecord|null>(null),[schedule,setSchedule]=useState<DepreciationScheduleRecord[]>([]),[selectedId,setSelectedId]=useState(''),[loading,setLoading]=useState(true),[show,setShow]=useState(false),[q,setQ]=useState(''),[saving,setSaving]=useState(false),[action,setAction]=useState<Action|null>(null),[reason,setReason]=useState(''),[runUntil,setRunUntil]=useState(new Date().toISOString().slice(0,10)),[status,setStatus]=useState<FixedAssetRecord['status']>('retired');
+ const [form,setForm]=useState({asset_code:'',asset_name:'',asset_category:'equipment',purchase_date:new Date().toISOString().slice(0,10),purchase_cost:'',useful_life_years:'5',depreciation_method:'straight_line',salvage_value:'0',depreciation_start_date:''});
+ const load=useCallback(async()=>{setLoading(true);try{const es=await legalEntityService.findActive();setEntities(es);const id=entityId||es[0]?.id||'';if(!entityId&&id)setEntityId(id);if(!id)return;const [assets,dash]=await Promise.all([fixedAssetService.findBoard(id),fixedAssetService.findDashboard(id)]);setRows(assets);setDashboard(dash[0]||null);const aid=selectedId&&assets.some(a=>a.id===selectedId)?selectedId:assets[0]?.id||'';setSelectedId(aid);setSchedule(aid?await fixedAssetService.findSchedule(aid):[])}catch(e){addToast(`تعذر التحميل: ${getErrorMessage(e)}`,'error')}finally{setLoading(false)}},[addToast,entityId,selectedId]);
+ useEffect(()=>{void load()},[load]);
+ const submit=async(e:FormEvent)=>{e.preventDefault();if(!entityId)return;setSaving(true);try{const a=await fixedAssetService.upsert({legalEntityId:entityId,assetCode:form.asset_code,assetName:form.asset_name,assetCategory:form.asset_category,purchaseDate:form.purchase_date,purchaseCost:Number(form.purchase_cost),usefulLifeYears:Number(form.useful_life_years),depreciationMethod:form.depreciation_method,salvageValue:Number(form.salvage_value||0),depreciationStartDate:form.depreciation_start_date||undefined});addToast('تم حفظ الأصل عبر RPC','success');setShow(false);setSelectedId(a.id);setForm({asset_code:'',asset_name:'',asset_category:'equipment',purchase_date:new Date().toISOString().slice(0,10),purchase_cost:'',useful_life_years:'5',depreciation_method:'straight_line',salvage_value:'0',depreciation_start_date:''});await load()}catch(e){addToast(getErrorMessage(e),'error')}finally{setSaving(false)}};
+ const execute=async()=>{if(!action)return; if(action.type!=='schedule'&&!reason.trim())return addToast('السبب مطلوب للتدقيق','error');try{if(action.type==='schedule')await fixedAssetService.generateSchedule(action.asset.id);else if(action.type==='depreciate')await fixedAssetService.runDepreciation(action.asset.id,runUntil,reason.trim());else await fixedAssetService.updateStatus(action.asset.id,status,reason.trim(),new Date().toISOString().slice(0,10));addToast('تم تنفيذ العملية وتسجيلها','success');setAction(null);setReason('');await load()}catch(e){addToast(getErrorMessage(e),'error')}};
+ const filtered=rows.filter(r=>`${r.asset_code} ${r.asset_name}`.toLowerCase().includes(q.toLowerCase()));
+ return <div className="space-y-5 max-w-[1700px] mx-auto" dir="rtl"><FinanceUnitNav unit="assets"/><div className="flex justify-between flex-wrap gap-3"><div><p className="text-sm font-bold text-violet-700">Finance Unit 09 · Fixed Assets</p><h1 className="text-3xl font-black">الأصول الثابتة والإهلاك</h1><p className="text-slate-500 mt-2">سجل أصول وجداول إهلاك وتشغيل إهلاك واستبعاد بسبب.</p></div><div className="flex gap-2"><button onClick={()=>void load()} className="border rounded-xl px-4 py-2 font-bold bg-white"><RefreshCw size={15} className="inline ml-1"/>تحديث</button><button onClick={()=>setShow(true)} className="bg-violet-600 text-white rounded-xl px-4 py-2 font-bold"><Plus size={15} className="inline ml-1"/>أصل جديد</button></div></div>
+ <section className="grid md:grid-cols-5 gap-3"><Metric title="أصول نشطة" value={dashboard?.active_assets||0}/><Metric title="تكلفة الأصول" value={Number(dashboard?.active_asset_cost||0).toLocaleString()}/><Metric title="القيمة الدفترية" value={Number(dashboard?.active_book_value||0).toLocaleString()}/><Metric title="إهلاك متراكم" value={Number(dashboard?.accumulated_depreciation||0).toLocaleString()}/><Metric title="سطور مجدولة" value={dashboard?.scheduled_depreciation_lines||0}/></section>
+ <div className="grid md:grid-cols-2 gap-3"><select value={entityId} onChange={e=>setEntityId(e.target.value)} className="border rounded-xl p-3 bg-white">{entities.map(e=><option key={e.id} value={e.id}>{e.code} — {e.name_ar}</option>)}</select><label className="flex gap-2 border rounded-xl p-3 bg-white"><Search size={16}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="بحث بالكود أو الاسم..." className="w-full outline-none"/></label></div>
+ {loading?<div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3"/>جارٍ التحميل...</div>:<section className="grid xl:grid-cols-[1fr_420px] gap-4"><div className="bg-white border rounded-2xl overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="p-3 text-right">الكود</th><th className="p-3 text-right">الاسم</th><th className="p-3 text-right">الفئة</th><th className="p-3 text-right">التكلفة</th><th className="p-3 text-right">القيمة</th><th className="p-3 text-right">الحالة</th><th className="p-3"/></tr></thead><tbody className="divide-y">{filtered.map(r=><tr key={r.id} className={selectedId===r.id?'bg-violet-50/50':''}><td className="p-3"><button onClick={()=>setSelectedId(r.id)} className="font-mono font-bold text-violet-700">{r.asset_code}</button></td><td className="p-3">{r.asset_name}</td><td className="p-3">{r.asset_category||r.category}</td><td className="p-3 font-black">{Number(r.purchase_cost).toLocaleString()}</td><td className="p-3">{Number(r.book_value).toLocaleString()}</td><td className="p-3">{r.status}</td><td className="p-3"><div className="flex gap-2 flex-wrap"><button onClick={()=>{setAction({type:'schedule',asset:r});setReason('')}} className="text-blue-700 font-bold">جدولة</button><button onClick={()=>{setAction({type:'depreciate',asset:r});setReason('')}} className="text-emerald-700 font-bold">إهلاك</button>{r.status==='active'&&<button onClick={()=>{setAction({type:'status',asset:r});setStatus('retired');setReason('')}} className="text-rose-700 font-bold">استبعاد</button>}</div></td></tr>)}{!filtered.length&&<tr><td colSpan={7} className="p-16 text-center text-slate-500"><Building2 className="mx-auto mb-3 text-slate-300"/>لا توجد أصول.</td></tr>}</tbody></table></div><aside className="bg-white border rounded-2xl p-5"><h2 className="font-black">جدول الإهلاك</h2><div className="space-y-2 mt-3 max-h-[520px] overflow-auto">{schedule.map(s=><div key={s.id} className="bg-slate-50 border rounded-xl p-3 text-sm"><b>{s.schedule_date}</b><p>إهلاك: {Number(s.depreciation_amount).toLocaleString()} · متراكم: {Number(s.accumulated_at_date).toLocaleString()}</p><p className="text-xs text-slate-400">{s.status}</p></div>)}</div></aside></section>}
+ {show&&<Modal title="أصل ثابت جديد" onClose={()=>setShow(false)}><form onSubmit={submit} className="space-y-3"><div className="grid grid-cols-2 gap-3"><input required placeholder="كود الأصل" value={form.asset_code} onChange={e=>setForm(f=>({...f,asset_code:e.target.value.toUpperCase()}))} className="border rounded-xl p-2.5" dir="ltr"/><select value={form.asset_category} onChange={e=>setForm(f=>({...f,asset_category:e.target.value}))} className="border rounded-xl p-2.5"><option value="equipment">معدات</option><option value="vehicle">مركبة</option><option value="building">مبنى</option><option value="furniture">أثاث</option><option value="software">برمجيات</option><option value="computer">حاسب</option></select></div><input required placeholder="اسم الأصل" value={form.asset_name} onChange={e=>setForm(f=>({...f,asset_name:e.target.value}))} className="w-full border rounded-xl p-2.5"/><div className="grid grid-cols-2 gap-3"><input required type="date" value={form.purchase_date} onChange={e=>setForm(f=>({...f,purchase_date:e.target.value}))} className="border rounded-xl p-2.5"/><input required type="number" placeholder="التكلفة" value={form.purchase_cost} onChange={e=>setForm(f=>({...f,purchase_cost:e.target.value}))} className="border rounded-xl p-2.5"/></div><div className="grid grid-cols-3 gap-3"><input type="number" placeholder="العمر" value={form.useful_life_years} onChange={e=>setForm(f=>({...f,useful_life_years:e.target.value}))} className="border rounded-xl p-2.5"/><input type="number" placeholder="قيمة متبقية" value={form.salvage_value} onChange={e=>setForm(f=>({...f,salvage_value:e.target.value}))} className="border rounded-xl p-2.5"/><select value={form.depreciation_method} onChange={e=>setForm(f=>({...f,depreciation_method:e.target.value}))} className="border rounded-xl p-2.5"><option value="straight_line">Straight Line</option><option value="declining_balance">Declining</option></select></div><button disabled={saving} className="w-full bg-violet-600 text-white rounded-xl py-3 font-bold">حفظ</button></form></Modal>}
+ {action&&<Modal title={action.type==='schedule'?'توليد جدول الإهلاك':action.type==='depreciate'?'تشغيل الإهلاك':'تغيير حالة الأصل'} onClose={()=>setAction(null)}>{action.type==='depreciate'&&<input type="date" value={runUntil} onChange={e=>setRunUntil(e.target.value)} className="w-full border rounded-xl p-3 mb-3"/>}{action.type==='status'&&<select value={status} onChange={e=>setStatus(e.target.value as FixedAssetRecord['status'])} className="w-full border rounded-xl p-3 mb-3"><option value="retired">Retired</option><option value="sold">Sold</option><option value="impaired">Impaired</option><option value="held_for_sale">Held For Sale</option><option value="voided">Voided</option></select>}{action.type!=='schedule'&&<textarea value={reason} onChange={e=>setReason(e.target.value)} className="w-full min-h-28 border rounded-xl p-3" placeholder="سبب إلزامي..."/>}<button disabled={action.type!=='schedule'&&!reason.trim()} onClick={()=>void execute()} className="w-full bg-violet-600 text-white rounded-xl py-3 font-bold mt-3 disabled:opacity-50">تنفيذ</button></Modal>}
+ </div>;
 }
+function Metric({title,value}:{title:string;value:ReactNode}){return <div className="bg-white border rounded-2xl p-4"><p className="text-2xl font-black">{value}</p><p className="text-sm font-bold text-slate-500 mt-1">{title}</p></div>}
+function Modal({title,children,onClose}:{title:string;children:ReactNode;onClose:()=>void}){return <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4"><div className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-4"><div className="flex justify-between"><h2 className="font-black text-xl">{title}</h2><button onClick={onClose}><X/></button></div>{children}</div></div>}

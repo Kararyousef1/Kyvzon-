@@ -149,6 +149,290 @@ BEGIN
 END $$;
 
 \echo ''
+\echo '=== H2. Finance Unit 00 foundation/control plane ==='
+DO $$
+BEGIN
+  IF to_regclass('public.legal_entities') IS NULL
+     OR to_regclass('public.entity_memberships') IS NULL
+     OR to_regclass('public.fiscal_years') IS NULL
+     OR to_regclass('public.accounting_periods') IS NULL
+     OR to_regclass('public.cost_centers') IS NULL
+     OR to_regclass('public.finance_projects') IS NULL
+     OR to_regclass('public.exchange_rates') IS NULL
+     OR to_regclass('public.finance_foundation_dashboard') IS NULL
+     OR to_regprocedure('public.update_legal_entity_status(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.assign_finance_entity_membership(uuid,uuid,text)') IS NULL
+     OR to_regprocedure('public.upsert_finance_cost_center(uuid,text,text,text,uuid)') IS NULL
+     OR to_regprocedure('public.upsert_finance_exchange_rate(uuid,date,character,character,numeric,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 00 foundation/control plane missing';
+  END IF;
+  RAISE NOTICE 'CHECK H2 PASSED — Finance Unit 00 foundation/control plane موجودة';
+END $$;
+
+\echo ''
+\echo '=== H3. Finance Unit 01 chart of accounts/dimensions ==='
+DO $$
+BEGIN
+  IF to_regclass('public.finance_account_dimension_policies') IS NULL
+     OR to_regclass('public.finance_chart_of_accounts_tree') IS NULL
+     OR to_regclass('public.finance_posting_account_lookup') IS NULL
+     OR to_regclass('public.finance_account_usage_summary') IS NULL
+     OR to_regclass('public.finance_account_dimension_policy_board') IS NULL
+     OR to_regclass('public.finance_dimensions_dashboard') IS NULL
+     OR to_regprocedure('public.upsert_finance_chart_account(uuid,text,text,text,uuid,text,uuid,text,boolean,boolean,text)') IS NULL
+     OR to_regprocedure('public.archive_finance_chart_account(uuid,text)') IS NULL
+     OR to_regprocedure('public.update_finance_account_posting(uuid,boolean,text)') IS NULL
+     OR to_regprocedure('public.upsert_finance_account_dimension_policy(uuid,boolean,boolean,text)') IS NULL
+     OR to_regprocedure('public.validate_finance_account_hierarchy(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 01 chart of accounts/dimensions missing';
+  END IF;
+  RAISE NOTICE 'CHECK H3 PASSED — Finance Unit 01 chart of accounts/dimensions موجودة';
+END $$;
+
+\echo ''
+\echo '=== H4. Finance Unit 02 general ledger/journal lifecycle ==='
+DO $$
+BEGIN
+  IF to_regclass('public.finance_journal_entry_board') IS NULL
+     OR to_regclass('public.finance_journal_entry_line_board') IS NULL
+     OR to_regclass('public.finance_journal_lifecycle_dashboard') IS NULL
+     OR to_regprocedure('public.submit_journal_entry(uuid,text)') IS NULL
+     OR to_regprocedure('public.approve_journal_entry(uuid,text)') IS NULL
+     OR to_regprocedure('public.post_journal_entry_with_reason(uuid,text)') IS NULL
+     OR to_regprocedure('public.void_journal_entry(uuid,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 02 general ledger/journal lifecycle missing';
+  END IF;
+  RAISE NOTICE 'CHECK H4 PASSED — Finance Unit 02 general ledger/journal lifecycle موجودة';
+END $$;
+
+\echo ''
+\echo '=== H5. Finance Unit 03 period close/audit GRC ==='
+DO $$
+BEGIN
+  IF to_regclass('public.finance_period_close_tasks') IS NULL
+     OR to_regclass('public.finance_period_close_readiness') IS NULL
+     OR to_regclass('public.finance_close_checklist_board') IS NULL
+     OR to_regclass('public.finance_audit_event_board') IS NULL
+     OR to_regclass('public.finance_grc_dashboard') IS NULL
+     OR to_regprocedure('public.generate_finance_period_close_checklist(uuid)') IS NULL
+     OR to_regprocedure('public.complete_finance_close_task(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.waive_finance_close_task(uuid,text)') IS NULL
+     OR to_regprocedure('public.close_accounting_period_controlled(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.reopen_accounting_period_controlled(uuid,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 03 period close/audit GRC missing';
+  END IF;
+  RAISE NOTICE 'CHECK H5 PASSED — Finance Unit 03 period close/audit GRC موجودة';
+END $$;
+
+\echo ''
+\echo '=== H6. Finance Unit 04 accounts payable ==='
+DO $$
+BEGIN
+  IF to_regclass('public.ap_invoice_lines') IS NULL
+     OR to_regclass('public.finance_vendor_lookup') IS NULL
+     OR to_regclass('public.finance_ap_invoice_board') IS NULL
+     OR to_regclass('public.finance_ap_invoice_line_board') IS NULL
+     OR to_regclass('public.finance_ap_dashboard') IS NULL
+     OR to_regclass('public.finance_vendor_payment_board') IS NULL
+     OR to_regclass('public.finance_vendor_payment_allocation_board') IS NULL
+     OR to_regprocedure('public.upsert_finance_vendor(uuid,text,text,text,text,text,text,text,integer,character)') IS NULL
+     OR to_regprocedure('public.update_finance_vendor_status(uuid,boolean,text)') IS NULL
+     OR to_regprocedure('public.create_ap_invoice_with_lines(uuid,uuid,text,date,date,character,numeric,text,jsonb)') IS NULL
+     OR to_regprocedure('public.set_ap_invoice_lifecycle_status(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.post_vendor_payment_with_reason(uuid,text)') IS NULL
+     OR to_regprocedure('public.void_vendor_payment(uuid,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 04 accounts payable missing';
+  END IF;
+  RAISE NOTICE 'CHECK H6 PASSED — Finance Unit 04 accounts payable موجودة';
+END $$;
+
+\echo ''
+\echo '=== H7. Finance Unit 05 accounts receivable/collections ==='
+DO $$
+BEGIN
+  IF to_regclass('public.ar_invoice_lines') IS NULL
+     OR to_regclass('public.customer_receipts') IS NULL
+     OR to_regclass('public.customer_receipt_allocations') IS NULL
+     OR to_regclass('public.finance_customer_lookup') IS NULL
+     OR to_regclass('public.finance_ar_invoice_board') IS NULL
+     OR to_regclass('public.finance_ar_invoice_line_board') IS NULL
+     OR to_regclass('public.finance_ar_dashboard') IS NULL
+     OR to_regclass('public.finance_customer_receipt_board') IS NULL
+     OR to_regprocedure('public.upsert_finance_customer(uuid,text,text,text,text,text,text,integer,character)') IS NULL
+     OR to_regprocedure('public.update_finance_customer_status(uuid,boolean,text)') IS NULL
+     OR to_regprocedure('public.create_ar_invoice_with_lines(uuid,uuid,text,date,date,character,numeric,text,jsonb)') IS NULL
+     OR to_regprocedure('public.set_ar_invoice_lifecycle_status(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.create_customer_receipt_draft(uuid,uuid,text,date,numeric,character,text,jsonb)') IS NULL
+     OR to_regprocedure('public.post_customer_receipt_with_reason(uuid,text)') IS NULL
+     OR to_regprocedure('public.void_customer_receipt(uuid,text)') IS NULL
+     OR to_regprocedure('public.get_ar_aging(uuid,date)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 05 accounts receivable/collections missing';
+  END IF;
+  RAISE NOTICE 'CHECK H7 PASSED — Finance Unit 05 accounts receivable/collections موجودة';
+END $$;
+
+\echo ''
+\echo '=== H8. Finance Unit 06 cash/bank reconciliation ==='
+DO $$
+BEGIN
+  IF to_regclass('public.finance_bank_account_board') IS NULL
+     OR to_regclass('public.finance_bank_statement_import_board') IS NULL
+     OR to_regclass('public.finance_bank_statement_line_board') IS NULL
+     OR to_regclass('public.finance_bank_reconciliation_board') IS NULL
+     OR to_regclass('public.finance_cash_bank_dashboard') IS NULL
+     OR to_regprocedure('public.upsert_finance_bank_account(uuid,text,text,text,character,text,numeric)') IS NULL
+     OR to_regprocedure('public.update_finance_bank_account_status(uuid,boolean,text)') IS NULL
+     OR to_regprocedure('public.create_bank_statement_import_with_lines(uuid,text,date,text,jsonb)') IS NULL
+     OR to_regprocedure('public.match_bank_statement_line(uuid,uuid,text)') IS NULL
+     OR to_regprocedure('public.create_bank_reconciliation_controlled(uuid,date,numeric,numeric,date,date,text)') IS NULL
+     OR to_regprocedure('public.complete_bank_reconciliation(uuid,text)') IS NULL
+     OR to_regprocedure('public.void_bank_reconciliation(uuid,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 06 cash/bank reconciliation missing';
+  END IF;
+  RAISE NOTICE 'CHECK H8 PASSED — Finance Unit 06 cash/bank reconciliation موجودة';
+END $$;
+
+\echo ''
+\echo '=== H9. Finance Unit 07 tax management/filing ==='
+DO $$
+BEGIN
+  IF to_regclass('public.finance_tax_filing_lines') IS NULL
+     OR to_regclass('public.finance_tax_code_board') IS NULL
+     OR to_regclass('public.finance_tax_filing_board') IS NULL
+     OR to_regclass('public.finance_tax_filing_line_board') IS NULL
+     OR to_regclass('public.finance_tax_dashboard') IS NULL
+     OR to_regprocedure('public.upsert_finance_tax_code(uuid,text,text,numeric,text,date,date,boolean)') IS NULL
+     OR to_regprocedure('public.update_finance_tax_code_status(uuid,boolean,text)') IS NULL
+     OR to_regprocedure('public.generate_tax_filing_draft(uuid,text,date,date)') IS NULL
+     OR to_regprocedure('public.update_tax_filing_status(uuid,text,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 07 tax management/filing missing';
+  END IF;
+  RAISE NOTICE 'CHECK H9 PASSED — Finance Unit 07 tax management/filing موجودة';
+END $$;
+
+\echo ''
+\echo '=== H10. Finance Unit 08 budgeting/forecasting ==='
+DO $$
+BEGIN
+  IF to_regclass('public.finance_budget_board') IS NULL
+     OR to_regclass('public.finance_budget_line_board') IS NULL
+     OR to_regclass('public.finance_budget_variance_board') IS NULL
+     OR to_regclass('public.finance_budget_dashboard') IS NULL
+     OR to_regclass('public.finance_forecast_scenario_board') IS NULL
+     OR to_regprocedure('public.upsert_finance_budget(uuid,text,integer,date,date,character,text,uuid)') IS NULL
+     OR to_regprocedure('public.upsert_finance_budget_line(uuid,uuid,numeric,date,date,uuid,uuid,numeric,text,uuid)') IS NULL
+     OR to_regprocedure('public.update_finance_budget_status(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.generate_budget_variance_report(uuid,date,date)') IS NULL
+     OR to_regprocedure('public.upsert_finance_forecast_scenario(uuid,text,date,date,numeric,text,text,jsonb,uuid)') IS NULL
+     OR to_regprocedure('public.update_finance_forecast_status(uuid,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 08 budgeting/forecasting missing';
+  END IF;
+  RAISE NOTICE 'CHECK H10 PASSED — Finance Unit 08 budgeting/forecasting موجودة';
+END $$;
+
+\echo ''
+\echo '=== H11. Finance Unit 09 fixed assets ==='
+DO $$
+BEGIN
+  IF to_regclass('public.finance_fixed_asset_board') IS NULL
+     OR to_regclass('public.finance_depreciation_schedule_board') IS NULL
+     OR to_regclass('public.finance_fixed_asset_dashboard') IS NULL
+     OR to_regprocedure('public.upsert_finance_fixed_asset(uuid,text,text,text,date,numeric,integer,text,numeric,date,uuid)') IS NULL
+     OR to_regprocedure('public.generate_fixed_asset_depreciation_schedule(uuid)') IS NULL
+     OR to_regprocedure('public.run_fixed_asset_depreciation(uuid,date,text)') IS NULL
+     OR to_regprocedure('public.update_fixed_asset_status(uuid,text,text,date,numeric)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 09 fixed assets missing';
+  END IF;
+  RAISE NOTICE 'CHECK H11 PASSED — Finance Unit 09 fixed assets موجودة';
+END $$;
+
+\echo ''
+\echo '=== H12. Finance Unit 10 revenue recognition ==='
+DO $$
+BEGIN
+  IF to_regclass('public.finance_revenue_contract_board') IS NULL
+     OR to_regclass('public.finance_revenue_schedule_board') IS NULL
+     OR to_regclass('public.finance_revenue_dashboard') IS NULL
+     OR to_regprocedure('public.upsert_finance_revenue_contract(uuid,text,text,numeric,date,date,text,character,uuid,uuid)') IS NULL
+     OR to_regprocedure('public.generate_revenue_recognition_schedule(uuid)') IS NULL
+     OR to_regprocedure('public.recognize_revenue_schedule_line(uuid,text)') IS NULL
+     OR to_regprocedure('public.update_revenue_contract_status(uuid,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 10 revenue recognition missing';
+  END IF;
+  RAISE NOTICE 'CHECK H12 PASSED — Finance Unit 10 revenue recognition موجودة';
+END $$;
+
+\echo ''
+\echo '=== H13. Finance Unit 11 intercompany/consolidation ==='
+DO $$
+BEGIN
+  IF to_regclass('public.finance_intercompany_transaction_board') IS NULL
+     OR to_regclass('public.finance_consolidation_entry_board') IS NULL
+     OR to_regclass('public.finance_intercompany_dashboard') IS NULL
+     OR to_regprocedure('public.create_intercompany_transaction_controlled(uuid,uuid,text,numeric,character,text,text)') IS NULL
+     OR to_regprocedure('public.match_intercompany_transaction(uuid,text)') IS NULL
+     OR to_regprocedure('public.eliminate_intercompany_transaction(uuid,text)') IS NULL
+     OR to_regprocedure('public.void_intercompany_transaction(uuid,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 11 intercompany/consolidation missing';
+  END IF;
+  RAISE NOTICE 'CHECK H13 PASSED — Finance Unit 11 intercompany/consolidation موجودة';
+END $$;
+
+\echo ''
+\echo '=== H14. Finance Unit 12 project accounting ==='
+DO $$
+BEGIN
+  IF to_regclass('public.finance_project_budget_lines') IS NULL
+     OR to_regclass('public.finance_project_actual_snapshots') IS NULL
+     OR to_regclass('public.finance_project_accounting_board') IS NULL
+     OR to_regclass('public.finance_project_budget_line_board') IS NULL
+     OR to_regclass('public.finance_project_actuals_board') IS NULL
+     OR to_regclass('public.finance_project_accounting_dashboard') IS NULL
+     OR to_regprocedure('public.upsert_project_accounting_project(uuid,text,text,text,text,numeric,text,date,date,uuid)') IS NULL
+     OR to_regprocedure('public.upsert_project_budget_line(uuid,uuid,numeric,text,uuid,date,date,text,uuid)') IS NULL
+     OR to_regprocedure('public.generate_project_actuals_snapshot(uuid,date)') IS NULL
+     OR to_regprocedure('public.update_project_accounting_status(uuid,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 12 project accounting missing';
+  END IF;
+  RAISE NOTICE 'CHECK H14 PASSED — Finance Unit 12 project accounting موجودة';
+END $$;
+
+\echo ''
+\echo '=== H15. Finance Unit 13 reporting/analytics ==='
+DO $$
+BEGIN
+  IF to_regclass('public.finance_report_runs') IS NULL
+     OR to_regclass('public.finance_report_exports') IS NULL
+     OR to_regclass('public.finance_report_run_board') IS NULL
+     OR to_regclass('public.finance_report_export_board') IS NULL
+     OR to_regclass('public.finance_executive_kpi_dashboard') IS NULL
+     OR to_regprocedure('public.generate_finance_report_run(uuid,text,date,date,jsonb)') IS NULL
+     OR to_regprocedure('public.request_finance_report_export(uuid,text)') IS NULL
+     OR to_regprocedure('public.cancel_finance_report_run(uuid,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 13 reporting/analytics missing';
+  END IF;
+  RAISE NOTICE 'CHECK H15 PASSED — Finance Unit 13 reporting/analytics موجودة';
+END $$;
+
+\echo ''
+\echo '=== H16. Finance Unit 14 integrations ==='
+DO $$
+BEGIN
+  IF to_regclass('public.finance_integration_connectors') IS NULL
+     OR to_regclass('public.finance_integration_events') IS NULL
+     OR to_regclass('public.finance_integration_connector_board') IS NULL
+     OR to_regclass('public.finance_integration_event_board') IS NULL
+     OR to_regclass('public.finance_integration_dashboard') IS NULL
+     OR to_regprocedure('public.upsert_finance_integration_connector(uuid,text,text,text,text,text,jsonb)') IS NULL
+     OR to_regprocedure('public.ingest_finance_integration_event(uuid,uuid,text,text,uuid,text,date,numeric,character,text,jsonb)') IS NULL
+     OR to_regprocedure('public.review_finance_integration_event(uuid,text,text)') IS NULL
+     OR to_regprocedure('public.create_finance_journal_from_integration_event(uuid,uuid,text,jsonb,text)') IS NULL THEN
+    RAISE EXCEPTION 'FAILED: Finance Unit 14 integrations missing';
+  END IF;
+  RAISE NOTICE 'CHECK H16 PASSED — Finance Unit 14 integrations موجودة';
+END $$;
+
+\echo ''
 \echo '=== I. دعم الاشتراك الهجين (hybrid) على مستوى قاعدة البيانات ==='
 DO $$
 BEGIN

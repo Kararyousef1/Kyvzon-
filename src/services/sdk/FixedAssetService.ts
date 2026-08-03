@@ -1,7 +1,21 @@
 import { BaseService } from './BaseService';
-class FixedAssetService extends BaseService<any> {
-  constructor() { super('fixed_assets'); }
-  async findActive() { return this.findAll({ filters: { status: 'active' }, orderBy: 'asset_name' }); }
-  async calculateDepreciation(assetId: string) { return this.update(assetId, { last_depreciation_run: new Date().toISOString() } as any); }
+import { supabase } from '../supabase/supabase';
+
+export interface FixedAssetRecord { id:string; tenant_id:string; legal_entity_id:string; asset_code:string; asset_name:string; asset_category?:string|null; category?:string|null; purchase_date:string; purchase_cost:number; useful_life_years:number; depreciation_method:'straight_line'|'declining_balance'; depreciation_rate?:number|null; salvage_value?:number|null; accumulated_depreciation:number; book_value:number; depreciation_start_date?:string|null; status:'draft'|'active'|'held_for_sale'|'retired'|'sold'|'impaired'|'voided'; last_depreciation_run?:string|null; created_at:string; }
+export interface FixedAssetBoardRecord extends FixedAssetRecord { entity_code?:string; entity_name?:string; schedule_count:number; posted_depreciation_count:number; }
+export interface DepreciationScheduleRecord { id:string; asset_id:string; tenant_id:string; legal_entity_id:string; schedule_date:string; depreciation_amount:number; accumulated_at_date:number; status:'scheduled'|'posted'|'skipped'|'voided'; posted_at?:string|null; created_at:string; asset_code?:string; asset_name?:string; asset_category?:string|null; }
+export interface FixedAssetDashboardRecord { tenant_id:string; legal_entity_id:string; entity_code:string; entity_name:string; active_assets:number; active_asset_cost:number; active_book_value:number; accumulated_depreciation:number; scheduled_depreciation_lines:number; }
+
+class FixedAssetService extends BaseService<FixedAssetRecord> {
+  constructor(){ super('fixed_assets'); }
+  async findActive(){ return this.findAll({ filters: { status: 'active' }, orderBy: 'asset_name' }); }
+  async findBoard(legalEntityId:string): Promise<FixedAssetBoardRecord[]> { const {data,error}=await supabase.from('finance_fixed_asset_board').select('*').eq('legal_entity_id',legalEntityId).order('asset_code'); if(error) throw new Error(error.message); return (data||[]) as FixedAssetBoardRecord[]; }
+  async findDashboard(legalEntityId?:string): Promise<FixedAssetDashboardRecord[]> { let q=supabase.from('finance_fixed_asset_dashboard').select('*').order('entity_code'); if(legalEntityId) q=q.eq('legal_entity_id',legalEntityId); const {data,error}=await q; if(error) throw new Error(error.message); return (data||[]) as FixedAssetDashboardRecord[]; }
+  async findSchedule(assetId:string): Promise<DepreciationScheduleRecord[]> { const {data,error}=await supabase.from('finance_depreciation_schedule_board').select('*').eq('asset_id',assetId).order('schedule_date'); if(error) throw new Error(error.message); return (data||[]) as DepreciationScheduleRecord[]; }
+  async upsert(input:{legalEntityId:string; assetCode:string; assetName:string; assetCategory:string; purchaseDate:string; purchaseCost:number; usefulLifeYears:number; depreciationMethod?:string; salvageValue?:number; depreciationStartDate?:string; assetId?:string|null}): Promise<FixedAssetRecord>{ const {data,error}=await supabase.rpc('upsert_finance_fixed_asset',{p_legal_entity_id:input.legalEntityId,p_asset_code:input.assetCode,p_asset_name:input.assetName,p_asset_category:input.assetCategory,p_purchase_date:input.purchaseDate,p_purchase_cost:input.purchaseCost,p_useful_life_years:input.usefulLifeYears,p_depreciation_method:input.depreciationMethod||'straight_line',p_salvage_value:input.salvageValue||0,p_depreciation_start_date:input.depreciationStartDate||null,p_asset_id:input.assetId||null}); if(error) throw new Error(error.message); return data as FixedAssetRecord; }
+  async generateSchedule(assetId:string): Promise<DepreciationScheduleRecord[]> { const {data,error}=await supabase.rpc('generate_fixed_asset_depreciation_schedule',{p_asset_id:assetId}); if(error) throw new Error(error.message); return (data||[]) as DepreciationScheduleRecord[]; }
+  async runDepreciation(assetId:string,runUntil:string,reason:string): Promise<FixedAssetRecord>{ const {data,error}=await supabase.rpc('run_fixed_asset_depreciation',{p_asset_id:assetId,p_run_until:runUntil,p_reason:reason}); if(error) throw new Error(error.message); return data as FixedAssetRecord; }
+  async calculateDepreciation(assetId:string){ return this.runDepreciation(assetId,new Date().toISOString().slice(0,10),'تشغيل إهلاك من SDK'); }
+  async updateStatus(assetId:string,status:FixedAssetRecord['status'],reason:string,disposalDate?:string,disposalAmount?:number): Promise<FixedAssetRecord>{ const {data,error}=await supabase.rpc('update_fixed_asset_status',{p_asset_id:assetId,p_status:status,p_reason:reason,p_disposal_date:disposalDate||null,p_disposal_amount:disposalAmount||null}); if(error) throw new Error(error.message); return data as FixedAssetRecord; }
 }
 export const fixedAssetService = new FixedAssetService();

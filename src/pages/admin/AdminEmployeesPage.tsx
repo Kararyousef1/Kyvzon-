@@ -172,11 +172,23 @@ const PORTAL_PAGES: PortalPagesConfig[] = [
   {
     portalLabel: 'بوابة المالية (Finance)', moduleKey: 'finance',
     pages: [
-      { id: 'finance-dashboard', label: 'الدفتر العام' }, { id: 'finance-coa', label: 'دليل الحسابات' },
-      { id: 'finance-journal', label: 'قيود اليومية' }, { id: 'finance-trial-balance', label: 'ميزان المراجعة' },
-      { id: 'finance-ledger', label: 'دفتر الأستاذ' }, { id: 'finance-reports', label: 'التقارير المالية' },
-      { id: 'finance-periods', label: 'الفترات المحاسبية' }, { id: 'finance-vendors', label: 'الموردين' },
-      { id: 'finance-payable', label: 'الحسابات الدائنة' }, { id: 'finance-setup', label: 'إعداد المالية' },
+      // الوحدات الرئيسية (تظهر في الشريط الجانبي)
+      { id: 'finance-dashboard', label: 'لوحة المالية' }, { id: 'finance-foundation', label: 'الأساس المالي' },
+      { id: 'finance-coa', label: 'دليل الحسابات' }, { id: 'finance-journal', label: 'القيود والدفتر العام' },
+      { id: 'finance-periods', label: 'الفترات والإغلاق' }, { id: 'finance-payable', label: 'الذمم الدائنة' },
+      { id: 'finance-receivable', label: 'الذمم المدينة والتحصيل' }, { id: 'finance-cash', label: 'النقد والبنوك' },
+      { id: 'finance-tax', label: 'الضرائب والتقديم' }, { id: 'finance-budget', label: 'الموازنات والتنبؤات' },
+      { id: 'finance-fixed-assets', label: 'الأصول الثابتة' }, { id: 'finance-revenue', label: 'الاعتراف بالإيرادات' },
+      { id: 'finance-intercompany', label: 'المعاملات البينية والتوحيد' }, { id: 'finance-project-accounting', label: 'محاسبة المشاريع' },
+      { id: 'finance-reports', label: 'التقارير والتحليلات' }, { id: 'finance-integrations', label: 'التكاملات المالية' },
+      // صفحات فرعية (تُفتح من داخل الوحدات)
+      { id: 'finance-setup', label: 'إعداد المالية' }, { id: 'finance-multi-entity', label: 'الكيانات المتعددة' },
+      { id: 'finance-entity-memberships', label: 'عضويات الكيان' }, { id: 'finance-cost-centers', label: 'مراكز التكلفة' },
+      { id: 'finance-projects', label: 'المشاريع' }, { id: 'finance-exchange-rates', label: 'أسعار الصرف' },
+      { id: 'finance-trial-balance', label: 'ميزان المراجعة' }, { id: 'finance-ledger', label: 'دفتر الأستاذ' },
+      { id: 'finance-vendors', label: 'الموردين' }, { id: 'finance-bank-import', label: 'استيراد كشوف البنك' },
+      { id: 'finance-forecast', label: 'التنبؤ النقدي' }, { id: 'finance-budget-variance', label: 'تحليل التباين' },
+      { id: 'finance-system-notes', label: 'التدقيق المالي' },
     ],
   },
   {

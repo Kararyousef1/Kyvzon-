@@ -1236,15 +1236,19 @@ export interface ManagerWorkloadItemRecord {
 export interface ChartOfAccountRecord {
   id: string; tenant_id: string; legal_entity_id: string; code: string; name: string; name_ar?: string;
   account_type: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
-  parent_id?: string; level: number; is_active: boolean; allow_posting?: boolean;
-  normal_balance?: 'debit' | 'credit'; created_at: string;
+  account_category?: string | null;
+  parent_id?: string | null; level: number; is_active: boolean; allow_posting?: boolean;
+  is_control_account?: boolean; archived_at?: string | null;
+  normal_balance?: 'debit' | 'credit'; created_at: string; updated_at?: string;
 }
 export interface JournalEntryRecord {
   id: string; tenant_id: string; legal_entity_id: string; entry_number: string; entry_date: string;
   accounting_period_id?: string; journal_book_id?: string; transaction_currency_code?: string;
   exchange_rate?: number; description?: string; reference?: string; total_debit: number; total_credit: number;
   status: 'draft' | 'submitted' | 'approved' | 'posted' | 'reversed' | 'voided';
-  created_by?: string; posted_at?: string; posted_by?: string; created_at: string;
+  created_by?: string; submitted_at?: string | null; submitted_by?: string | null; approved_at?: string | null; approved_by?: string | null;
+  posted_at?: string | null; posted_by?: string | null; voided_at?: string | null; voided_by?: string | null; void_reason?: string | null;
+  reversed_entry_id?: string | null; reversal_reason?: string | null; created_at: string; updated_at?: string;
 }
 export interface JournalEntryLineRecord {
   id: string; entry_id: string; tenant_id: string; legal_entity_id: string; account_id: string;

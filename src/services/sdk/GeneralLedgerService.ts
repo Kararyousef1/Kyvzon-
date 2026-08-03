@@ -1,11 +1,11 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  GeneralLedgerService — الدفتر العام (Financial Portal)
+ *  GeneralLedgerService — الدفتر العام ودورة حياة القيود
  *  ════════════════════════════════════════════════════════════════
  */
 import { BaseService } from './BaseService';
 import { supabase } from '../supabase/supabase';
-import type { JournalEntryRecord, JournalEntryLineRecord } from '../../shared/types/sdk';
+import type { JournalEntryRecord } from '../../shared/types/sdk';
 
 export interface JournalDraftLineInput {
   account_id: string;
@@ -28,9 +28,70 @@ export interface CreateJournalDraftInput {
   lines: JournalDraftLineInput[];
 }
 
+export interface JournalEntryBoardRecord extends JournalEntryRecord {
+  entity_code?: string;
+  entity_name?: string;
+  period_name?: string | null;
+  created_by_name?: string | null;
+  submitted_at?: string | null;
+  submitted_by?: string | null;
+  submitted_by_name?: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
+  approved_by_name?: string | null;
+  voided_at?: string | null;
+  voided_by?: string | null;
+  voided_by_name?: string | null;
+  void_reason?: string | null;
+  reversed_entry_id?: string | null;
+  reversal_reason?: string | null;
+  line_count: number;
+  lines_with_cost_center: number;
+  lines_with_project: number;
+}
+
+export interface JournalEntryLineBoardRecord {
+  id: string;
+  tenant_id: string;
+  legal_entity_id: string;
+  entry_id: string;
+  line_number?: number | null;
+  account_id: string;
+  account_code: string;
+  account_name: string;
+  account_type: string;
+  description?: string | null;
+  debit_amount: number;
+  credit_amount: number;
+  transaction_currency_code?: string | null;
+  cost_center_id?: string | null;
+  cost_center_code?: string | null;
+  cost_center_name?: string | null;
+  project_id?: string | null;
+  project_code?: string | null;
+  project_name?: string | null;
+  created_at: string;
+}
+
+export interface JournalLifecycleDashboardRecord {
+  tenant_id: string;
+  legal_entity_id: string;
+  entity_code: string;
+  entity_name: string;
+  draft_entries: number;
+  submitted_entries: number;
+  approved_entries: number;
+  posted_entries: number;
+  reversed_entries: number;
+  voided_entries: number;
+  posted_debit: number;
+  posted_credit: number;
+}
+
 class GeneralLedgerService extends BaseService<JournalEntryRecord> {
   constructor() { super('journal_entries'); }
 
+  /** @deprecated Finance Unit 02 requires createDraft() so lines, balancing and entity checks are atomic. */
   async createJournal(data: Partial<JournalEntryRecord>): Promise<JournalEntryRecord> {
     if (Number(data.total_debit || 0) !== Number(data.total_credit || 0)) {
       throw new Error('القيد غير متوازن: المدين يجب أن يساوي الدائن');
@@ -44,6 +105,34 @@ class GeneralLedgerService extends BaseService<JournalEntryRecord> {
 
   async findByStatus(status: string): Promise<JournalEntryRecord[]> {
     return this.findAll({ filters: { status: status as any }, orderBy: 'entry_date', ascending: false });
+  }
+
+  async findBoard(legalEntityId: string): Promise<JournalEntryBoardRecord[]> {
+    const { data, error } = await supabase
+      .from('finance_journal_entry_board')
+      .select('*')
+      .eq('legal_entity_id', legalEntityId)
+      .order('entry_date', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data || []) as JournalEntryBoardRecord[];
+  }
+
+  async findLines(entryId: string): Promise<JournalEntryLineBoardRecord[]> {
+    const { data, error } = await supabase
+      .from('finance_journal_entry_line_board')
+      .select('*')
+      .eq('entry_id', entryId)
+      .order('line_number');
+    if (error) throw new Error(error.message);
+    return (data || []) as JournalEntryLineBoardRecord[];
+  }
+
+  async findLifecycleDashboard(legalEntityId?: string): Promise<JournalLifecycleDashboardRecord[]> {
+    let query = supabase.from('finance_journal_lifecycle_dashboard').select('*').order('entity_code');
+    if (legalEntityId) query = query.eq('legal_entity_id', legalEntityId);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return (data || []) as JournalLifecycleDashboardRecord[];
   }
 
   /** Creates entry header and all lines in one database transaction. */
@@ -63,10 +152,27 @@ class GeneralLedgerService extends BaseService<JournalEntryRecord> {
     return data as JournalEntryRecord;
   }
 
-  /** Posts an already-created draft through the database transaction. The RPC
-   * validates period, entity membership, posting accounts and debit/credit balance. */
-  async postJournalEntry(entryId: string): Promise<JournalEntryRecord> {
-    const { data, error } = await supabase.rpc('post_journal_entry', { p_entry_id: entryId });
+  async submitEntry(entryId: string, reason: string): Promise<JournalEntryRecord> {
+    const { data, error } = await supabase.rpc('submit_journal_entry', { p_entry_id: entryId, p_reason: reason });
+    if (error) throw new Error(error.message);
+    return data as JournalEntryRecord;
+  }
+
+  async approveEntry(entryId: string, reason: string): Promise<JournalEntryRecord> {
+    const { data, error } = await supabase.rpc('approve_journal_entry', { p_entry_id: entryId, p_reason: reason });
+    if (error) throw new Error(error.message);
+    return data as JournalEntryRecord;
+  }
+
+  /** Posts through the Unit 02 lifecycle RPC. Reason is mandatory for finance audit. */
+  async postJournalEntry(entryId: string, reason: string): Promise<JournalEntryRecord> {
+    const { data, error } = await supabase.rpc('post_journal_entry_with_reason', { p_entry_id: entryId, p_reason: reason });
+    if (error) throw new Error(error.message);
+    return data as JournalEntryRecord;
+  }
+
+  async voidEntry(entryId: string, reason: string): Promise<JournalEntryRecord> {
+    const { data, error } = await supabase.rpc('void_journal_entry', { p_entry_id: entryId, p_reason: reason });
     if (error) throw new Error(error.message);
     return data as JournalEntryRecord;
   }

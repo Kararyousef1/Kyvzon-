@@ -1,106 +1,43 @@
 import { BaseService } from './BaseService';
 import { supabase } from '../supabase/supabase';
 
-export interface CustomerRecord {
-  id: string;
-  tenant_id: string;
-  legal_entity_id: string;
-  customer_code: string;
-  name_ar: string;
-  name_en?: string | null;
-  tax_number?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  payment_terms_days: number;
-  currency_code: string;
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface AccountsReceivableRecord {
-  id: string;
-  tenant_id: string;
-  legal_entity_id: string;
-  customer_id: string;
-  invoice_number: string;
-  invoice_date: string;
-  currency_code: string;
-  exchange_rate: number;
-  total_amount: number;
-  amount_received: number;
-  status: 'draft' | 'submitted' | 'approved' | 'partially_received' | 'paid' | 'overdue' | 'voided';
-  notes?: string | null;
-  created_at: string;
-}
+export interface CustomerRecord { id:string; tenant_id:string; legal_entity_id:string; customer_code:string; name_ar:string; name_en?:string|null; tax_number?:string|null; email?:string|null; phone?:string|null; payment_terms_days:number; currency_code:string; is_active:boolean; created_at:string; }
+export interface AccountsReceivableRecord { id:string; tenant_id:string; legal_entity_id:string; customer_id:string; invoice_number:string; invoice_date:string; due_date?:string|null; currency_code:string; exchange_rate:number; total_amount:number; amount_received:number; status:'draft'|'submitted'|'approved'|'partially_received'|'paid'|'overdue'|'voided'; notes?:string|null; created_at:string; }
+export interface ArInvoiceLineInput { account_id:string; description?:string; quantity:number; unit_price:number; line_amount:number; tax_amount?:number; total_amount:number; cost_center_id?:string; project_id?:string; }
+export interface ArInvoiceBoardRecord extends AccountsReceivableRecord { entity_code?:string; entity_name?:string; customer_code?:string; customer_display_name?:string; line_count:number; lines_total:number; outstanding_amount:number; days_past_due:number; }
+export interface ArInvoiceLineBoardRecord { id:string; tenant_id:string; legal_entity_id:string; ar_invoice_id:string; line_number:number; account_id:string; account_code:string; account_name:string; description?:string|null; quantity:number; unit_price:number; line_amount:number; tax_amount:number; total_amount:number; cost_center_id?:string|null; cost_center_code?:string|null; project_id?:string|null; project_code?:string|null; }
+export interface ArDashboardRecord { tenant_id:string; legal_entity_id:string; entity_code:string; entity_name:string; draft_invoices:number; submitted_invoices:number; approved_invoices:number; collection_progress_invoices:number; voided_invoices:number; total_outstanding:number; overdue_outstanding:number; active_customers:number; }
+export interface CustomerReceiptRecord { id:string; tenant_id:string; legal_entity_id:string; customer_id:string; receipt_number:string; receipt_date:string; amount:number; currency_code:string; reference?:string|null; status:'draft'|'posted'|'voided'; created_at:string; }
+export interface CustomerReceiptBoardRecord extends CustomerReceiptRecord { entity_code?:string; entity_name?:string; customer_code?:string; customer_name?:string; allocation_count:number; allocated_total:number; }
+export interface CustomerReceiptAllocationInput { ar_invoice_id:string; allocated_amount:number; }
 
 class CustomerService extends BaseService<CustomerRecord> {
-  constructor() { super('customers'); }
-
-  async findActiveForEntity(legalEntityId: string): Promise<CustomerRecord[]> {
-    const { data, error } = await supabase
-      .from('customers')
-      .select('*')
-      .eq('legal_entity_id', legalEntityId)
-      .eq('is_active', true)
-      .order('customer_code');
-    if (error) throw new Error(error.message);
-    return (data as CustomerRecord[]) || [];
-  }
+  constructor(){ super('customers'); }
+  async findActiveForEntity(legalEntityId:string): Promise<CustomerRecord[]> { const {data,error}=await supabase.from('finance_customer_lookup').select('*').eq('legal_entity_id',legalEntityId).eq('is_active',true).order('customer_code'); if(error) throw new Error(error.message); return (data||[]) as CustomerRecord[]; }
+  async findForEntity(legalEntityId:string): Promise<CustomerRecord[]> { const {data,error}=await supabase.from('finance_customer_lookup').select('*').eq('legal_entity_id',legalEntityId).order('customer_code'); if(error) throw new Error(error.message); return (data||[]) as CustomerRecord[]; }
+  async upsert(input:{legalEntityId:string; customerCode:string; nameAr:string; nameEn?:string; taxNumber?:string; email?:string; phone?:string; paymentTermsDays?:number; currencyCode?:string}): Promise<CustomerRecord>{ const {data,error}=await supabase.rpc('upsert_finance_customer',{p_legal_entity_id:input.legalEntityId,p_customer_code:input.customerCode,p_name_ar:input.nameAr,p_name_en:input.nameEn||null,p_tax_number:input.taxNumber||null,p_email:input.email||null,p_phone:input.phone||null,p_payment_terms_days:input.paymentTermsDays??30,p_currency_code:input.currencyCode||'IQD'}); if(error) throw new Error(error.message); return data as CustomerRecord; }
+  async updateStatus(customerId:string,isActive:boolean,reason:string): Promise<CustomerRecord>{ const {data,error}=await supabase.rpc('update_finance_customer_status',{p_customer_id:customerId,p_is_active:isActive,p_reason:reason}); if(error) throw new Error(error.message); return data as CustomerRecord; }
 }
 
-class AccountsReceivableService extends BaseService<AccountsReceivableRecord> {
-  constructor() { super('accounts_receivable'); }
-
-  async findForEntity(legalEntityId: string): Promise<AccountsReceivableRecord[]> {
-    const { data, error } = await supabase
-      .from('accounts_receivable')
-      .select('*')
-      .eq('legal_entity_id', legalEntityId)
-      .order('invoice_date', { ascending: false });
-    if (error) throw new Error(error.message);
-    return (data as AccountsReceivableRecord[]) || [];
-  }
-
-  async getAging(legalEntityId: string, asOfDate: string): Promise<Array<{
-    customer_id: string;
-    customer_name: string;
-    current_amount: number;
-    days_1_30: number;
-    days_31_60: number;
-    days_61_90: number;
-    days_over_90: number;
-    total_outstanding: number;
-  }>> {
-    const { data, error } = await supabase.rpc('get_ar_aging', {
-      p_legal_entity_id: legalEntityId,
-      p_as_of_date: asOfDate,
-    });
-    if (error) {
-      // Fallback to client-side calc if RPC not exists yet
-      const invoices = await this.findForEntity(legalEntityId);
-      const map = new Map<string, any>();
-      for (const inv of invoices) {
-        const outstanding = Number(inv.total_amount) - Number(inv.amount_received);
-        if (outstanding <= 0) continue;
-        const existing = map.get(inv.customer_id) || {
-          customer_id: inv.customer_id,
-          customer_name: inv.customer_id.slice(0,8),
-          current_amount: 0,
-          days_1_30: 0,
-          days_31_60: 0,
-          days_61_90: 0,
-          days_over_90: 0,
-          total_outstanding: 0,
-        };
-        existing.total_outstanding += outstanding;
-        existing.current_amount += outstanding;
-        map.set(inv.customer_id, existing);
-      }
-      return Array.from(map.values());
-    }
-    return data as any;
-  }
+class AccountsReceivableService extends BaseService<AccountsReceivableRecord>{
+  constructor(){ super('accounts_receivable'); }
+  async findForEntity(legalEntityId:string): Promise<AccountsReceivableRecord[]>{ const {data,error}=await supabase.from('accounts_receivable').select('*').eq('legal_entity_id',legalEntityId).order('invoice_date',{ascending:false}); if(error) throw new Error(error.message); return (data||[]) as AccountsReceivableRecord[]; }
+  async findBoard(legalEntityId:string): Promise<ArInvoiceBoardRecord[]>{ const {data,error}=await supabase.from('finance_ar_invoice_board').select('*').eq('legal_entity_id',legalEntityId).order('invoice_date',{ascending:false}); if(error) throw new Error(error.message); return (data||[]) as ArInvoiceBoardRecord[]; }
+  async findLines(invoiceId:string): Promise<ArInvoiceLineBoardRecord[]>{ const {data,error}=await supabase.from('finance_ar_invoice_line_board').select('*').eq('ar_invoice_id',invoiceId).order('line_number'); if(error) throw new Error(error.message); return (data||[]) as ArInvoiceLineBoardRecord[]; }
+  async findDashboard(legalEntityId?:string): Promise<ArDashboardRecord[]>{ let q=supabase.from('finance_ar_dashboard').select('*').order('entity_code'); if(legalEntityId) q=q.eq('legal_entity_id',legalEntityId); const {data,error}=await q; if(error) throw new Error(error.message); return (data||[]) as ArDashboardRecord[]; }
+  async createInvoiceWithLines(input:{legalEntityId:string; customerId:string; invoiceNumber:string; invoiceDate:string; dueDate?:string; currencyCode:string; exchangeRate?:number; notes?:string; lines:ArInvoiceLineInput[]}): Promise<AccountsReceivableRecord>{ const {data,error}=await supabase.rpc('create_ar_invoice_with_lines',{p_legal_entity_id:input.legalEntityId,p_customer_id:input.customerId,p_invoice_number:input.invoiceNumber,p_invoice_date:input.invoiceDate,p_due_date:input.dueDate||null,p_currency_code:input.currencyCode,p_exchange_rate:input.exchangeRate??1,p_notes:input.notes||null,p_lines:input.lines}); if(error) throw new Error(error.message); return data as AccountsReceivableRecord; }
+  async setStatus(id:string,status:'submitted'|'approved'|'voided',reason:string): Promise<AccountsReceivableRecord>{ const {data,error}=await supabase.rpc('set_ar_invoice_lifecycle_status',{p_invoice_id:id,p_status:status,p_reason:reason}); if(error) throw new Error(error.message); return data as AccountsReceivableRecord; }
+  async getAging(legalEntityId:string,asOfDate:string){ const {data,error}=await supabase.rpc('get_ar_aging',{p_legal_entity_id:legalEntityId,p_as_of_date:asOfDate}); if(error) throw new Error(error.message); return data||[]; }
 }
 
-export const customerService = new CustomerService();
-export const accountsReceivableService = new AccountsReceivableService();
+class CustomerReceiptService extends BaseService<CustomerReceiptRecord>{
+  constructor(){ super('customer_receipts'); }
+  async findBoard(legalEntityId:string): Promise<CustomerReceiptBoardRecord[]>{ const {data,error}=await supabase.from('finance_customer_receipt_board').select('*').eq('legal_entity_id',legalEntityId).order('receipt_date',{ascending:false}); if(error) throw new Error(error.message); return (data||[]) as CustomerReceiptBoardRecord[]; }
+  async createWithAllocations(input:{legal_entity_id:string; customer_id:string; receipt_number:string; receipt_date:string; amount:number; currency_code:string; reference?:string; allocations:CustomerReceiptAllocationInput[]}): Promise<CustomerReceiptRecord>{ const {data,error}=await supabase.rpc('create_customer_receipt_draft',{p_legal_entity_id:input.legal_entity_id,p_customer_id:input.customer_id,p_receipt_number:input.receipt_number,p_receipt_date:input.receipt_date,p_amount:input.amount,p_currency_code:input.currency_code,p_reference:input.reference||null,p_allocations:input.allocations}); if(error) throw new Error(error.message); return data as CustomerReceiptRecord; }
+  async postWithReason(id:string,reason:string): Promise<CustomerReceiptRecord>{ const {data,error}=await supabase.rpc('post_customer_receipt_with_reason',{p_receipt_id:id,p_reason:reason}); if(error) throw new Error(error.message); return data as CustomerReceiptRecord; }
+  async void(id:string,reason:string): Promise<CustomerReceiptRecord>{ const {data,error}=await supabase.rpc('void_customer_receipt',{p_receipt_id:id,p_reason:reason}); if(error) throw new Error(error.message); return data as CustomerReceiptRecord; }
+}
+
+export const customerService=new CustomerService();
+export const accountsReceivableService=new AccountsReceivableService();
+export const customerReceiptService=new CustomerReceiptService();

@@ -1,47 +1,34 @@
 import { BaseService } from './BaseService';
 import { supabase } from '../supabase/supabase';
 
-export interface BudgetRecord {
-  id: string;
-  tenant_id: string;
-  budget_name: string;
-  fiscal_year: number;
-  start_date?: string | null;
-  end_date?: string | null;
-  status: 'draft' | 'approved' | 'closed';
-  created_at: string;
-}
-
-export interface BudgetLineRecord {
-  id: string;
-  budget_id: string;
-  account_id: string;
-  budget_amount: number;
-  created_at: string;
-}
+export interface BudgetRecord { id:string; tenant_id:string; legal_entity_id:string; budget_name:string; fiscal_year:number; start_date?:string|null; end_date?:string|null; currency_code:string; description?:string|null; status:'draft'|'submitted'|'approved'|'closed'|'voided'; created_at:string; }
+export interface BudgetBoardRecord extends BudgetRecord { entity_code?:string; entity_name?:string; line_count:number; total_budget:number; total_forecast:number; }
+export interface BudgetLineRecord { id:string; tenant_id:string; legal_entity_id:string; budget_id:string; account_id:string; budget_amount:number; amount:number; forecast_amount:number; period_start?:string|null; period_end?:string|null; cost_center_id?:string|null; project_id?:string|null; notes?:string|null; created_at:string; }
+export interface BudgetLineBoardRecord extends BudgetLineRecord { account_code:string; account_name:string; cost_center_code?:string|null; cost_center_name?:string|null; project_code?:string|null; project_name?:string|null; }
+export interface BudgetVarianceRecord { id:string; tenant_id:string; legal_entity_id:string; budget_id:string; account_id:string; budget_amount:number; actual_amount:number; variance_amount:number; variance_percentage:number; report_period:string; period_start?:string|null; period_end?:string|null; account_code?:string; account_name?:string; budget_name?:string; }
+export interface BudgetDashboardRecord { tenant_id:string; legal_entity_id:string; entity_code:string; entity_name:string; draft_budgets:number; submitted_budgets:number; approved_budgets:number; approved_budget_total:number; approved_forecasts:number; }
+export interface ForecastScenarioRecord { id:string; tenant_id:string; legal_entity_id:string; scenario_name:string; start_date:string; end_date:string; projected_cash:number; status:'draft'|'submitted'|'approved'|'closed'|'voided'; scenario_type:string; confidence_level:string; assumptions:Record<string,unknown>; created_at:string; }
 
 class BudgetService extends BaseService<BudgetRecord> {
-  constructor() { super('budgets'); }
-
-  async findWithLines(budgetId: string): Promise<{ budget: BudgetRecord, lines: BudgetLineRecord[] }> {
-    const { data: budget, error } = await supabase.from('budgets').select('*').eq('id', budgetId).single();
-    if (error) throw new Error(error.message);
-    const { data: lines } = await supabase.from('budget_lines').select('*').eq('budget_id', budgetId);
-    return { budget: budget as BudgetRecord, lines: (lines as BudgetLineRecord[]) || [] };
-  }
-
-  async calculateVariance(budgetId: string): Promise<Array<{ account_id: string, budget_amount: number, actual_amount: number, variance: number }>> {
-    // Try RPC, fallback to 0 actual
-    const { data, error } = await supabase.rpc('calculate_budget_variance' as any, { p_budget_id: budgetId });
-    if (!error && data) return data as any;
-    const { data: lines } = await supabase.from('budget_lines').select('*').eq('budget_id', budgetId);
-    return ((lines as BudgetLineRecord[]) || []).map(l => ({
-      account_id: l.account_id,
-      budget_amount: Number(l.budget_amount),
-      actual_amount: 0,
-      variance: -Number(l.budget_amount),
-    }));
-  }
+  constructor(){ super('budgets'); }
+  async findBoard(legalEntityId:string): Promise<BudgetBoardRecord[]> { const {data,error}=await supabase.from('finance_budget_board').select('*').eq('legal_entity_id',legalEntityId).order('fiscal_year',{ascending:false}); if(error) throw new Error(error.message); return (data||[]) as BudgetBoardRecord[]; }
+  async findDashboard(legalEntityId?:string): Promise<BudgetDashboardRecord[]> { let q=supabase.from('finance_budget_dashboard').select('*').order('entity_code'); if(legalEntityId) q=q.eq('legal_entity_id',legalEntityId); const {data,error}=await q; if(error) throw new Error(error.message); return (data||[]) as BudgetDashboardRecord[]; }
+  async findLines(budgetId:string): Promise<BudgetLineBoardRecord[]> { const {data,error}=await supabase.from('finance_budget_line_board').select('*').eq('budget_id',budgetId).order('created_at',{ascending:false}); if(error) throw new Error(error.message); return (data||[]) as BudgetLineBoardRecord[]; }
+  async findVariance(legalEntityId?:string): Promise<BudgetVarianceRecord[]> { let q=supabase.from('finance_budget_variance_board').select('*').order('created_at',{ascending:false}).limit(500); if(legalEntityId) q=q.eq('legal_entity_id',legalEntityId); const {data,error}=await q; if(error) throw new Error(error.message); return (data||[]) as BudgetVarianceRecord[]; }
+  async upsertBudget(input:{legalEntityId:string; budgetName:string; fiscalYear:number; startDate?:string; endDate?:string; currencyCode?:string; description?:string; budgetId?:string|null}): Promise<BudgetRecord>{ const {data,error}=await supabase.rpc('upsert_finance_budget',{p_legal_entity_id:input.legalEntityId,p_budget_name:input.budgetName,p_fiscal_year:input.fiscalYear,p_start_date:input.startDate||null,p_end_date:input.endDate||null,p_currency_code:input.currencyCode||null,p_description:input.description||null,p_budget_id:input.budgetId||null}); if(error) throw new Error(error.message); return data as BudgetRecord; }
+  async upsertLine(input:{budgetId:string; accountId:string; budgetAmount:number; periodStart?:string; periodEnd?:string; costCenterId?:string; projectId?:string; forecastAmount?:number; notes?:string; lineId?:string|null}): Promise<BudgetLineRecord>{ const {data,error}=await supabase.rpc('upsert_finance_budget_line',{p_budget_id:input.budgetId,p_account_id:input.accountId,p_budget_amount:input.budgetAmount,p_period_start:input.periodStart||null,p_period_end:input.periodEnd||null,p_cost_center_id:input.costCenterId||null,p_project_id:input.projectId||null,p_forecast_amount:input.forecastAmount||0,p_notes:input.notes||null,p_line_id:input.lineId||null}); if(error) throw new Error(error.message); return data as BudgetLineRecord; }
+  async updateStatus(id:string,status:'submitted'|'approved'|'closed'|'voided',reason:string): Promise<BudgetRecord>{ const {data,error}=await supabase.rpc('update_finance_budget_status',{p_budget_id:id,p_status:status,p_reason:reason}); if(error) throw new Error(error.message); return data as BudgetRecord; }
+  async generateVariance(budgetId:string,periodStart:string,periodEnd:string): Promise<BudgetVarianceRecord[]> { const {data,error}=await supabase.rpc('generate_budget_variance_report',{p_budget_id:budgetId,p_period_start:periodStart,p_period_end:periodEnd}); if(error) throw new Error(error.message); return (data||[]) as BudgetVarianceRecord[]; }
+  async findWithLines(budgetId:string): Promise<{budget:BudgetRecord,lines:BudgetLineRecord[]}>{ const {data:budget,error}=await supabase.from('budgets').select('*').eq('id',budgetId).single(); if(error) throw new Error(error.message); const lines=await this.findLines(budgetId); return {budget:budget as BudgetRecord,lines:lines as unknown as BudgetLineRecord[]}; }
+  async calculateVariance(budgetId:string): Promise<Array<{account_id:string,budget_amount:number,actual_amount:number,variance:number}>>{ const rows=await this.generateVariance(budgetId,new Date(new Date().getFullYear(),0,1).toISOString().slice(0,10),new Date().toISOString().slice(0,10)); return rows.map(r=>({account_id:r.account_id,budget_amount:Number(r.budget_amount),actual_amount:Number(r.actual_amount),variance:Number(r.variance_amount)})); }
 }
 
-export const budgetService = new BudgetService();
+class ForecastScenarioService extends BaseService<ForecastScenarioRecord> {
+  constructor(){ super('cash_forecast_scenarios'); }
+  async findBoard(legalEntityId:string): Promise<ForecastScenarioRecord[]> { const {data,error}=await supabase.from('finance_forecast_scenario_board').select('*').eq('legal_entity_id',legalEntityId).order('start_date',{ascending:false}); if(error) throw new Error(error.message); return (data||[]) as ForecastScenarioRecord[]; }
+  async upsert(input:{legalEntityId:string; scenarioName:string; startDate:string; endDate:string; projectedCash:number; scenarioType?:string; confidenceLevel?:string; assumptions?:Record<string,unknown>; scenarioId?:string|null}): Promise<ForecastScenarioRecord>{ const {data,error}=await supabase.rpc('upsert_finance_forecast_scenario',{p_legal_entity_id:input.legalEntityId,p_scenario_name:input.scenarioName,p_start_date:input.startDate,p_end_date:input.endDate,p_projected_cash:input.projectedCash,p_scenario_type:input.scenarioType||'cash',p_confidence_level:input.confidenceLevel||'base',p_assumptions:input.assumptions||{},p_scenario_id:input.scenarioId||null}); if(error) throw new Error(error.message); return data as ForecastScenarioRecord; }
+  async updateStatus(id:string,status:'submitted'|'approved'|'closed'|'voided',reason:string): Promise<ForecastScenarioRecord>{ const {data,error}=await supabase.rpc('update_finance_forecast_status',{p_scenario_id:id,p_status:status,p_reason:reason}); if(error) throw new Error(error.message); return data as ForecastScenarioRecord; }
+}
+
+export const budgetService=new BudgetService();
+export const forecastScenarioService=new ForecastScenarioService();

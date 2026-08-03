@@ -1,94 +1,28 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Landmark, Loader2, Plus, RefreshCw, Search, Upload, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
-import { bankAccountService, bankStatementImportService, type BankAccountRecord, type BankStatementImportRecord } from '../../../services/sdk/BankStatementImportService';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { FileText, Landmark, Loader2, Plus, RefreshCw, Trash2, Upload, X } from 'lucide-react';
+import { bankAccountService, bankStatementImportService, type BankAccountBoardRecord, type BankStatementImportRecord, type BankStatementLineInput, type BankStatementLineRecord } from '../../../services/sdk/BankStatementImportService';
+import { legalEntityService, type LegalEntityRecord } from '../../../services/sdk/FinanceFoundationService';
+import { generalLedgerService, type JournalEntryBoardRecord } from '../../../services/sdk/GeneralLedgerService';
 import { getErrorMessage } from '../../../services/errors';
 import { useUIStore } from '../../../core/stores';
+import { FinanceUnitNav } from './shared/FinanceUnitNav';
 
-export default function BankStatementImportPage() {
-  const { addToast } = useUIStore();
-  const [accounts, setAccounts] = useState<BankAccountRecord[]>([]);
-  const [imports, setImports] = useState<BankStatementImportRecord[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [filePath, setFilePath] = useState('');
+type DraftLine = BankStatementLineInput & { key: string };
+const emptyLine = (): DraftLine => ({ key: crypto.randomUUID(), transaction_date: new Date().toISOString().slice(0, 10), description: '', amount: 0, external_reference: '' });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const acc = await bankAccountService.findAll({ orderBy: 'account_name' }) as any;
-      setAccounts(acc || []);
-      const id = selectedAccount || (acc && acc[0]?.id) || '';
-      if (!selectedAccount && id) setSelectedAccount(id);
-      if (id) {
-        setImports(await bankStatementImportService.findForAccount(id));
-      }
-    } catch (e) {
-      addToast(`تعذر التحميل: ${getErrorMessage(e)}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast, selectedAccount]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const handleImport = async () => {
-    if (!selectedAccount || !filePath) {
-      addToast('اختر حساباً ومسار ملف', 'error');
-      return;
-    }
-    try {
-      await bankStatementImportService.importStatement({
-        bank_account_id: selectedAccount,
-        file_path: filePath,
-        import_date: new Date().toISOString().slice(0,10),
-        status: 'pending',
-        total_imported: 0,
-        total_matched: 0,
-      } as any);
-      addToast('تم إنشاء الاستيراد — سيتم معالجته', 'success');
-      setFilePath('');
-      await load();
-    } catch (e) {
-      addToast(getErrorMessage(e), 'error');
-    }
-  };
-
-  return (
-    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
-      <div className="flex justify-between flex-wrap gap-3">
-        <div>
-          <p className="text-sm font-bold text-emerald-700">Bank — Wave 5 (Beta) — Real SDK ✅</p>
-          <h1 className="text-3xl font-black">استيراد كشوف بنكية</h1>
-          <p className="text-slate-500 mt-2">استيراد CSV مع فحص idempotent (منع تكرار نفس الملف) + حالة المعالجة.</p>
-        </div>
-        <button onClick={() => void load()} className="border rounded-xl px-4 py-2 font-bold"><RefreshCw size={15} className="inline ml-1" />تحديث</button>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-900 flex gap-2">
-        <FileText size={16} className="shrink-0 mt-0.5" />
-        <div><p className="font-bold">Idempotency:</p><p className="mt-1">النظام يمنع استيراد نفس file_path مرتين — إذا حاولت، سيرفض بـ "تم استيراده مسبقاً". هذا يمنع تكرار البيانات.</p></div>
-      </div>
-
-      <div className="grid md:grid-cols-3 gap-3">
-        <select value={selectedAccount} onChange={e => setSelectedAccount(e.target.value)} className="border rounded-xl p-3 bg-white">
-          <option value="">اختر حساباً بنكياً</option>
-          {accounts.map(a => <option value={a.id} key={a.id}>{a.bank_name} — {a.account_name} ({a.currency})</option>)}
-        </select>
-        <input value={filePath} onChange={e => setFilePath(e.target.value)} placeholder="مسار الملف مثل /uploads/bank-2026-07.csv" className="border rounded-xl p-3" dir="ltr" />
-        <button onClick={() => void handleImport()} disabled={!selectedAccount || !filePath} className="bg-emerald-600 text-white rounded-xl px-4 py-3 font-bold disabled:opacity-50 flex items-center justify-center gap-2"><Upload size={15} /> استيراد</button>
-      </div>
-
-      {loading ? <div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3" />جارٍ التحميل...</div> : (
-        <div className="bg-white border rounded-2xl overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="p-3 text-right">التاريخ</th><th className="p-3 text-right">الملف</th><th className="p-3 text-right">الحالة</th><th className="p-3 text-right">مستورد</th><th className="p-3 text-right">مطابق</th></tr></thead>
-            <tbody className="divide-y">
-              {imports.map(i => <tr key={i.id}><td className="p-3">{i.import_date}</td><td className="p-3 font-mono text-xs truncate max-w-[200px]">{i.file_path || '—'}</td><td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-bold border ${i.status === 'completed' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : i.status === 'failed' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>{i.status}</span></td><td className="p-3">{i.total_imported}</td><td className="p-3">{i.total_matched}</td></tr>)}
-              {!imports.length && <tr><td colSpan={5} className="p-16 text-center text-slate-500"><Landmark className="mx-auto mb-3 text-slate-300" />لا توجد عمليات استيراد لهذا الحساب — أضف مسار ملف.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
+export default function BankStatementImportPage(){
+ const {addToast}=useUIStore(); const [entities,setEntities]=useState<LegalEntityRecord[]>([]),[entityId,setEntityId]=useState(''),[accounts,setAccounts]=useState<BankAccountBoardRecord[]>([]),[imports,setImports]=useState<BankStatementImportRecord[]>([]),[statementLines,setStatementLines]=useState<BankStatementLineRecord[]>([]),[journals,setJournals]=useState<JournalEntryBoardRecord[]>([]),[selectedAccount,setSelectedAccount]=useState(''),[selectedImport,setSelectedImport]=useState(''),[loading,setLoading]=useState(true),[show,setShow]=useState(false),[filePath,setFilePath]=useState(''),[sourceName,setSourceName]=useState(''),[lines,setLines]=useState<DraftLine[]>([emptyLine()]),[matchLine,setMatchLine]=useState<BankStatementLineRecord|null>(null),[journalId,setJournalId]=useState(''),[reason,setReason]=useState('');
+ const load=useCallback(async()=>{setLoading(true);try{const es=await legalEntityService.findActive();setEntities(es);const eid=entityId||es[0]?.id||'';if(!entityId&&eid)setEntityId(eid);if(!eid)return;const [acc,je]=await Promise.all([bankAccountService.findBoard(eid),generalLedgerService.findBoard(eid)]);setAccounts(acc);setJournals(je.filter(j=>['posted','reversed'].includes(j.status)));const aid=selectedAccount&&acc.some(a=>a.id===selectedAccount)?selectedAccount:acc[0]?.id||'';setSelectedAccount(aid);const imps=aid?await bankStatementImportService.findForAccount(aid):[];setImports(imps);const iid=selectedImport&&imps.some(i=>i.id===selectedImport)?selectedImport:imps[0]?.id||'';setSelectedImport(iid);setStatementLines(iid?await bankStatementImportService.findLines(iid):[])}catch(e){addToast(`تعذر التحميل: ${getErrorMessage(e)}`,'error')}finally{setLoading(false)}},[addToast,entityId,selectedAccount,selectedImport]);
+ useEffect(()=>{void load()},[load]);
+ const updateLine=(key:string,patch:Partial<DraftLine>)=>setLines(cur=>cur.map(l=>l.key===key?{...l,...patch}:l));
+ const handleImport=async()=>{if(!selectedAccount||!filePath||!lines.length)return addToast('اختر حساباً وملفاً وسطوراً','error');try{const imp=await bankStatementImportService.importStatement({bankAccountId:selectedAccount,filePath,importDate:new Date().toISOString().slice(0,10),sourceName,lines:lines.map(({key:_key,...l})=>l)});addToast('تم استيراد الكشف مع السطور','success');setShow(false);setFilePath('');setSourceName('');setLines([emptyLine()]);setSelectedImport(imp.id);await load()}catch(e){addToast(getErrorMessage(e),'error')}};
+ const executeMatch=async()=>{if(!matchLine||!journalId||!reason.trim())return addToast('اختر القيد واكتب السبب','error');try{await bankStatementImportService.matchLine(matchLine.id,journalId,reason.trim());addToast('تمت مطابقة السطر','success');setMatchLine(null);setJournalId('');setReason('');await load()}catch(e){addToast(getErrorMessage(e),'error')}};
+ return <div className="space-y-5 max-w-[1700px] mx-auto" dir="rtl"><FinanceUnitNav unit="cash"/><div className="flex justify-between flex-wrap gap-3"><div><p className="text-sm font-bold text-emerald-700">Finance Unit 06 · Bank Statements</p><h1 className="text-3xl font-black">استيراد ومطابقة الكشوف البنكية</h1><p className="text-slate-500 mt-2">استيراد idempotent مع سطور ومطابقة بقيود يومية منشورة.</p></div><div className="flex gap-2"><button onClick={()=>void load()} className="border rounded-xl px-4 py-2 font-bold bg-white"><RefreshCw size={15} className="inline ml-1"/>تحديث</button><button onClick={()=>setShow(true)} disabled={!selectedAccount} className="bg-emerald-600 text-white rounded-xl px-4 py-2 font-bold disabled:opacity-50"><Upload size={15} className="inline ml-1"/>استيراد</button></div></div>
+ <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-900 flex gap-2"><FileText size={16}/><span>يمنع النظام استيراد نفس file_path لنفس الحساب أكثر من مرة.</span></div>
+ <div className="grid md:grid-cols-3 gap-3"><select value={entityId} onChange={e=>{setEntityId(e.target.value);setSelectedAccount('')}} className="border rounded-xl p-3 bg-white">{entities.map(e=><option key={e.id} value={e.id}>{e.code} — {e.name_ar}</option>)}</select><select value={selectedAccount} onChange={e=>{setSelectedAccount(e.target.value);setSelectedImport('')}} className="border rounded-xl p-3 bg-white"><option value="">اختر حساباً</option>{accounts.map(a=><option value={a.id} key={a.id}>{a.bank_name} — {a.account_name} ({a.currency})</option>)}</select><select value={selectedImport} onChange={e=>setSelectedImport(e.target.value)} className="border rounded-xl p-3 bg-white"><option value="">اختر كشفاً</option>{imports.map(i=><option key={i.id} value={i.id}>{i.import_date} — {i.file_path}</option>)}</select></div>
+ {loading?<div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3"/>جارٍ التحميل...</div>:<section className="grid xl:grid-cols-[420px_1fr] gap-4"><div className="bg-white border rounded-2xl overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="p-3 text-right">التاريخ</th><th className="p-3 text-right">الملف</th><th className="p-3 text-right">الحالة</th><th className="p-3">مطابق</th></tr></thead><tbody className="divide-y">{imports.map(i=><tr key={i.id} className={selectedImport===i.id?'bg-emerald-50/50':''}><td className="p-3"><button onClick={()=>setSelectedImport(i.id)}>{i.import_date}</button></td><td className="p-3 font-mono text-xs truncate max-w-[160px]">{i.file_path}</td><td className="p-3">{i.status}</td><td className="p-3">{i.total_matched}/{i.total_imported}</td></tr>)}{!imports.length&&<tr><td colSpan={4} className="p-16 text-center text-slate-500"><Landmark className="mx-auto mb-3 text-slate-300"/>لا توجد استيرادات.</td></tr>}</tbody></table></div><div className="bg-white border rounded-2xl overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="p-3 text-right">التاريخ</th><th className="p-3 text-right">الوصف</th><th className="p-3 text-right">المبلغ</th><th className="p-3 text-right">الحالة</th><th className="p-3"/></tr></thead><tbody className="divide-y">{statementLines.map(l=><tr key={l.id}><td className="p-3">{l.transaction_date}</td><td className="p-3">{l.description||'—'}</td><td className="p-3 font-black">{Number(l.amount).toLocaleString()}</td><td className="p-3">{l.matched?`مطابق ${l.entry_number||''}`:'غير مطابق'}</td><td className="p-3">{!l.matched&&<button onClick={()=>{setMatchLine(l);setReason('');setJournalId('')}} className="text-emerald-700 font-bold">مطابقة</button>}</td></tr>)}</tbody></table></div></section>}
+ {show&&<Modal title="استيراد كشف بنكي" onClose={()=>setShow(false)}><div className="space-y-3"><input value={filePath} onChange={e=>setFilePath(e.target.value)} placeholder="مسار الملف" className="w-full border rounded-xl p-3" dir="ltr"/><input value={sourceName} onChange={e=>setSourceName(e.target.value)} placeholder="مصدر/اسم الكشف" className="w-full border rounded-xl p-3"/><div className="border rounded-xl overflow-x-auto"><table className="w-full text-sm"><tbody>{lines.map(line=><tr key={line.key} className="border-t"><td className="p-2"><input type="date" value={line.transaction_date} onChange={e=>updateLine(line.key,{transaction_date:e.target.value})} className="border rounded p-2"/></td><td className="p-2"><input placeholder="وصف" value={line.description||''} onChange={e=>updateLine(line.key,{description:e.target.value})} className="border rounded p-2"/></td><td className="p-2"><input type="number" step="0.01" value={line.amount||''} onChange={e=>updateLine(line.key,{amount:Number(e.target.value)})} className="border rounded p-2"/></td><td className="p-2">{lines.length>1&&<button onClick={()=>setLines(x=>x.filter(y=>y.key!==line.key))} className="text-rose-600"><Trash2 size={15}/></button>}</td></tr>)}</tbody></table></div><button onClick={()=>setLines(x=>[...x,emptyLine()])} className="text-emerald-700 font-bold"><Plus size={15} className="inline ml-1"/>سطر</button><button onClick={()=>void handleImport()} className="w-full bg-emerald-600 text-white rounded-xl py-3 font-bold">استيراد</button></div></Modal>}
+ {matchLine&&<Modal title="مطابقة سطر كشف" onClose={()=>setMatchLine(null)}><div className="space-y-3"><select value={journalId} onChange={e=>setJournalId(e.target.value)} className="w-full border rounded-xl p-3"><option value="">اختر قيداً منشوراً</option>{journals.map(j=><option value={j.id} key={j.id}>{j.entry_number} — {j.entry_date} — {Number(j.total_debit).toLocaleString()}</option>)}</select><textarea value={reason} onChange={e=>setReason(e.target.value)} className="w-full min-h-28 border rounded-xl p-3" placeholder="سبب المطابقة..."/><button disabled={!journalId||!reason.trim()} onClick={()=>void executeMatch()} className="w-full bg-emerald-600 text-white rounded-xl py-3 font-bold disabled:opacity-50">مطابقة</button></div></Modal>}
+ </div>;
 }
+function Modal({title,children,onClose}:{title:string;children:ReactNode;onClose:()=>void}){return <div className="fixed inset-0 z-50 bg-slate-950/50 p-4 overflow-y-auto"><div className="max-w-4xl mx-auto bg-white rounded-2xl p-6 space-y-4"><div className="flex justify-between"><h2 className="font-black text-xl">{title}</h2><button onClick={onClose}><X/></button></div>{children}</div></div>}

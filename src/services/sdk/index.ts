@@ -79,7 +79,7 @@ export { approvalRequestService, approvalActionService } from './ApprovalService
 export { managerWorkloadItemService } from './ManagerService';
 export { tenantModuleService, MODULE_CATALOG, PLAN_ALLOWED_MODULES, PLAN_LIMITS, modulesForPlan, isModuleAllowedForPlan, planLimitsForPlan } from './TenantModuleService';
 export type { TenantModuleRecord, ModuleCatalogItem, ModuleKey, PlanLimits } from './TenantModuleService';
-export { currencyService, financeSetupService, legalEntityService, entityMembershipService, fiscalYearService, accountingPeriodService, requireFinanceTenantId } from './FinanceFoundationService';
+export { currencyService, financeSetupService, legalEntityService, entityMembershipService, fiscalYearService, accountingPeriodService, financeCostCenterService, financeProjectService, exchangeRateService, financePeriodCloseService, requireFinanceTenantId } from './FinanceFoundationService';
 // 🆕 وحدة أتمتة التسويق (بوابة التسويق — التقرير 1)
 export {
   marketingLeadService,
@@ -252,7 +252,7 @@ export type {
   WeightedForecastRow, FunnelRow, VelocityRow, CompetitorRow, SegmentRow,
   MrrMovementRow, RepPerformanceRow, ExecKpis,
 } from './CrmAnalyticsService';
-export type { CurrencyRecord, LegalEntityRecord, EntityMembershipRecord, FiscalYearRecord, AccountingPeriodRecord, FinanceRole, EntityStatus, FiscalYearStatus, AccountingPeriodStatus } from './FinanceFoundationService';
+export type { CurrencyRecord, LegalEntityRecord, EntityMembershipRecord, FiscalYearRecord, AccountingPeriodRecord, FinanceProjectRecord, ExchangeRateRecord, FinancePeriodCloseTaskRecord, FinancePeriodCloseReadinessRecord, FinanceCloseChecklistBoardRecord, FinanceGrcDashboardRecord, FinanceRole, EntityStatus, FiscalYearStatus, AccountingPeriodStatus } from './FinanceFoundationService';
 export { entitlementService } from './EntitlementService';
 export type { TenantUsageSnapshot } from './EntitlementService';
 
@@ -262,24 +262,39 @@ export type { TenantCompany, TenantSubscription, TenantStats, PlatformAuditEntry
 
 // قاعدة البيانات (كلينتات) - من src/services/supabase/
 export { supabase, default as supabaseClient } from '../supabase/supabase';export { generalLedgerService } from './GeneralLedgerService';
-export type { CreateJournalDraftInput, JournalDraftLineInput } from './GeneralLedgerService';
+export type { CreateJournalDraftInput, JournalDraftLineInput, JournalEntryBoardRecord, JournalEntryLineBoardRecord, JournalLifecycleDashboardRecord } from './GeneralLedgerService';
 export { chartOfAccountService } from './ChartOfAccountService';
+export type { FinanceChartAccountTreeRecord, FinancePostingAccountLookupRecord, FinanceAccountUsageSummaryRecord, FinanceAccountDimensionPolicyRecord, FinanceDimensionsDashboardRecord, FinanceHierarchyIssueRecord, UpsertFinanceChartAccountInput } from './ChartOfAccountService';
 export { accountsPayableService, vendorService } from './AccountsPayableService';
-export type { AccountsPayableRecord, VendorRecord, PayableStatus } from './AccountsPayableService';
+export type { AccountsPayableRecord, VendorRecord, PayableStatus, ApInvoiceLineInput, ApInvoiceBoardRecord, ApInvoiceLineBoardRecord, ApDashboardRecord } from './AccountsPayableService';
 export { vendorPaymentService } from './VendorPaymentService';
-export type { VendorPaymentRecord, VendorPaymentAllocationInput } from './VendorPaymentService';
-export { accountsReceivableService } from './AccountsReceivableService';
+export type { VendorPaymentRecord, VendorPaymentBoardRecord, VendorPaymentAllocationInput, VendorPaymentAllocationBoardRecord } from './VendorPaymentService';
+export { accountsReceivableService, customerService, customerReceiptService } from './AccountsReceivableService';
+export type { CustomerRecord, AccountsReceivableRecord, ArInvoiceLineInput, ArInvoiceBoardRecord, ArInvoiceLineBoardRecord, ArDashboardRecord, CustomerReceiptRecord, CustomerReceiptBoardRecord, CustomerReceiptAllocationInput } from './AccountsReceivableService';
 export { cashManagementService } from './CashManagementService';
+export { bankAccountService, bankStatementImportService, bankReconciliationService, cashBankDashboardService } from './BankStatementImportService';
+export type { BankAccountRecord, BankAccountBoardRecord, BankStatementImportRecord, BankStatementLineRecord, BankStatementLineInput, BankReconciliationRecord, CashBankDashboardRecord } from './BankStatementImportService';
 export { taxService } from './TaxService';
-export { budgetService } from './BudgetService';
+export type { TaxCodeRecord, TaxCodeBoardRecord, TaxFilingRecord, TaxFilingBoardRecord, TaxFilingLineRecord, TaxDashboardRecord } from './TaxService';
+export { budgetService, forecastScenarioService } from './BudgetService';
+export type { BudgetRecord, BudgetBoardRecord, BudgetLineRecord, BudgetLineBoardRecord, BudgetVarianceRecord, BudgetDashboardRecord, ForecastScenarioRecord } from './BudgetService';
 export { financialReportService } from './FinancialReportService';
+export type { TrialBalanceRow, GeneralLedgerRow, FinanceReportRunRecord, FinanceReportExportRecord, FinanceExecutiveKpiRecord } from './FinancialReportService';
 export { auditTrailService } from './AuditTrailService';
 export { systemNoteService } from './SystemNoteService';
 export { approvalService } from './ApprovalService';
 export { multiBookService } from './MultiBookService';
 export { fixedAssetService } from './FixedAssetService';
+export type { FixedAssetRecord, FixedAssetBoardRecord, DepreciationScheduleRecord, FixedAssetDashboardRecord } from './FixedAssetService';
+export { revenueRecognitionService } from './RevenueRecognitionService';
+export type { RevenueContractRecord, RevenueContractBoardRecord, RevenueScheduleRecord, RevenueDashboardRecord } from './RevenueRecognitionService';
 export { financialReportTemplateService } from './FinancialReportTemplateService';
 export { intercompanyService } from './IntercompanyService';
+export type { IntercompanyTransactionRecord, IntercompanyTransactionBoardRecord, ConsolidationEntryRecord, IntercompanyDashboardRecord } from './IntercompanyService';
+export { projectAccountingService } from './ProjectAccountingService';
+export type { ProjectAccountingRecord, ProjectBudgetLineRecord, ProjectActualSnapshotRecord, ProjectAccountingDashboardRecord } from './ProjectAccountingService';
+export { financeIntegrationService } from './FinanceIntegrationService';
+export type { FinanceIntegrationConnectorRecord, FinanceIntegrationEventRecord, FinanceIntegrationDashboardRecord } from './FinanceIntegrationService';
 export { hrApprovalService } from './HrApprovalService';
 // 🆕 مفاتيح المزوّدين لكل شركة (BYOK — النموذج ب)
 export { tenantProviderService, SUPPORTED_PROVIDERS } from './TenantProviderService';

@@ -3,6 +3,7 @@ import { Building2, Loader2, RefreshCw, Layers } from 'lucide-react';
 import { legalEntityService, type LegalEntityRecord } from '../../../services/sdk/FinanceFoundationService';
 import { getErrorMessage } from '../../../services/errors';
 import { useUIStore } from '../../../core/stores';
+import { FinanceUnitNav } from './shared/FinanceUnitNav';
 
 export default function MultiEntityPage() {
   const { addToast } = useUIStore();
@@ -23,7 +24,7 @@ export default function MultiEntityPage() {
   useEffect(() => { void load(); }, [load]);
 
   return (
-    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
+    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl"><FinanceUnitNav unit="foundation"/>
       <div className="flex justify-between flex-wrap gap-3">
         <div>
           <p className="text-sm font-bold text-blue-700">Multi-Entity — Wave 3 (Beta) — Real SDK ✅</p>

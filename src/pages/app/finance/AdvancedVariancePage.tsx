@@ -1,55 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, Loader2, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
-import { supabase } from '../../../services/supabase/supabase';
+import { BarChart3, Loader2, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
+import { budgetService, type BudgetBoardRecord, type BudgetVarianceRecord } from '../../../services/sdk/BudgetService';
+import { legalEntityService, type LegalEntityRecord } from '../../../services/sdk/FinanceFoundationService';
 import { getErrorMessage } from '../../../services/errors';
 import { useUIStore } from '../../../core/stores';
+import { FinanceUnitNav } from './shared/FinanceUnitNav';
 
-export default function AdvancedVariancePage() {
-  const { addToast } = useUIStore();
-  const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.from('budget_variance_reports').select('*').order('created_at', { ascending: false }).limit(100);
-      if (error) throw error;
-      setRows(data || []);
-    } catch (e) {
-      addToast(`تعذر التحميل: ${getErrorMessage(e)}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  return (
-    <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl">
-      <div className="flex justify-between flex-wrap gap-3">
-        <div>
-          <p className="text-sm font-bold text-indigo-700">Budget Variance — Wave 6 (Beta) — Real SDK ✅</p>
-          <h1 className="text-3xl font-black">تحليل التباين المتقدم</h1>
-          <p className="text-slate-500 mt-2">مقارنة فعلية مقابل موازنة مع نسبة تباين — من budget_variance_reports.</p>
-        </div>
-        <button onClick={() => void load()} className="border rounded-xl px-4 py-2 font-bold"><RefreshCw size={15} className="inline ml-1" />تحديث</button>
-      </div>
-
-      {loading ? <div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3" />جارٍ التحميل...</div> : (
-        <div className="bg-white border rounded-2xl overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="p-3 text-right">الفترة</th><th className="p-3 text-right">موازنة</th><th className="p-3 text-right">فعلي</th><th className="p-3 text-right">التباين</th><th className="p-3 text-right">النسبة</th></tr></thead>
-            <tbody className="divide-y">
-              {rows.map(r => {
-                const variance = Number(r.variance_amount);
-                const Icon = variance >= 0 ? TrendingUp : TrendingDown;
-                return <tr key={r.id}><td className="p-3">{r.report_period}</td><td className="p-3">{Number(r.budget_amount).toLocaleString()}</td><td className="p-3">{Number(r.actual_amount).toLocaleString()}</td><td className="p-3 font-black flex items-center gap-1"><Icon size={14} className={variance>=0 ? 'text-emerald-600' : 'text-red-600'} />{variance.toLocaleString()}</td><td className="p-3">{Number(r.variance_percentage).toFixed(2)}%</td></tr>;
-              })}
-              {!rows.length && <tr><td colSpan={5} className="p-16 text-center text-slate-500"><BarChart3 className="mx-auto mb-3 text-slate-300" />لا توجد تقارير تباين — تُنشأ من Budget vs GL actual.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
+export default function AdvancedVariancePage(){
+ const {addToast}=useUIStore(); const [entities,setEntities]=useState<LegalEntityRecord[]>([]),[entityId,setEntityId]=useState(''),[budgets,setBudgets]=useState<BudgetBoardRecord[]>([]),[budgetId,setBudgetId]=useState(''),[rows,setRows]=useState<BudgetVarianceRecord[]>([]),[loading,setLoading]=useState(true),[from,setFrom]=useState(new Date(new Date().getFullYear(),0,1).toISOString().slice(0,10)),[to,setTo]=useState(new Date().toISOString().slice(0,10));
+ const load=useCallback(async()=>{setLoading(true);try{const es=await legalEntityService.findActive();setEntities(es);const eid=entityId||es[0]?.id||'';if(!entityId&&eid)setEntityId(eid);const bs=eid?await budgetService.findBoard(eid):[];setBudgets(bs);const bid=budgetId||bs[0]?.id||'';if(!budgetId&&bid)setBudgetId(bid);setRows(eid?await budgetService.findVariance(eid):[])}catch(e){addToast(`تعذر التحميل: ${getErrorMessage(e)}`,'error')}finally{setLoading(false)}},[addToast,entityId,budgetId]);
+ useEffect(()=>{void load()},[load]);
+ const generate=async()=>{if(!budgetId)return addToast('اختر موازنة','error');try{await budgetService.generateVariance(budgetId,from,to);addToast('تم توليد تقرير التباين','success');await load()}catch(e){addToast(getErrorMessage(e),'error')}};
+ return <div className="space-y-5 max-w-[1600px] mx-auto" dir="rtl"><FinanceUnitNav unit="budget"/><div className="flex justify-between flex-wrap gap-3"><div><p className="text-sm font-bold text-indigo-700">Finance Unit 08 · Budget Variance</p><h1 className="text-3xl font-black">تحليل التباين المتقدم</h1><p className="text-slate-500 mt-2">مقارنة فعلية مقابل موازنة من GL المنشور.</p></div><button onClick={()=>void load()} className="border rounded-xl px-4 py-2 font-bold bg-white"><RefreshCw size={15} className="inline ml-1"/>تحديث</button></div>
+ <div className="grid md:grid-cols-5 gap-3"><select value={entityId} onChange={e=>{setEntityId(e.target.value);setBudgetId('')}} className="border rounded-xl p-3 bg-white">{entities.map(e=><option key={e.id} value={e.id}>{e.code} — {e.name_ar}</option>)}</select><select value={budgetId} onChange={e=>setBudgetId(e.target.value)} className="border rounded-xl p-3 bg-white"><option value="">اختر موازنة</option>{budgets.map(b=><option key={b.id} value={b.id}>{b.budget_name}</option>)}</select><input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="border rounded-xl p-3"/><input type="date" value={to} onChange={e=>setTo(e.target.value)} className="border rounded-xl p-3"/><button onClick={()=>void generate()} className="bg-indigo-600 text-white rounded-xl p-3 font-bold">توليد</button></div>
+ {loading?<div className="py-24 text-center"><Loader2 className="animate-spin mx-auto mb-3"/>جارٍ التحميل...</div>:<div className="bg-white border rounded-2xl overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="p-3 text-right">الموازنة</th><th className="p-3 text-right">الحساب</th><th className="p-3 text-right">الفترة</th><th className="p-3 text-right">موازنة</th><th className="p-3 text-right">فعلي</th><th className="p-3 text-right">التباين</th><th className="p-3 text-right">النسبة</th></tr></thead><tbody className="divide-y">{rows.map(r=>{const variance=Number(r.variance_amount);const Icon=variance>=0?TrendingUp:TrendingDown;return <tr key={r.id}><td className="p-3">{r.budget_name}</td><td className="p-3">{r.account_code} — {r.account_name}</td><td className="p-3">{r.report_period}</td><td className="p-3">{Number(r.budget_amount).toLocaleString()}</td><td className="p-3">{Number(r.actual_amount).toLocaleString()}</td><td className="p-3 font-black flex items-center gap-1"><Icon size={14} className={variance>=0?'text-emerald-600':'text-red-600'}/>{variance.toLocaleString()}</td><td className="p-3">{Number(r.variance_percentage).toFixed(2)}%</td></tr>})}{!rows.length&&<tr><td colSpan={7} className="p-16 text-center text-slate-500"><BarChart3 className="mx-auto mb-3 text-slate-300"/>لا توجد تقارير تباين.</td></tr>}</tbody></table></div>}
+ </div>;
 }

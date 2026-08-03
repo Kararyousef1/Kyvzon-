@@ -1,30 +1,24 @@
 import { BaseService } from './BaseService';
 import { supabase } from '../supabase/supabase';
 
-export interface TaxCodeRecord {
-  id: string;
-  tenant_id: string;
-  code: string;
-  name: string;
-  rate: number;
-  is_active: boolean;
-  created_at: string;
-}
+export interface TaxCodeRecord { id:string; tenant_id:string; legal_entity_id:string; code:string; name:string; rate:number; tax_type:'vat'|'withholding'|'sales'|'purchase'|'other'; effective_from:string; effective_to?:string|null; requires_filing:boolean; is_active:boolean; created_at:string; }
+export interface TaxCodeBoardRecord extends TaxCodeRecord { entity_code?:string; entity_name?:string; }
+export interface TaxFilingRecord { id:string; tenant_id:string; legal_entity_id:string; tax_period:string; filing_type:string; status:'draft'|'pending'|'submitted'|'approved'|'rejected'|'paid'|'voided'; due_date?:string|null; period_start?:string|null; period_end?:string|null; output_tax_amount:number; input_tax_amount:number; net_tax_due:number; payment_reference?:string|null; rejection_reason?:string|null; created_at:string; }
+export interface TaxFilingBoardRecord extends TaxFilingRecord { entity_code?:string; entity_name?:string; line_count:number; }
+export interface TaxFilingLineRecord { id:string; tenant_id:string; legal_entity_id:string; tax_filing_id:string; source_type:string; source_id?:string|null; direction:'output'|'input'|'adjustment'; taxable_amount:number; tax_amount:number; notes?:string|null; }
+export interface TaxDashboardRecord { tenant_id:string; legal_entity_id:string; entity_code:string; entity_name:string; active_tax_codes:number; draft_filings:number; submitted_filings:number; approved_filings:number; open_net_tax_due:number; }
 
 class TaxService extends BaseService<TaxCodeRecord> {
-  constructor() { super('tax_codes'); }
-
-  async findActive(): Promise<TaxCodeRecord[]> {
-    const { data, error } = await supabase.from('tax_codes').select('*').eq('is_active', true).order('code');
-    if (error) throw new Error(error.message);
-    return (data as TaxCodeRecord[]) || [];
-  }
-
-  async createWithValidation(input: Partial<TaxCodeRecord>): Promise<TaxCodeRecord> {
-    if (!input.code || !input.name) throw new Error('الكود والاسم مطلوبان');
-    if (Number(input.rate) < 0 || Number(input.rate) > 1) throw new Error('النسبة يجب أن تكون بين 0 و 1 (مثال 0.15 = 15%)');
-    return this.create(input as any);
-  }
+  constructor(){ super('tax_codes'); }
+  async findActive(legalEntityId?: string): Promise<TaxCodeBoardRecord[]> { let q=supabase.from('finance_tax_code_board').select('*').eq('is_active',true).order('code'); if(legalEntityId) q=q.eq('legal_entity_id',legalEntityId); const {data,error}=await q; if(error) throw new Error(error.message); return (data||[]) as TaxCodeBoardRecord[]; }
+  async findCodes(legalEntityId: string): Promise<TaxCodeBoardRecord[]> { const {data,error}=await supabase.from('finance_tax_code_board').select('*').eq('legal_entity_id',legalEntityId).order('code'); if(error) throw new Error(error.message); return (data||[]) as TaxCodeBoardRecord[]; }
+  async findFilings(legalEntityId: string): Promise<TaxFilingBoardRecord[]> { const {data,error}=await supabase.from('finance_tax_filing_board').select('*').eq('legal_entity_id',legalEntityId).order('period_start',{ascending:false}); if(error) throw new Error(error.message); return (data||[]) as TaxFilingBoardRecord[]; }
+  async findLines(filingId: string): Promise<TaxFilingLineRecord[]> { const {data,error}=await supabase.from('finance_tax_filing_line_board').select('*').eq('tax_filing_id',filingId).order('created_at',{ascending:false}); if(error) throw new Error(error.message); return (data||[]) as TaxFilingLineRecord[]; }
+  async findDashboard(legalEntityId?: string): Promise<TaxDashboardRecord[]> { let q=supabase.from('finance_tax_dashboard').select('*').order('entity_code'); if(legalEntityId) q=q.eq('legal_entity_id',legalEntityId); const {data,error}=await q; if(error) throw new Error(error.message); return (data||[]) as TaxDashboardRecord[]; }
+  async upsertCode(input:{legalEntityId:string; code:string; name:string; rate:number; taxType?:string; effectiveFrom?:string; effectiveTo?:string; requiresFiling?:boolean}): Promise<TaxCodeRecord>{ const {data,error}=await supabase.rpc('upsert_finance_tax_code',{p_legal_entity_id:input.legalEntityId,p_code:input.code,p_name:input.name,p_rate:input.rate,p_tax_type:input.taxType||'vat',p_effective_from:input.effectiveFrom||new Date().toISOString().slice(0,10),p_effective_to:input.effectiveTo||null,p_requires_filing:input.requiresFiling??true}); if(error) throw new Error(error.message); return data as TaxCodeRecord; }
+  async updateCodeStatus(id:string,isActive:boolean,reason:string): Promise<TaxCodeRecord>{ const {data,error}=await supabase.rpc('update_finance_tax_code_status',{p_tax_code_id:id,p_is_active:isActive,p_reason:reason}); if(error) throw new Error(error.message); return data as TaxCodeRecord; }
+  async generateFilingDraft(input:{legalEntityId:string; filingType:string; periodStart:string; periodEnd:string}): Promise<TaxFilingRecord>{ const {data,error}=await supabase.rpc('generate_tax_filing_draft',{p_legal_entity_id:input.legalEntityId,p_filing_type:input.filingType,p_period_start:input.periodStart,p_period_end:input.periodEnd}); if(error) throw new Error(error.message); return data as TaxFilingRecord; }
+  async updateFilingStatus(id:string,status:'submitted'|'approved'|'rejected'|'paid'|'voided',reason:string,paymentReference?:string): Promise<TaxFilingRecord>{ const {data,error}=await supabase.rpc('update_tax_filing_status',{p_tax_filing_id:id,p_status:status,p_reason:reason,p_payment_reference:paymentReference||null}); if(error) throw new Error(error.message); return data as TaxFilingRecord; }
+  async createWithValidation(input: Partial<TaxCodeRecord>): Promise<TaxCodeRecord> { if(!input.legal_entity_id) throw new Error('الكيان القانوني مطلوب'); return this.upsertCode({legalEntityId:input.legal_entity_id,code:String(input.code||''),name:String(input.name||''),rate:Number(input.rate||0),taxType:input.tax_type}); }
 }
-
 export const taxService = new TaxService();
