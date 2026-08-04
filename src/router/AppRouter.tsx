@@ -156,6 +156,34 @@ const CompliancePage             = lazy(() => import('../pages/admin/ComplianceP
 // ─── Lazy: Other roles ──────────────────────────────────────────────
 const GatekeeperPage        = lazy(() => import('../pages/gatekeeper/GatekeeperPage'));
 const MovementControlPage   = lazy(() => import('../pages/gatekeeper/MovementControlPage'));
+
+// ─── Lazy: Movement Portal ──────────────────────────────────────────────
+const EmployeeMovementPoliciesPage = lazy(() => import('../pages/app/movement/employee/EmployeeMovementPoliciesPage'));
+const EmployeeMovementLocationsPage = lazy(() => import('../pages/app/movement/employee/EmployeeMovementLocationsPage'));
+const EmployeeMovementPermitsPage = lazy(() => import('../pages/app/movement/employee/EmployeeMovementPermitsPage'));
+const EmployeeMovementNewPermitPage = lazy(() => import('../pages/app/movement/employee/EmployeeMovementNewPermitPage'));
+const EmployeeMovementPermitDetailPage = lazy(() => import('../pages/app/movement/employee/EmployeeMovementPermitDetailPage'));
+const EmployeeMovementApprovalsPage = lazy(() => import('../pages/app/movement/employee/EmployeeMovementApprovalsPage'));
+const EmployeeMovementTemplatesPage = lazy(() => import('../pages/app/movement/employee/EmployeeMovementTemplatesPage'));
+const EmployeeMovementGateExecutionPage = lazy(() => import('../pages/app/movement/employee/EmployeeMovementGateExecutionPage'));
+const EmployeeFieldVisitsPage = lazy(() => import('../pages/app/movement/employee/EmployeeFieldVisitsPage'));
+const EmployeeMissionsPage = lazy(() => import('../pages/app/movement/employee/EmployeeMissionsPage'));
+const EmployeeMovementAnalyticsPage = lazy(() => import('../pages/app/movement/employee/EmployeeMovementAnalyticsPage'));
+const EmployeeComplianceViolationsPage = lazy(() => import('../pages/app/movement/employee/EmployeeComplianceViolationsPage'));
+
+const LogisticsDashboardPage = lazy(() => import('../pages/app/movement/logistics/LogisticsDashboardPage'));
+const LogisticsFoundationPage = lazy(() => import('../pages/app/movement/logistics/LogisticsFoundationPage'));
+const LogisticsVehiclesPage = lazy(() => import('../pages/app/movement/logistics/LogisticsVehiclesPage'));
+const LogisticsDriversPage = lazy(() => import('../pages/app/movement/logistics/LogisticsDriversPage'));
+const LogisticsMaintenancePage = lazy(() => import('../pages/app/movement/logistics/LogisticsMaintenancePage'));
+const LogisticsShipmentOrdersPage = lazy(() => import('../pages/app/movement/logistics/LogisticsShipmentOrdersPage'));
+const LogisticsDispatchPage = lazy(() => import('../pages/app/movement/logistics/LogisticsDispatchPage'));
+const LogisticsRoutePlanningPage = lazy(() => import('../pages/app/movement/logistics/LogisticsRoutePlanningPage'));
+const LogisticsLiveTrackingPage = lazy(() => import('../pages/app/movement/logistics/LogisticsLiveTrackingPage'));
+const LogisticsEpodPage = lazy(() => import('../pages/app/movement/logistics/LogisticsEpodPage'));
+const LogisticsFuelPage = lazy(() => import('../pages/app/movement/logistics/LogisticsFuelPage'));
+const LogisticsCarriersPage = lazy(() => import('../pages/app/movement/logistics/LogisticsCarriersPage'));
+const LogisticsCostAnalyticsPage = lazy(() => import('../pages/app/movement/logistics/LogisticsCostAnalyticsPage'));
 const SupervisorDashboard   = lazy(() => import('../pages/supervisor/SupervisorDashboard'));
 const SupervisorBreaksPage  = lazy(() => import('../pages/supervisor/SupervisorBreaksPage'));
 const SupervisorShiftPage   = lazy(() => import('../pages/supervisor/SupervisorShiftPage'));
@@ -1222,6 +1250,39 @@ export function AppRoutes() {
           <Route path="gatekeeper" element={<RequireRole roles={['gatekeeper', 'admin', 'hr']} />}>
             <Route index element={<GatekeeperPage />} />
             <Route path="movements" element={<MovementControlPage />} />
+          </Route>
+
+          {/* Movement & Logistics Portal — بوابة الحركة واللوجستيات */}
+          <Route path="movement" element={<RequireRole roles={['employee_movement', 'logistics', 'movement_manager', 'gatekeeper', 'admin', 'developer', 'hr']} />}>
+            <Route element={<RequireModule moduleKey="movement" />}>
+              <Route index element={<Navigate to="logistics/dashboard" replace />} />
+              <Route path="employee/policies" element={<EmployeeMovementPoliciesPage />} />
+              <Route path="employee/locations" element={<EmployeeMovementLocationsPage />} />
+              <Route path="employee/permits" element={<EmployeeMovementPermitsPage />} />
+              <Route path="employee/permits/new" element={<EmployeeMovementNewPermitPage />} />
+              <Route path="employee/permits/:id" element={<EmployeeMovementPermitDetailPage />} />
+              <Route path="employee/permits/approvals" element={<EmployeeMovementApprovalsPage />} />
+              <Route path="employee/permits/templates" element={<EmployeeMovementTemplatesPage />} />
+              <Route path="employee/execution" element={<EmployeeMovementGateExecutionPage />} />
+              <Route path="employee/field-visits" element={<EmployeeFieldVisitsPage />} />
+              <Route path="employee/missions" element={<EmployeeMissionsPage />} />
+              <Route path="employee/compliance" element={<EmployeeComplianceViolationsPage />} />
+              <Route path="employee/analytics" element={<EmployeeMovementAnalyticsPage />} />
+
+              <Route path="logistics/dashboard" element={<LogisticsDashboardPage />} />
+              <Route path="logistics/foundation" element={<LogisticsFoundationPage />} />
+              <Route path="logistics/fleet" element={<LogisticsVehiclesPage />} />
+              <Route path="logistics/drivers" element={<LogisticsDriversPage />} />
+              <Route path="logistics/maintenance" element={<LogisticsMaintenancePage />} />
+              <Route path="logistics/orders" element={<LogisticsShipmentOrdersPage />} />
+              <Route path="logistics/dispatch" element={<LogisticsDispatchPage />} />
+              <Route path="logistics/routes" element={<LogisticsRoutePlanningPage />} />
+              <Route path="logistics/tracking" element={<LogisticsLiveTrackingPage />} />
+              <Route path="logistics/epod" element={<LogisticsEpodPage />} />
+              <Route path="logistics/fuel" element={<LogisticsFuelPage />} />
+              <Route path="logistics/carriers" element={<LogisticsCarriersPage />} />
+              <Route path="logistics/costs" element={<LogisticsCostAnalyticsPage />} />
+            </Route>
           </Route>
 
 
