@@ -11,7 +11,7 @@ export default function ToleranceRulesPage() {
   const load = async () => {
     try {
       const data = await toleranceRuleService.findAll({ orderBy: 'min_percent', limit: 100 });
-      setRules(data as any);
+      setRules(data);
     } catch(e:any){ addToast(e.message,'error'); }
   };
 

@@ -227,6 +227,7 @@ const PORTAL_PAGES: PortalPagesConfig[] = [
     portalLabel: 'بوابة المشتريات (Procurement)', moduleKey: 'procurement',
     pages: [
       { id: 'procurement-dashboard', label: 'لوحة المشتريات' },
+      { id: 'procurement-foundation', label: 'الأساس والتحكم' },
       { id: 'procurement-pr', label: 'طلبات الشراء' },
       { id: 'procurement-suppliers', label: 'الموردون' },
       { id: 'procurement-sourcing', label: 'المناقصات والعروض' },
@@ -235,6 +236,11 @@ const PORTAL_PAGES: PortalPagesConfig[] = [
       { id: 'procurement-invoices', label: 'فواتير المشتريات' },
       { id: 'procurement-contracts', label: 'العقود' },
       { id: 'procurement-analytics', label: 'تحليلات المشتريات' },
+      { id: 'procurement-categories', label: 'فئات الإنفاق' },
+      { id: 'procurement-approval-rules', label: 'قواعد الموافقة' },
+      { id: 'procurement-policies', label: 'سياسات المشتريات' },
+      { id: 'procurement-audit', label: 'سجل تدقيق المشتريات' },
+      { id: 'procurement-integration', label: 'صحة التكامل' },
     ],
   },
   {

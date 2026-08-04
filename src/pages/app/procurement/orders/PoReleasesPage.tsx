@@ -12,9 +12,9 @@ export default function PoReleasesPage() {
     (async()=>{
       try {
         const blanketPos = await purchaseOrderService.findAll({ filters: { po_type: 'blanket' }, limit: 50 });
-        setPos(blanketPos as any);
+        setPos(blanketPos);
         const data = await poReleaseService.findAll({ orderBy: 'created_at', ascending: false, limit: 100 });
-        setReleases(data as any);
+        setReleases(data);
       } catch(e:any){ addToast(e.message,'error'); }
     })();
   }, []);

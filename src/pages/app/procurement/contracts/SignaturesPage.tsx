@@ -14,10 +14,10 @@ export default function SignaturesPage() {
 
   const load = async () => {
     try {
-      const cs = await procurementContractService.findAll({ filters: { status: 'approved' }, limit: 50 } as any);
-      setContracts(cs as any);
+      const cs = await procurementContractService.findAll({ filters: { status: 'approved' }, limit: 50 });
+      setContracts(cs);
       const data = await contractSignatureService.findAll({ orderBy: 'signed_at', ascending: false, limit: 100 });
-      setSigs(data as any);
+      setSigs(data);
     } catch(e:any){ addToast(e.message,'error'); }
   };
 

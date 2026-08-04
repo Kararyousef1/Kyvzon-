@@ -166,6 +166,25 @@ const RAW_CATALOG: HybridPageMeta[] = [
   { id: 'security-events',      label: 'الأحداث الأمنية',      icon: Shield,          module: 'tech_portal', group: 'tech', roles: ['it_admin', 'tech', 'admin'] },
   { id: 'tech-settings',        label: 'الإعدادات التقنية',    icon: Settings,        module: 'tech_portal', group: 'tech', roles: ['it_admin', 'tech', 'admin'] },
 
+  // ─── بوابة المشتريات ───────────────────────────────────────────
+  // الوحدات الرئيسية (تظهر في الشريط الجانبي)
+  { id: 'procurement-dashboard',      label: 'لوحة المشتريات',      icon: LayoutDashboard, module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-foundation',     label: 'الأساس والتحكم',       icon: Settings,        module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-pr',             label: 'طلبات الشراء',         icon: ClipboardList,   module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-suppliers',      label: 'الموردون',             icon: Users,           module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-sourcing',       label: 'المناقصات والعروض',    icon: TrendingUp,      module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-orders',         label: 'أوامر الشراء',         icon: Package,         module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-invoices',       label: 'فواتير المشتريات',     icon: Receipt,         module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-contracts',      label: 'العقود',               icon: FileText,        module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-analytics',      label: 'تحليلات المشتريات',    icon: BarChart2,       module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  // صفحات فرعية (تُفتح من داخل الوحدات عبر ProcurementUnitNav)
+  { id: 'procurement-gr',             label: 'استلام البضائع',       icon: ClipboardCheck,  module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-categories',     label: 'فئات الإنفاق',         icon: Layers,          module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-approval-rules', label: 'قواعد الموافقة',       icon: ShieldCheck,     module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-policies',       label: 'سياسات المشتريات',     icon: FileText,        module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-audit',          label: 'سجل تدقيق المشتريات',  icon: ClipboardList,   module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+  { id: 'procurement-integration',    label: 'صحة التكامل',          icon: RefreshCw,       module: 'procurement', group: 'operations', roles: ['procurement', 'admin'] },
+
   // ─── البوابة المالية ───────────────────────────────────────────
   // الوحدات الرئيسية (تظهر في الشريط الجانبي)
   { id: 'finance-dashboard',          label: 'لوحة المالية',            icon: LayoutDashboard, module: 'finance', group: 'finance', roles: ['finance', 'admin'] },

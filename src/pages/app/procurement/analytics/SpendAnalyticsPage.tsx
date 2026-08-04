@@ -3,6 +3,25 @@ import Card from '../../../../shared/components/ui/Card';
 import Button from '../../../../shared/components/ui/Button';
 import { procurementExecutiveKpiService, spendAlertService, spendCategoryReportService, spendParetoService, spendTransactionService, priceTrendService } from '../../../../services/sdk';
 import { useUIStore } from '../../../../core/stores';
+import { exportToCsv, type ExportColumn } from '../../../../utils/dataExport';
+
+type SpendCategoryRow = {
+  category_code?: string | null;
+  category_name?: string | null;
+  total_spend?: number | null;
+  transaction_count?: number | null;
+  supplier_count?: number | null;
+  maverick_spend?: number | null;
+};
+
+const SPEND_EXPORT_COLUMNS: ExportColumn<SpendCategoryRow>[] = [
+  { header: 'رمز الفئة', value: r => r.category_code },
+  { header: 'اسم الفئة', value: r => r.category_name },
+  { header: 'إجمالي الإنفاق', value: r => r.total_spend ?? 0 },
+  { header: 'عدد المعاملات', value: r => r.transaction_count ?? 0 },
+  { header: 'عدد الموردين', value: r => r.supplier_count ?? 0 },
+  { header: 'الإنفاق خارج العقود', value: r => r.maverick_spend ?? 0 },
+];
 
 export default function SpendAnalyticsPage() {
   const { addToast } = useUIStore();
@@ -40,11 +59,18 @@ export default function SpendAnalyticsPage() {
     } catch(e:any){ addToast(e.message,'error'); }
   };
 
+  /*
+    التصدير السابق كان ينشئ Blob بلا BOM (العربية تظهر مشوّهة في Excel
+    على ويندوز) وبلا تحييد للصيغ (CSV injection من أسماء موردين يدخلها
+    الموردون أنفسهم عبر البوابة الخارجية). exportToCsv يعالج الأمرين.
+  */
   const exportCsv = () => {
-    const rows = [['category_code','category_name','total_spend','transaction_count','supplier_count','maverick_spend'], ...categories.map((c:any)=>[c.category_code,c.category_name,c.total_spend,c.transaction_count,c.supplier_count,c.maverick_spend||0])];
-    const csv = rows.map(r=>r.map(v=>`"${String(v ?? '').replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='procurement-spend-report.csv'; a.click(); URL.revokeObjectURL(url);
+    if (categories.length === 0) {
+      addToast('لا توجد بيانات فئات للتصدير', 'info');
+      return;
+    }
+    exportToCsv('تقرير_تحليل_الإنفاق', SPEND_EXPORT_COLUMNS, categories as SpendCategoryRow[]);
+    addToast(`تم تصدير ${categories.length} فئة`, 'success');
   };
 
   const totalSpend = Number(kpi?.total_spend_ytd || 0);

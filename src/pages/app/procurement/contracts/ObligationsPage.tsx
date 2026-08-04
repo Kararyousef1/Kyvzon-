@@ -11,7 +11,7 @@ export default function ObligationsPage() {
     (async()=>{
       try {
         const data = await contractObligationService.findAll({ orderBy: 'due_date', ascending: true, limit: 100 });
-        setObs(data as any);
+        setObs(data);
       } catch(e:any){ addToast(e.message,'error'); }
     })();
   }, []);

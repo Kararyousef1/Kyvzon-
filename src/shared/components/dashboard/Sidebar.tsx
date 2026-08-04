@@ -100,6 +100,22 @@ function splitInventorySection(section: NavSection): NavSection[] {
     ];
     return [{ ...section, items: section.items.filter((item) => mainIds.includes(item.id)) }];
   }
+  if (section.key === 'procurement-main') {
+    // الشريط الجانبي يعرض الوحدات الرئيسية فقط.
+    // صفحات كل وحدة تظهر داخلها عبر ProcurementUnitNav (بطاقات أفقية).
+    const mainIds = [
+      'procurement-dashboard',
+      'procurement-foundation',
+      'procurement-pr',
+      'procurement-suppliers',
+      'procurement-sourcing',
+      'procurement-orders',
+      'procurement-invoices',
+      'procurement-contracts',
+      'procurement-analytics',
+    ];
+    return [{ ...section, items: section.items.filter((item) => mainIds.includes(item.id)) }];
+  }
   if (section.key === 'finance-main') {
     // الشريط الجانبي يعرض الوحدات الرئيسية فقط.
     // صفحات كل وحدة تظهر داخلها عبر FinanceUnitNav (بطاقات أفقية).
@@ -315,6 +331,7 @@ const NAV_SECTIONS: NavSection[] = [
     key: 'procurement-main', label: 'بوابة المشتريات', roles: ['procurement', 'admin'],
     items: [
       { id: 'procurement-dashboard', label: 'لوحة المشتريات', icon: LayoutDashboard, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-foundation', label: 'الأساس والتحكم', icon: Settings, roles: ['procurement', 'admin'], section: 'procurement-main' },
       { id: 'procurement-pr', label: 'طلبات الشراء', icon: ClipboardList, roles: ['procurement', 'admin'], section: 'procurement-main' },
       { id: 'procurement-suppliers', label: 'الموردون', icon: Users, roles: ['procurement', 'admin'], section: 'procurement-main' },
       { id: 'procurement-sourcing', label: 'المناقصات والعروض', icon: TrendingUp, roles: ['procurement', 'admin'], section: 'procurement-main' },
@@ -323,6 +340,13 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'procurement-invoices', label: 'فواتير المشتريات', icon: Receipt, roles: ['procurement', 'admin'], section: 'procurement-main' },
       { id: 'procurement-contracts', label: 'العقود', icon: FileText, roles: ['procurement', 'admin'], section: 'procurement-main' },
       { id: 'procurement-analytics', label: 'تحليلات المشتريات', icon: BarChart2, roles: ['procurement', 'admin'], section: 'procurement-main' },
+
+      // ── صفحات فرعية: مسجَّلة للتوجيه، تظهر داخل وحداتها عبر ProcurementUnitNav ──
+      { id: 'procurement-categories', label: 'فئات الإنفاق', icon: Layers, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-approval-rules', label: 'قواعد الموافقة', icon: ShieldCheck, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-policies', label: 'سياسات المشتريات', icon: FileText, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-audit', label: 'سجل تدقيق المشتريات', icon: ClipboardList, roles: ['procurement', 'admin'], section: 'procurement-main' },
+      { id: 'procurement-integration', label: 'صحة التكامل', icon: RefreshCw, roles: ['procurement', 'admin'], section: 'procurement-main' },
     ],
   },
 
@@ -540,6 +564,14 @@ const NAV_SECTIONS: NavSection[] = [
  * المفتاح = معرّف الوحدة الجديد، القيمة = المعرّفات القديمة/الفرعية التي
  * إن وُجد أحدها في allowed_pages تُعتبر الوحدة مسموحة.
  */
+/**
+ * توافق خلفي لوحدات المشتريات: من يملك صفحة فرعية يرى وحدتها.
+ */
+const PROCUREMENT_UNIT_FALLBACK: Record<string, string[]> = {
+  'procurement-foundation': ['procurement-categories', 'procurement-approval-rules', 'procurement-policies', 'procurement-audit', 'procurement-integration'],
+  'procurement-orders': ['procurement-gr'],
+};
+
 const FINANCE_UNIT_FALLBACK: Record<string, string[]> = {
   'finance-foundation': ['finance-setup', 'finance-multi-entity', 'finance-entity-memberships', 'finance-cost-centers', 'finance-projects', 'finance-exchange-rates'],
   'finance-journal': ['finance-ledger', 'finance-trial-balance'],
@@ -1016,6 +1048,10 @@ export default function Sidebar() {
       const financeFallback = FINANCE_UNIT_FALLBACK[item.id];
       if (financeFallback) {
         return allowedPages.includes(item.id) || financeFallback.some(id => allowedPages.includes(id));
+      }
+      const procurementFallback = PROCUREMENT_UNIT_FALLBACK[item.id];
+      if (procurementFallback) {
+        return allowedPages.includes(item.id) || procurementFallback.some(id => allowedPages.includes(id));
       }
       return allowedPages.includes(item.id);
     }

@@ -16,6 +16,11 @@ import {
 import { useUIStore, useAuthStore } from '../../../../core/stores';
 import { AlertTriangle, CheckCircle, Clock, Eye, Plus, XCircle } from 'lucide-react';
 
+type LookupOption = { id: string; name_ar?: string | null; name?: string | null; code?: string | null };
+type RequestType = 'raw_material' | 'service' | 'asset' | 'consumable' | 'other';
+type BudgetScope = 'cost_center' | 'project' | 'category' | 'capex';
+type Priority = 'normal' | 'urgent' | 'emergency';
+
 type PrFormItem = {
   item_code: string;
   description: string;
@@ -42,8 +47,8 @@ export default function RequisitionsPage() {
   const { addToast } = useUIStore();
   const { user } = useAuthStore();
   const [prs, setPrs] = useState<PurchaseRequisitionRecord[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [costCenters, setCostCenters] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<LookupOption[]>([]);
+  const [costCenters, setCostCenters] = useState<LookupOption[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([]);
   const [reorderPoints, setReorderPoints] = useState<ProcurementReorderPointRecord[]>([]);
   const [showReorder, setShowReorder] = useState(false);
@@ -72,8 +77,8 @@ export default function RequisitionsPage() {
       supplierService.findApproved().catch(() => []),
       procurementReorderPointService.findTriggered().catch(() => []),
     ]);
-    setDepartments(deptRows as any[]);
-    setCostCenters(costRows as any[]);
+    setDepartments(deptRows as LookupOption[]);
+    setCostCenters(costRows as LookupOption[]);
     setSuppliers(supplierRows);
     setReorderPoints(reorderRows);
   };
@@ -205,7 +210,7 @@ export default function RequisitionsPage() {
           <p className="text-slate-500 mt-1">نقطة الدخول الإلزامية لكل إنفاق — مع فحص ميزانية وسير موافقات</p>
         </div>
         <div className="flex gap-2 items-center">
-          <select value={filter} onChange={e=>setFilter(e.target.value as any)} className="border rounded-xl px-3 py-2 text-sm">
+          <select value={filter} onChange={e=>setFilter(e.target.value as 'all' | 'my' | 'pending')} className="border rounded-xl px-3 py-2 text-sm">
             <option value="all">الكل</option>
             <option value="my">طلباتي</option>
             <option value="pending">معلقة موافقة</option>
@@ -322,21 +327,21 @@ export default function RequisitionsPage() {
               </div>
 
               <div className="grid md:grid-cols-5 gap-3">
-                <select value={form.request_type} onChange={e=>setForm({...form, request_type:e.target.value as any, budget_scope: e.target.value === 'asset' ? 'capex' : form.budget_scope})} className="border rounded-xl p-2.5 text-sm">
+                <select value={form.request_type} onChange={e=>setForm({...form, request_type:e.target.value as RequestType, budget_scope: e.target.value === 'asset' ? 'capex' : form.budget_scope})} className="border rounded-xl p-2.5 text-sm">
                   <option value="raw_material">خامة إنتاج</option>
                   <option value="service">خدمة</option>
                   <option value="asset">أصل ثابت CAPEX</option>
                   <option value="consumable">مستهلكات</option>
                   <option value="other">أخرى</option>
                 </select>
-                <select value={form.budget_scope} onChange={e=>setForm({...form, budget_scope:e.target.value as any})} className="border rounded-xl p-2.5 text-sm" disabled={form.request_type === 'asset'}>
+                <select value={form.budget_scope} onChange={e=>setForm({...form, budget_scope:e.target.value as BudgetScope})} className="border rounded-xl p-2.5 text-sm" disabled={form.request_type === 'asset'}>
                   <option value="cost_center">ميزانية مركز تكلفة</option>
                   <option value="project">ميزانية مشروع</option>
                   <option value="category">ميزانية فئة</option>
                   <option value="capex">CAPEX</option>
                 </select>
                 <input placeholder="كود فئة الميزانية" value={form.budget_category_code} onChange={e=>setForm({...form, budget_category_code:e.target.value})} className="border rounded-xl p-2.5 text-sm" />
-                <select value={form.priority} onChange={e=>setForm({...form, priority:e.target.value as any})} className="border rounded-xl p-2.5 text-sm">
+                <select value={form.priority} onChange={e=>setForm({...form, priority:e.target.value as Priority})} className="border rounded-xl p-2.5 text-sm">
                   <option value="normal">عادي</option>
                   <option value="urgent">عاجل</option>
                   <option value="emergency">طارئ</option>

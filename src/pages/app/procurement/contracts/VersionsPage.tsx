@@ -13,7 +13,7 @@ export default function VersionsPage() {
     (async()=>{
       try {
         const data = await contractVersionService.findAll({ orderBy: 'created_at', ascending: false, limit: 50 });
-        setVersions(data as any);
+        setVersions(data);
       } catch(e:any){ addToast(e.message,'error'); }
     })();
   }, []);

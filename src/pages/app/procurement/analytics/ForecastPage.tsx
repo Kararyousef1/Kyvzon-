@@ -4,15 +4,17 @@ import { spendForecastService } from '../../../../services/sdk';
 import { useUIStore } from '../../../../core/stores';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+type SpendForecastRow = { id: string; period: string; category_code?: string | null; forecasted_amount: number; method?: string | null; created_at?: string | null };
+
 export default function ForecastPage() {
   const { addToast } = useUIStore();
-  const [forecasts, setForecasts] = useState<any[]>([]);
+  const [forecasts, setForecasts] = useState<SpendForecastRow[]>([]);
 
   useEffect(()=>{
     (async()=>{
       try {
         const data = await spendForecastService.findAll({ orderBy: 'period', ascending: true, limit: 20 });
-        setForecasts(data as any);
+        setForecasts(data as SpendForecastRow[]);
       } catch(e:any){ addToast(e.message,'error'); }
     })();
   }, []);
@@ -23,7 +25,7 @@ export default function ForecastPage() {
       await spendForecastService.forecast(period, null);
       addToast('تم توليد تنبؤ','success');
       const data = await spendForecastService.findAll({ orderBy: 'period', ascending: true, limit: 20 });
-      setForecasts(data as any);
+      setForecasts(data as SpendForecastRow[]);
     } catch(e:any){ addToast(e.message,'error'); }
   };
 

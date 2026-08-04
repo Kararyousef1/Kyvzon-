@@ -61,10 +61,10 @@ export default function SupplierDetailPage() {
     currency_code: 'SAR', payment_terms_days: 45, credit_limit: 0, employee_count: 0, annual_revenue: 0, max_capacity: 0, lead_time_days: 0,
     credit_rating: '', bcp_summary: '', sanctions_checked: false, conflict_checked: false,
   });
-  const [docForm, setDocForm] = useState({ doc_type: 'commercial_register', file_name: '', file_url: '', expiry_date: '' });
+  const [docForm, setDocForm] = useState<{ doc_type: SupplierDocumentRecord['doc_type']; file_name: string; file_url: string; expiry_date: string }>({ doc_type: 'commercial_register', file_name: '', file_url: '', expiry_date: '' });
   const [contactForm, setContactForm] = useState({ full_name: '', job_title: '', email: '', phone: '', is_primary: false });
   const [riskForm, setRiskForm] = useState({ financial_score: 0, compliance_score: 0, operational_score: 0, quality_score: 0, security_score: 0, notes: '' });
-  const [visitForm, setVisitForm] = useState({ visit_date: '', strengths: '', weaknesses: '', conditions: '', recommendation: 'approved' });
+  const [visitForm, setVisitForm] = useState<{ visit_date: string; strengths: string; weaknesses: string; conditions: string; recommendation: NonNullable<SupplierSiteVisitRecord['recommendation']> }>({ visit_date: '', strengths: '', weaknesses: '', conditions: '', recommendation: 'approved' });
 
   const load = async () => {
     if (!id) return;
@@ -102,7 +102,10 @@ export default function SupplierDetailPage() {
   useEffect(() => { load(); }, [id]);
 
   const latestRisk = risks[0];
-  const riskTotal = useMemo(() => ['financial_score','compliance_score','operational_score','quality_score','security_score'].reduce((s, key) => s + Number((riskForm as any)[key] || 0), 0), [riskForm]);
+  const riskTotal = useMemo(() => {
+    const keys = ['financial_score','compliance_score','operational_score','quality_score','security_score'] as const;
+    return keys.reduce((sum, key) => sum + Number(riskForm[key] ?? 0), 0);
+  }, [riskForm]);
   const expiringDocs = documents.filter(d => {
     const left = daysLeft(d.expiry_date);
     return left !== null && left <= 90;
@@ -116,7 +119,7 @@ export default function SupplierDetailPage() {
         ...overview,
         payment_terms_days: Number(overview.payment_terms_days), credit_limit: Number(overview.credit_limit), employee_count: Number(overview.employee_count),
         annual_revenue: Number(overview.annual_revenue), max_capacity: Number(overview.max_capacity), lead_time_days: Number(overview.lead_time_days),
-      } as any);
+      });
       setSupplier(updated);
       addToast('تم حفظ بيانات المورد', 'success');
       await load();
@@ -126,7 +129,7 @@ export default function SupplierDetailPage() {
   const addDocument = async (e: React.FormEvent) => {
     e.preventDefault(); if (!supplier) return;
     try {
-      await supplierDocumentService.create({ supplier_id: supplier.id, ...docForm, expiry_date: docForm.expiry_date || null } as any);
+      await supplierDocumentService.create({ supplier_id: supplier.id, ...docForm, expiry_date: docForm.expiry_date || null });
       setDocForm({ doc_type: 'commercial_register', file_name: '', file_url: '', expiry_date: '' });
       addToast('تمت إضافة الوثيقة', 'success'); await load();
     } catch (err: any) { addToast(err.message, 'error'); }
@@ -135,7 +138,7 @@ export default function SupplierDetailPage() {
   const addContact = async (e: React.FormEvent) => {
     e.preventDefault(); if (!supplier) return;
     try {
-      await supplierContactService.create({ supplier_id: supplier.id, ...contactForm } as any);
+      await supplierContactService.create({ supplier_id: supplier.id, ...contactForm });
       setContactForm({ full_name: '', job_title: '', email: '', phone: '', is_primary: false });
       addToast('تمت إضافة جهة الاتصال', 'success'); await load();
     } catch (err: any) { addToast(err.message, 'error'); }
@@ -144,7 +147,7 @@ export default function SupplierDetailPage() {
   const addRisk = async (e: React.FormEvent) => {
     e.preventDefault(); if (!supplier) return;
     try {
-      await supplierRiskAssessmentService.create({ supplier_id: supplier.id, ...riskForm } as any);
+      await supplierRiskAssessmentService.create({ supplier_id: supplier.id, ...riskForm });
       await supplierRiskAssessmentService.syncToSupplier(supplier.id).catch(() => undefined);
       setRiskForm({ financial_score: 0, compliance_score: 0, operational_score: 0, quality_score: 0, security_score: 0, notes: '' });
       addToast('تم حفظ تقييم المخاطر ومزامنته', 'success'); await load();
@@ -154,7 +157,7 @@ export default function SupplierDetailPage() {
   const addVisit = async (e: React.FormEvent) => {
     e.preventDefault(); if (!supplier) return;
     try {
-      await supplierSiteVisitService.create({ supplier_id: supplier.id, ...visitForm, agenda: [] } as any);
+      await supplierSiteVisitService.create({ supplier_id: supplier.id, ...visitForm, agenda: [] });
       setVisitForm({ visit_date: '', strengths: '', weaknesses: '', conditions: '', recommendation: 'approved' });
       addToast('تم حفظ الزيارة الميدانية', 'success'); await load();
     } catch (err: any) { addToast(err.message, 'error'); }
@@ -262,7 +265,7 @@ export default function SupplierDetailPage() {
       {activeTab === 'documents' && (
         <div className="grid lg:grid-cols-3 gap-5">
           <Card className="lg:col-span-2"><h3 className="font-bold mb-3">إدارة الوثائق وتجديدها</h3><div className="space-y-2">{documents.map(d => { const left=daysLeft(d.expiry_date); return <div key={d.id} className="p-3 border rounded-xl flex justify-between text-sm"><div><div className="font-bold">{d.file_name}</div><div className="text-xs text-slate-500">{d.doc_type} • {d.expiry_date || 'بدون انتهاء'}</div></div><span className={`text-xs px-2 py-1 rounded-full ${left!==null && left<0?'bg-red-100 text-red-700':left!==null&&left<=30?'bg-amber-100 text-amber-700':'bg-slate-100'}`}>{d.verification_status}{left!==null?` • ${left} يوم`:''}</span></div>; })}{!documents.length && <div className="py-10 text-center text-slate-400">لا وثائق</div>}</div></Card>
-          <Card><h3 className="font-bold mb-3">وثيقة جديدة</h3><form onSubmit={addDocument} className="space-y-2"><select value={docForm.doc_type} onChange={e=>setDocForm({...docForm, doc_type:e.target.value})} className="w-full border rounded-xl p-2.5 text-sm"><option value="commercial_register">سجل تجاري</option><option value="tax_certificate">ضريبة</option><option value="iso_certificate">ISO</option><option value="insurance">تأمين</option><option value="bank_letter">خطاب بنكي</option><option value="authorization">تفويض</option><option value="other">أخرى</option></select><Input required placeholder="اسم الملف" value={docForm.file_name} onChange={e=>setDocForm({...docForm,file_name:e.target.value})}/><Input required placeholder="رابط الملف" value={docForm.file_url} onChange={e=>setDocForm({...docForm,file_url:e.target.value})}/><Input type="date" value={docForm.expiry_date} onChange={e=>setDocForm({...docForm,expiry_date:e.target.value})}/><Button type="submit" fullWidth>إضافة</Button></form></Card>
+          <Card><h3 className="font-bold mb-3">وثيقة جديدة</h3><form onSubmit={addDocument} className="space-y-2"><select value={docForm.doc_type} onChange={e=>setDocForm({...docForm, doc_type:e.target.value as SupplierDocumentRecord['doc_type']})} className="w-full border rounded-xl p-2.5 text-sm"><option value="commercial_register">سجل تجاري</option><option value="tax_certificate">ضريبة</option><option value="iso_certificate">ISO</option><option value="insurance">تأمين</option><option value="bank_letter">خطاب بنكي</option><option value="authorization">تفويض</option><option value="other">أخرى</option></select><Input required placeholder="اسم الملف" value={docForm.file_name} onChange={e=>setDocForm({...docForm,file_name:e.target.value})}/><Input required placeholder="رابط الملف" value={docForm.file_url} onChange={e=>setDocForm({...docForm,file_url:e.target.value})}/><Input type="date" value={docForm.expiry_date} onChange={e=>setDocForm({...docForm,expiry_date:e.target.value})}/><Button type="submit" fullWidth>إضافة</Button></form></Card>
         </div>
       )}
 
@@ -275,7 +278,7 @@ export default function SupplierDetailPage() {
       )}
 
       {activeTab === 'visits' && (
-        <div className="grid lg:grid-cols-3 gap-5"><Card className="lg:col-span-2"><h3 className="font-bold mb-3">الزيارات الميدانية والتدقيق</h3><div className="space-y-2">{visits.map(v=><div key={v.id} className="p-3 border rounded-xl text-sm"><div className="flex justify-between"><b>{new Date(v.visit_date).toLocaleDateString('ar-SA')}</b><span>{v.recommendation || '-'}</span></div><div className="text-xs text-slate-500 mt-1">قوة: {v.strengths || '-'} • ضعف: {v.weaknesses || '-'}</div>{v.conditions && <div className="text-xs mt-1">شروط: {v.conditions}</div>}</div>)}{!visits.length && <div className="py-10 text-center text-slate-400">لا زيارات</div>}</div></Card><Card><h3 className="font-bold mb-3">زيارة جديدة</h3><form onSubmit={addVisit} className="space-y-2"><Input required type="date" value={visitForm.visit_date} onChange={e=>setVisitForm({...visitForm,visit_date:e.target.value})}/><textarea placeholder="نقاط القوة" value={visitForm.strengths} onChange={e=>setVisitForm({...visitForm,strengths:e.target.value})} className="w-full border rounded-xl p-2.5 text-sm"/><textarea placeholder="نقاط الضعف" value={visitForm.weaknesses} onChange={e=>setVisitForm({...visitForm,weaknesses:e.target.value})} className="w-full border rounded-xl p-2.5 text-sm"/><textarea placeholder="شروط الموافقة" value={visitForm.conditions} onChange={e=>setVisitForm({...visitForm,conditions:e.target.value})} className="w-full border rounded-xl p-2.5 text-sm"/><select value={visitForm.recommendation} onChange={e=>setVisitForm({...visitForm,recommendation:e.target.value})} className="w-full border rounded-xl p-2.5 text-sm"><option value="approved">موافقة</option><option value="conditional">مشروطة</option><option value="rejected">رفض</option></select><Button type="submit" fullWidth>حفظ</Button></form></Card></div>
+        <div className="grid lg:grid-cols-3 gap-5"><Card className="lg:col-span-2"><h3 className="font-bold mb-3">الزيارات الميدانية والتدقيق</h3><div className="space-y-2">{visits.map(v=><div key={v.id} className="p-3 border rounded-xl text-sm"><div className="flex justify-between"><b>{new Date(v.visit_date).toLocaleDateString('ar-SA')}</b><span>{v.recommendation || '-'}</span></div><div className="text-xs text-slate-500 mt-1">قوة: {v.strengths || '-'} • ضعف: {v.weaknesses || '-'}</div>{v.conditions && <div className="text-xs mt-1">شروط: {v.conditions}</div>}</div>)}{!visits.length && <div className="py-10 text-center text-slate-400">لا زيارات</div>}</div></Card><Card><h3 className="font-bold mb-3">زيارة جديدة</h3><form onSubmit={addVisit} className="space-y-2"><Input required type="date" value={visitForm.visit_date} onChange={e=>setVisitForm({...visitForm,visit_date:e.target.value})}/><textarea placeholder="نقاط القوة" value={visitForm.strengths} onChange={e=>setVisitForm({...visitForm,strengths:e.target.value})} className="w-full border rounded-xl p-2.5 text-sm"/><textarea placeholder="نقاط الضعف" value={visitForm.weaknesses} onChange={e=>setVisitForm({...visitForm,weaknesses:e.target.value})} className="w-full border rounded-xl p-2.5 text-sm"/><textarea placeholder="شروط الموافقة" value={visitForm.conditions} onChange={e=>setVisitForm({...visitForm,conditions:e.target.value})} className="w-full border rounded-xl p-2.5 text-sm"/><select value={visitForm.recommendation} onChange={e=>setVisitForm({...visitForm,recommendation:e.target.value as NonNullable<SupplierSiteVisitRecord['recommendation']>})} className="w-full border rounded-xl p-2.5 text-sm"><option value="approved">موافقة</option><option value="conditional">مشروطة</option><option value="rejected">رفض</option></select><Button type="submit" fullWidth>حفظ</Button></form></Card></div>
       )}
 
       {activeTab === 'kraljic' && (

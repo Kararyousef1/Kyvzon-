@@ -1,2 +1,11 @@
 import { Outlet } from 'react-router-dom';
-export default function ContractsLayout(){ return <div className="space-y-4"><Outlet /></div>; }
+import { ProcurementUnitNav } from '../shared/ProcurementUnitNav';
+
+export default function ContractsLayout() {
+  return (
+    <div className="space-y-4" dir="rtl">
+      <ProcurementUnitNav unit="contracts" />
+      <Outlet />
+    </div>
+  );
+}

@@ -5,6 +5,8 @@ import { sourcingEventService, purchaseRequisitionService, type SourcingEventRec
 import { useUIStore } from '../../../../core/stores';
 import { Plus, Clock, FileText } from 'lucide-react';
 
+type SourcingEventType = 'RFI' | 'RFQ' | 'RFP' | 'auction';
+
 export default function SourcingEventsPage() {
   const { addToast } = useUIStore();
   const [events, setEvents] = useState<SourcingEventRecord[]>([]);
@@ -73,7 +75,7 @@ export default function SourcingEventsPage() {
                 <option value="">اختر PR معتمد</option>
                 {prs.map((p:any)=><option key={p.id} value={p.id}>{p.pr_number} — {p.total_estimated} {p.currency_code}</option>)}
               </select>
-              <select value={form.type} onChange={e=>setForm({...form, type:e.target.value as any})} className="w-full border rounded-xl p-2.5 text-sm">
+              <select value={form.type} onChange={e=>setForm({...form, type:e.target.value as SourcingEventType})} className="w-full border rounded-xl p-2.5 text-sm">
                 <option value="RFI">RFI — طلب معلومات</option>
                 <option value="RFQ">RFQ — طلب تسعير</option>
                 <option value="RFP">RFP — طلب مقترح</option>

@@ -50,7 +50,9 @@ class SpendCategoryStrategyService extends BaseService<any> { constructor() { su
 class PCardTransactionService extends BaseService<any> { constructor() { super('p_card_transactions'); } }
 class ToleranceRuleService extends BaseService<any> { constructor() { super('procurement_tolerance_rules'); } async seed(): Promise<void> { const { supabase } = await import('../../supabase/supabase'); const { error } = await supabase.rpc('seed_procurement_tolerance_rules'); if (error) throw new Error(error.message); } }
 class PoReleaseService extends BaseService<any> { constructor() { super('po_releases'); } }
-class ProcurementApprovalRuleService extends BaseService<any> { constructor() { super('procurement_approval_rules'); } }
+// ملاحظة: خدمة قواعد الموافقة انتقلت إلى ProcurementFoundationService
+// (الوحدة 00) لتمر عبر RPCs مع تحقق وسبب إلزامي وسجل تدقيق، بدل
+// BaseService الذي كان يسمح بالحذف النهائي.
 
 export const spendParetoService = new SpendParetoService();
 export const priceTrendService = new PriceTrendService();
@@ -63,4 +65,3 @@ export const spendCategoryStrategyService = new SpendCategoryStrategyService();
 export const pCardTransactionService = new PCardTransactionService();
 export const toleranceRuleService = new ToleranceRuleService();
 export const poReleaseService = new PoReleaseService();
-export const procurementApprovalRuleService = new ProcurementApprovalRuleService();

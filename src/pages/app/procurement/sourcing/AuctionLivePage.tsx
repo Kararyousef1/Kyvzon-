@@ -5,6 +5,42 @@ import { auctionService, auctionBidService, supplierService, type AuctionRecord,
 import { supabase } from '../../../../services/supabase/supabase';
 import { useUIStore } from '../../../../core/stores';
 
+/**
+ * قواعد العرض حسب نوع المزاد — تطابق منطق المايجريشن 0269.
+ * قبل ذلك كانت الواجهة تعرض قاعدة British لكل الأنواع، والخلفية
+ * تفرضها فعلياً، فكان النوعان japanese و dutch معطّلين.
+ */
+const AUCTION_RULES: Record<
+  'british' | 'japanese' | 'dutch',
+  {
+    label: string;
+    actionLabel: string;
+    description: string;
+    placeholder: (best: number | null | undefined, start: number) => string;
+  }
+> = {
+  british: {
+    label: 'إنجليزي عكسي',
+    actionLabel: 'مزايدة',
+    description: 'مزاد إنجليزي عكسي: كل عرض يجب أن يكون أقل من أفضل سعر حالي.',
+    placeholder: (best, start) => `أقل من ${(best ?? start).toLocaleString()}`,
+  },
+  japanese: {
+    label: 'ياباني',
+    actionLabel: 'قبول المستوى',
+    description:
+      'مزاد ياباني: النظام يعلن مستويات هابطة والمورد يقبل المستوى أو ينسحب. ' +
+      'القبول بنفس السعر مسموح، والرجوع لسعر أعلى مرفوض. انسحاب ما قبل الأخير يُنهي المزاد.',
+    placeholder: (best, start) => `${(best ?? start).toLocaleString()} أو أقل`,
+  },
+  dutch: {
+    label: 'هولندي',
+    actionLabel: 'قبول السعر',
+    description: 'مزاد هولندي: أول مورد يقبل السعر يفوز وينتهي المزاد فوراً — لا مزايدة بعده.',
+    placeholder: (_best, start) => `حتى ${start.toLocaleString()}`,
+  },
+};
+
 export default function AuctionLivePage() {
   const { addToast } = useUIStore();
   const [auctions, setAuctions] = useState<AuctionRecord[]>([]);
@@ -12,6 +48,8 @@ export default function AuctionLivePage() {
   const [bids, setBids] = useState<AuctionBidRecord[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [bidPrice, setBidPrice] = useState<number>(0);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [withdrawReason, setWithdrawReason] = useState('');
   const [supplierId, setSupplierId] = useState('');
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -56,12 +94,44 @@ export default function AuctionLivePage() {
     if (!selected || !supplierId || !bidPrice) return;
     try {
       const result = await auctionService.placeBid(selected.id, supplierId, bidPrice);
-      addToast(result.extended ? `تم قبول العرض — تم تمديد المزاد ${selected.extension_minutes} دقائق!` : `تم قبول العرض — أفضل سعر الآن ${result.current_best}`, 'success');
+      if (result.auction_closed) {
+        // المزاد الهولندي: أول قبول يفوز وينهي المزاد فوراً
+        addToast(`تم قبول السعر ${result.current_best.toLocaleString()} — انتهى المزاد الهولندي وفاز هذا المورد`, 'success');
+      } else if (result.extended) {
+        addToast(`تم قبول العرض — تم تمديد المزاد ${selected.extension_minutes} دقائق!`, 'success');
+      } else if (!result.is_new_best) {
+        // الياباني: قبول مستوى قائم دون تحسينه
+        addToast(`تم تسجيل قبول المستوى ${bidPrice.toLocaleString()} — أفضل سعر ما زال ${result.current_best.toLocaleString()}`, 'success');
+      } else {
+        addToast(`تم قبول العرض — أفضل سعر الآن ${result.current_best.toLocaleString()}`, 'success');
+      }
       setBidPrice(0);
       await loadBids(selected.id);
-      // تحديث المزاد
       const updated = await auctionService.findById(selected.id);
-      if (updated) setSelected(updated as any);
+      if (updated) setSelected(updated);
+    } catch (e:any) {
+      addToast(e.message,'error');
+    }
+  };
+
+  /*
+    الانسحاب ركن أساسي في المزاد الياباني: المورد يقبل المستوى أو ينسحب،
+    وانسحاب ما قبل الأخير يُنهي المزاد. السبب إلزامي ويُسجَّل للتدقيق
+    (سياسة المنصة: كل تغيير حالة يحتاج سبباً نصياً).
+  */
+  const handleWithdraw = async () => {
+    if (!selected || !supplierId) return;
+    if (withdrawReason.trim().length < 5) {
+      addToast('سبب الانسحاب مطلوب (5 أحرف على الأقل)', 'error');
+      return;
+    }
+    try {
+      const closed = await auctionService.withdrawSupplier(selected.id, supplierId, withdrawReason.trim());
+      addToast(closed ? 'تم الانسحاب — بقي مورد واحد فأُغلق المزاد' : 'تم تسجيل انسحاب المورد', 'success');
+      setWithdrawReason('');
+      setShowWithdraw(false);
+      const updated = await auctionService.findById(selected.id);
+      if (updated) setSelected(updated);
     } catch (e:any) {
       addToast(e.message,'error');
     }
@@ -102,7 +172,7 @@ export default function AuctionLivePage() {
                   <div>
                     <h2 className="text-xl font-black">{selected.auction_number}</h2>
                     <p className="text-sm text-slate-600 mt-1">{selected.item_description} — {selected.annual_quantity} {selected.unit}/سنة</p>
-                    <p className="text-xs text-slate-400 mt-1">نوع: {selected.auction_type} • بدأ: {new Date(selected.start_time).toLocaleString('ar-SA')} • ينتهي: {new Date(selected.end_time).toLocaleString('ar-SA')}</p>
+                    <p className="text-xs text-slate-400 mt-1">نوع: {AUCTION_RULES[selected.auction_type].label} • بدأ: {new Date(selected.start_time).toLocaleString('ar-SA')} • ينتهي: {new Date(selected.end_time).toLocaleString('ar-SA')}</p>
                   </div>
                   <div className="text-left">
                     <div className="text-xs text-slate-500">سعر البداية</div>
@@ -118,10 +188,49 @@ export default function AuctionLivePage() {
                     <option value="">اختر مورد</option>
                     {suppliers.map(s=><option key={s.id} value={s.id}>{s.legal_name}</option>)}
                   </select>
-                  <input type="number" step={0.01} placeholder={`أقل من ${selected.current_best_price || selected.starting_price}`} value={bidPrice || ''} onChange={e=>setBidPrice(Number(e.target.value))} className="border rounded-xl p-2.5 text-sm w-40" />
-                  <Button onClick={handleBid}>مزايدة</Button>
+                  <input
+                    type="number"
+                    step={0.01}
+                    placeholder={AUCTION_RULES[selected.auction_type].placeholder(
+                      selected.current_best_price,
+                      selected.starting_price,
+                    )}
+                    value={bidPrice || ''}
+                    onChange={e=>setBidPrice(Number(e.target.value))}
+                    className="border rounded-xl p-2.5 text-sm w-40"
+                  />
+                  <Button onClick={handleBid}>{AUCTION_RULES[selected.auction_type].actionLabel}</Button>
+                  {selected.auction_type === 'japanese' && (
+                    <Button variant="secondary" onClick={()=>setShowWithdraw(v=>!v)}>انسحاب</Button>
+                  )}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-2">القاعدة: يجب أن يكون العرض أقل من أفضل سعر حالي — وإلا يفشل BID_MUST_BE_LOWER_THAN_CURRENT — إذا جاء عرض في آخر {selected.extension_minutes} دقائق يتم التمديد تلقائياً — كما في التقرير</p>
+
+                {showWithdraw && selected.auction_type === 'japanese' && (
+                  <div className="mt-3 border border-amber-200 bg-amber-50 rounded-xl p-3 space-y-2">
+                    <label className="text-xs font-bold text-amber-800">
+                      سبب انسحاب المورد (إلزامي — يُسجَّل في التدقيق)
+                    </label>
+                    <textarea
+                      value={withdrawReason}
+                      onChange={e=>setWithdrawReason(e.target.value)}
+                      rows={2}
+                      className="w-full border rounded-xl p-2 text-sm"
+                      placeholder="مثال: السعر المعروض أقل من تكلفة الإنتاج"
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleWithdraw}>تأكيد الانسحاب</Button>
+                      <Button size="sm" variant="secondary" onClick={()=>{setShowWithdraw(false); setWithdrawReason('');}}>إلغاء</Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* شرح القاعدة يتغير حسب نوع المزاد — كانت قاعدة British ثابتة لكل الأنواع */}
+                <p className="text-[11px] text-slate-400 mt-2">
+                  {AUCTION_RULES[selected.auction_type].description}
+                  {' '}السقف الأعلى {selected.starting_price.toLocaleString()} ولا يجوز تجاوزه (BID_ABOVE_CEILING).
+                  {selected.auction_type !== 'dutch' &&
+                    ` أي عرض في آخر ${selected.extension_minutes} دقائق يمدّد المزاد تلقائياً.`}
+                </p>
               </Card>
 
               <Card>

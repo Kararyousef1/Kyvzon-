@@ -18,6 +18,11 @@ export default function RfxDetailPage() {
   const [documents, setDocuments] = useState<RfxDocumentRecord[]>([]);
   const [criteria, setCriteria] = useState<RfxEvaluationCriterionRecord[]>([]);
   const [scorecards, setScorecards] = useState<any[]>([]);
+  const [awardBidId, setAwardBidId] = useState<string | null>(null);
+  const [awardReason, setAwardReason] = useState('');
+  const [scoreBidId, setScoreBidId] = useState<string | null>(null);
+  const [scoreValues, setScoreValues] = useState<Record<string, string>>({});
+  const [scoreNotes, setScoreNotes] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([]);
   const [auctionType, setAuctionType] = useState<'british' | 'japanese' | 'dutch'>('british');
@@ -75,9 +80,15 @@ export default function RfxDetailPage() {
     catch(e:any){ addToast(e.message,'error'); }
   };
 
-  const award = async (bidId: string) => {
-    const reason = window.prompt('سبب الترسية / مبرر الاختيار') || 'أفضل TCO';
-    try { await supplierBidService.award(bidId, reason); addToast('تمت الترسية وتحديث حالة الحدث', 'success'); await load(); }
+  const award = async () => {
+    if (!awardBidId) return;
+    if (!awardReason.trim()) { addToast('سبب الترسية مطلوب', 'error'); return; }
+    try {
+      await supplierBidService.award(awardBidId, awardReason.trim());
+      addToast('تمت الترسية وتحديث حالة الحدث', 'success');
+      setAwardBidId(null); setAwardReason('');
+      await load();
+    }
     catch(e:any){ addToast(e.message,'error'); }
   };
 
@@ -92,15 +103,31 @@ export default function RfxDetailPage() {
     catch(e:any){ addToast(e.message,'error'); }
   };
 
-  const scoreBid = async (bidId: string) => {
+  const openScoreDialog = (bidId: string) => {
+    if (!criteria.length) { addToast('لا توجد معايير تقييم — طبّق قالباً أولاً', 'error'); return; }
+    const initial: Record<string, string> = {};
+    for (const c of criteria) initial[c.criterion_key] = '';
+    setScoreValues(initial);
+    setScoreNotes('');
+    setScoreBidId(bidId);
+  };
+
+  const submitScores = async () => {
+    if (!scoreBidId) return;
     const scores: Record<string, number> = {};
     for (const c of criteria) {
-      const val = window.prompt(`درجة ${c.label_ar} من ${c.max_score}`, '80');
-      if (val === null) return;
-      scores[c.criterion_key] = Number(val);
+      const raw = scoreValues[c.criterion_key];
+      const num = Number(raw);
+      if (raw === '' || !Number.isFinite(num)) { addToast(`أدخل درجة ${c.label_ar}`, 'error'); return; }
+      if (num < 0 || num > c.max_score) { addToast(`درجة ${c.label_ar} يجب أن تكون بين 0 و ${c.max_score}`, 'error'); return; }
+      scores[c.criterion_key] = num;
     }
-    const notes = window.prompt('ملاحظات التقييم') || undefined;
-    try { const total = await rfxBidScorecardService.score(bidId, scores, notes); addToast(`تم حفظ MECCA Score: ${total}`, 'success'); await load(); }
+    try {
+      const total = await rfxBidScorecardService.score(scoreBidId, scores, scoreNotes.trim() || undefined);
+      addToast(`تم حفظ MECCA Score: ${total}`, 'success');
+      setScoreBidId(null);
+      await load();
+    }
     catch(e:any){ addToast(e.message,'error'); }
   };
 
@@ -171,14 +198,14 @@ export default function RfxDetailPage() {
       </div>
 
       <Card>
-        <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="p-2 text-right">المورد</th><th className="p-2">إجمالي</th><th className="p-2">خصم%</th><th className="p-2">سعر فعلي</th><th className="p-2">Lead Time</th><th className="p-2">MECCA</th><th className="p-2">حالة</th><th className="p-2">قرار</th></tr></thead><tbody className="divide-y">{tcoSorted.map(b=><tr key={b.id}><td className="p-2 font-bold">{suppliers.find(s=>s.id===b.supplier_id)?.legal_name || b.supplier_id.slice(0,6)}</td><td className="p-2">{b.total_price.toLocaleString()}</td><td className="p-2">{b.discount_percent}%</td><td className="p-2 font-black text-emerald-700">{b.effective_price.toLocaleString()}</td><td className="p-2">{b.lead_time_days || '-'} يوم</td><td className="p-2">{scorecards.find(s=>s.bid_id===b.id)?.weighted_total ?? '—'}</td><td className="p-2"><span className="text-[10px] px-2 py-1 rounded-full bg-slate-100">{b.status}</span></td><td className="p-2 flex gap-1 justify-center">{criteria.length ? <Button size="xs" variant="secondary" onClick={()=>scoreBid(b.id)}>MECCA</Button> : null}{b.status==='awarded'?'🏆':<Button size="xs" onClick={()=>award(b.id)}>ترسية</Button>}</td></tr>)}{!bids.length && <tr><td colSpan={8} className="p-10 text-center text-slate-500">لا عروض بعد — الموردون يقدمون عبر بوابة RFx.</td></tr>}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="p-2 text-right">المورد</th><th className="p-2">إجمالي</th><th className="p-2">خصم%</th><th className="p-2">سعر فعلي</th><th className="p-2">Lead Time</th><th className="p-2">MECCA</th><th className="p-2">حالة</th><th className="p-2">قرار</th></tr></thead><tbody className="divide-y">{tcoSorted.map(b=><tr key={b.id}><td className="p-2 font-bold">{suppliers.find(s=>s.id===b.supplier_id)?.legal_name || b.supplier_id.slice(0,6)}</td><td className="p-2">{b.total_price.toLocaleString()}</td><td className="p-2">{b.discount_percent}%</td><td className="p-2 font-black text-emerald-700">{b.effective_price.toLocaleString()}</td><td className="p-2">{b.lead_time_days || '-'} يوم</td><td className="p-2">{scorecards.find(s=>s.bid_id===b.id)?.weighted_total ?? '—'}</td><td className="p-2"><span className="text-[10px] px-2 py-1 rounded-full bg-slate-100">{b.status}</span></td><td className="p-2 flex gap-1 justify-center">{criteria.length ? <Button size="xs" variant="secondary" onClick={()=>openScoreDialog(b.id)}>MECCA</Button> : null}{b.status==='awarded'?'🏆':<Button size="xs" onClick={()=>{ setAwardBidId(b.id); setAwardReason(''); }}>ترسية</Button>}</td></tr>)}{!bids.length && <tr><td colSpan={8} className="p-10 text-center text-slate-500">لا عروض بعد — الموردون يقدمون عبر بوابة RFx.</td></tr>}</tbody></table></div>
       </Card>
 
       <Card>
         <div className="flex justify-between items-center gap-3 flex-wrap">
           <div><h3 className="font-bold">المزادات العكسية وأرشيف الأسعار</h3><p className="text-xs text-slate-500 mt-1">British/Japanese/Dutch — يبدأ من أول بند RFx ويؤرشف سعر العرض الفائز في price history.</p></div>
           <div className="flex gap-2">
-            <select value={auctionType} onChange={e=>setAuctionType(e.target.value as any)} className="border rounded-xl p-2 text-sm"><option value="british">British</option><option value="japanese">Japanese</option><option value="dutch">Dutch</option></select>
+            <select value={auctionType} onChange={e=>setAuctionType(e.target.value as 'british' | 'japanese' | 'dutch')} className="border rounded-xl p-2 text-sm"><option value="british">British</option><option value="japanese">Japanese</option><option value="dutch">Dutch</option></select>
             <Button onClick={startAuction}>بدء مزاد</Button>
             <Button variant="secondary" onClick={archiveAwarded}>أرشفة سعر الفائز</Button>
           </div>
@@ -191,6 +218,10 @@ export default function RfxDetailPage() {
       </Card>
 
       {showBid && <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl p-6 w-full max-w-md"><h3 className="font-bold mb-4">تقديم عرض داخلي</h3><form onSubmit={handleBid} className="space-y-3"><select required value={form.supplier_id} onChange={e=>setForm({...form, supplier_id:e.target.value})} className="w-full border rounded-xl p-2.5 text-sm"><option value="">اختر مورد معتمد</option>{suppliers.map(s=><option key={s.id} value={s.id}>{s.legal_name} ({s.supplier_code})</option>)}</select><div className="grid grid-cols-2 gap-3"><input required type="number" step={0.01} placeholder="إجمالي السعر" value={form.total_price} onChange={e=>setForm({...form, total_price:Number(e.target.value)})} className="border rounded-xl p-2.5 text-sm"/><input type="number" step={0.1} placeholder="خصم %" value={form.discount} onChange={e=>setForm({...form, discount:Number(e.target.value)})} className="border rounded-xl p-2.5 text-sm"/></div><input type="number" placeholder="Lead Time أيام" value={form.lead_time} onChange={e=>setForm({...form, lead_time:Number(e.target.value)})} className="w-full border rounded-xl p-2.5 text-sm"/><div className="flex gap-2"><Button type="submit" className="flex-1">إرسال</Button><Button type="button" variant="secondary" className="flex-1" onClick={()=>setShowBid(false)}>إلغاء</Button></div></form></div></div>}
+
+      {awardBidId && <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" dir="rtl"><div className="bg-white rounded-2xl p-6 w-full max-w-md"><h3 className="font-black text-lg mb-2">ترسية العرض</h3><p className="text-sm text-slate-500 mb-4">الترسية إجراء نهائي ويُسجَّل في سجل تدقيق الحدث.</p><label className="block text-xs font-bold text-slate-600 mb-1">سبب الترسية / مبرر الاختيار *</label><textarea value={awardReason} onChange={e=>setAwardReason(e.target.value)} rows={3} placeholder="مثال: أفضل TCO مع أقصر مدة تسليم" className="w-full border rounded-xl p-3" /><div className="flex gap-2 mt-4"><button type="button" onClick={award} className="flex-1 bg-emerald-600 text-white rounded-xl py-2.5 font-bold hover:bg-emerald-700">تأكيد الترسية</button><button type="button" onClick={()=>{ setAwardBidId(null); setAwardReason(''); }} className="flex-1 border rounded-xl py-2.5 font-bold hover:bg-slate-50">تراجع</button></div></div></div>}
+
+      {scoreBidId && <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" dir="rtl"><div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"><h3 className="font-black text-lg mb-2">تقييم MECCA</h3><p className="text-sm text-slate-500 mb-4">أدخل درجة كل معيار ضمن نطاقه. الدرجة النهائية تُحتسب بالأوزان تلقائياً.</p><div className="space-y-3">{criteria.map(c=><div key={c.criterion_key}><label className="block text-xs font-bold text-slate-600 mb-1">{c.label_ar} <span className="text-slate-400">(وزن {c.weight_percent}% · من {c.max_score})</span></label><input type="number" min={0} max={c.max_score} value={scoreValues[c.criterion_key] ?? ''} onChange={e=>setScoreValues({...scoreValues, [c.criterion_key]: e.target.value})} className="w-full border rounded-xl p-2.5" /></div>)}<div><label className="block text-xs font-bold text-slate-600 mb-1">ملاحظات التقييم</label><textarea value={scoreNotes} onChange={e=>setScoreNotes(e.target.value)} rows={2} className="w-full border rounded-xl p-2.5" /></div></div><div className="flex gap-2 mt-4"><button type="button" onClick={submitScores} className="flex-1 bg-amber-600 text-white rounded-xl py-2.5 font-bold hover:bg-amber-700">حفظ التقييم</button><button type="button" onClick={()=>setScoreBidId(null)} className="flex-1 border rounded-xl py-2.5 font-bold hover:bg-slate-50">إلغاء</button></div></div></div>}
     </div>
   );
 }

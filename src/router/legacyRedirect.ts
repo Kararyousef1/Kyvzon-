@@ -161,6 +161,12 @@ export const VIEW_TO_PATH: Record<string, string> = {
 
   // Procurement Portal
   'procurement-dashboard':        '/app/procurement',
+  'procurement-foundation':       '/app/procurement/foundation',
+  'procurement-categories':       '/app/procurement/foundation/categories',
+  'procurement-approval-rules':   '/app/procurement/foundation/approval-rules',
+  'procurement-policies':         '/app/procurement/foundation/policies',
+  'procurement-audit':            '/app/procurement/foundation/audit',
+  'procurement-integration':      '/app/procurement/foundation/integration',
   'procurement-pr':               '/app/procurement/requisitions',
   'procurement-suppliers':        '/app/procurement/suppliers',
   'procurement-sourcing':         '/app/procurement/sourcing',

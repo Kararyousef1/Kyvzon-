@@ -55,6 +55,37 @@ export interface AuctionRecord {
   created_at: string;
 }
 
+/** نتيجة تسجيل عرض — أُضيف auction_closed و rule_applied في 0269 */
+export interface AuctionBidOutcome {
+  is_new_best: boolean;
+  current_best: number;
+  extended: boolean;
+  /** true في المزاد الهولندي عند أول قبول — المزاد انتهى */
+  auction_closed: boolean;
+  rule_applied: 'british' | 'japanese' | 'dutch';
+}
+
+/** حالة المزاد الحية (من auction_live_status) */
+export interface AuctionLiveStatusRecord {
+  auction_id: string;
+  tenant_id: string;
+  auction_number: string;
+  item_description: string;
+  auction_type: 'british' | 'japanese' | 'dutch';
+  status: 'scheduled' | 'live' | 'ended' | 'cancelled';
+  starting_price: number;
+  current_best_price: number | null;
+  current_best_supplier_id: string | null;
+  current_best_supplier_name: string | null;
+  start_time: string;
+  end_time: string;
+  savings_amount: number;
+  savings_percent: number;
+  total_bids: number;
+  active_participants: number;
+  withdrawn_participants: number;
+}
+
 export interface AuctionBidRecord {
   id: string;
   tenant_id: string;
@@ -298,7 +329,22 @@ class AuctionService extends BaseService<AuctionRecord> {
     return this.findAll({ filters: { status: 'live' }, orderBy: 'end_time', limit: 20 });
   }
 
-  async placeBid(auctionId: string, supplierId: string, bidPrice: number): Promise<{ is_new_best: boolean; current_best: number; extended: boolean }> {
+  /**
+   * تسجيل عرض. المنطق يختلف حسب auction_type منذ المايجريشن 0269:
+   *   british  — يجب أن يكون أقل من الأفضل الحالي، وضمن سقف starting_price.
+   *   japanese — قبول مستوى سعري؛ نفس السعر مسموح، الأعلى مرفوض.
+   *   dutch    — أول قبول يفوز ويُنهي المزاد (auction_closed = true).
+   *
+   * أخطاء متوقعة تظهر للمستخدم كما هي:
+   *   BID_ABOVE_CEILING · BID_MUST_BE_LOWER_THAN_CURRENT ·
+   *   JAPANESE_CANNOT_ACCEPT_HIGHER_LEVEL · DUTCH_AUCTION_ALREADY_ACCEPTED ·
+   *   SUPPLIER_WITHDRAWN_FROM_AUCTION
+   */
+  async placeBid(
+    auctionId: string,
+    supplierId: string,
+    bidPrice: number,
+  ): Promise<AuctionBidOutcome> {
     const { supabase } = await import('../../supabase/supabase');
     const { data, error } = await supabase.rpc('place_auction_bid', {
       p_auction_id: auctionId,
@@ -306,12 +352,42 @@ class AuctionService extends BaseService<AuctionRecord> {
       p_bid_price: bidPrice,
     });
     if (error) throw new Error(error.message);
-    const row = Array.isArray(data) ? data[0] : data;
+    const row = (Array.isArray(data) ? data[0] : data) as Partial<AuctionBidOutcome> | null;
     return {
-      is_new_best: (row as any)?.is_new_best ?? true,
-      current_best: (row as any)?.current_best ?? bidPrice,
-      extended: (row as any)?.extended ?? false,
+      is_new_best: row?.is_new_best ?? true,
+      current_best: row?.current_best ?? bidPrice,
+      extended: row?.extended ?? false,
+      auction_closed: row?.auction_closed ?? false,
+      rule_applied: row?.rule_applied ?? 'british',
     };
+  }
+
+  /**
+   * انسحاب مورد من المزاد (ركن أساسي في المزاد الياباني).
+   * السبب إلزامي (5 أحرف على الأقل) ويُسجَّل للتدقيق.
+   * @returns true إذا أدى الانسحاب إلى إغلاق المزاد (بقي مورد واحد).
+   */
+  async withdrawSupplier(
+    auctionId: string,
+    supplierId: string,
+    reason: string,
+  ): Promise<boolean> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { data, error } = await supabase.rpc('withdraw_from_auction', {
+      p_auction_id: auctionId,
+      p_supplier_id: supplierId,
+      p_reason: reason,
+    });
+    if (error) throw new Error(error.message);
+    return Boolean(data);
+  }
+
+  /** حالة المزاد الحية مع الوفورات وعدد المشاركين النشطين/المنسحبين */
+  async findLiveStatus(): Promise<AuctionLiveStatusRecord[]> {
+    const { supabase } = await import('../../supabase/supabase');
+    const { data, error } = await supabase.from('auction_live_status').select('*');
+    if (error) throw new Error(error.message);
+    return (data || []) as AuctionLiveStatusRecord[];
   }
 }
 

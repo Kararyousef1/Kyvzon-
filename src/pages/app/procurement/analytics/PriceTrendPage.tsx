@@ -4,6 +4,8 @@ import { priceTrendService } from '../../../../services/sdk';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useUIStore } from '../../../../core/stores';
 
+type PriceHistoryRow = { valid_from: string; price: number; change_percent?: number | null };
+
 export default function PriceTrendPage() {
   const { addToast } = useUIStore();
   const [trend, setTrend] = useState<any[]>([]);
@@ -13,10 +15,10 @@ export default function PriceTrendPage() {
     (async()=>{
       try {
         const data = await priceTrendService.findByItem(itemCode, 100);
-        setTrend((data as any[]).map((r:any)=>({
+        setTrend((data as PriceHistoryRow[]).map(r => ({
           date: new Date(r.valid_from).toLocaleDateString('ar-SA'),
           price: Number(r.price),
-          change: Number(r.change_percent),
+          change: Number(r.change_percent ?? 0),
         })));
       } catch(e:any){ addToast(e.message,'error'); }
     })();

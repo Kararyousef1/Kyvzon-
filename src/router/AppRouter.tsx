@@ -180,6 +180,12 @@ const CrmPortal             = lazy(() => import('../pages/crmportal/CrmPortal'))
 const CrmDashboard          = lazy(() => import('../pages/crmportal/CrmDashboard'));
 // بوابة المشتريات — Wave1: الموردون + طلبات الشراء (هيكل مجلدي مثل CRM)
 const ProcurementDashboard      = lazy(() => import('../pages/app/procurement/ProcurementDashboard'));
+const ProcFoundationDashboard   = lazy(() => import('../pages/app/procurement/foundation/FoundationDashboardPage'));
+const ProcSpendCategoriesPage   = lazy(() => import('../pages/app/procurement/foundation/SpendCategoriesPage'));
+const ProcApprovalRulesPage     = lazy(() => import('../pages/app/procurement/foundation/ApprovalRulesPage'));
+const ProcPoliciesPage          = lazy(() => import('../pages/app/procurement/foundation/ProcurementPoliciesPage'));
+const ProcAuditPage             = lazy(() => import('../pages/app/procurement/foundation/ProcurementAuditPage'));
+const ProcIntegrationHealthPage = lazy(() => import('../pages/app/procurement/foundation/IntegrationHealthPage'));
 const SuppliersLayout           = lazy(() => import('../pages/app/procurement/suppliers/SuppliersLayout'));
 const SuppliersPage             = lazy(() => import('../pages/app/procurement/suppliers/SuppliersPage'));
 const SupplierDetailPage        = lazy(() => import('../pages/app/procurement/suppliers/SupplierDetailPage'));
@@ -786,6 +792,13 @@ export function AppRoutes() {
             <Route element={<RequireModule moduleKey="procurement" />}>
               <Route index element={<ProcurementDashboard />} />
               <Route path="dashboard" element={<ProcurementDashboard />} />
+              {/* الوحدة 00 — الأساس ولوحة التحكم */}
+              <Route path="foundation" element={<ProcFoundationDashboard />} />
+              <Route path="foundation/categories" element={<ProcSpendCategoriesPage />} />
+              <Route path="foundation/approval-rules" element={<ProcApprovalRulesPage />} />
+              <Route path="foundation/policies" element={<ProcPoliciesPage />} />
+              <Route path="foundation/audit" element={<ProcAuditPage />} />
+              <Route path="foundation/integration" element={<ProcIntegrationHealthPage />} />
               <Route path="suppliers" element={<SuppliersLayout />}>
                 <Route index element={<SuppliersPage />} />
                 <Route path=":id" element={<SupplierDetailPage />} />

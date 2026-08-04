@@ -299,6 +299,42 @@ export { hrApprovalService } from './HrApprovalService';
 // 🆕 مفاتيح المزوّدين لكل شركة (BYOK — النموذج ب)
 export { tenantProviderService, SUPPORTED_PROVIDERS } from './TenantProviderService';
 export type { ProviderChannel, ProviderStatus, ProviderMeta } from './TenantProviderService';
+// 🆕 بوابة المشتريات — جسور التكامل والإشعارات
+export {
+  procurementLookupService,
+  procurementIntegrationService,
+  procurementNotificationService,
+} from './Procurement/ProcurementIntegrationService';
+export type {
+  InventoryItemLookupRecord,
+  WarehouseLookupRecord,
+  ExpenseAccountLookupRecord,
+  GrInventoryStatusRecord,
+  RtvInventoryStatusRecord,
+  InvoiceApStatusRecord,
+  IntegrationHealthRecord,
+  NotificationJobResult,
+} from './Procurement/ProcurementIntegrationService';
+// 🆕 بوابة المشتريات — الوحدة 00: الأساس ولوحة التحكم
+export {
+  spendCategoryService,
+  procurementApprovalRuleService,
+  procurementPolicyService,
+  procurementAuditService,
+  procurementFoundationService,
+} from './Procurement/ProcurementFoundationService';
+export type {
+  SpendCategoryRecord,
+  SpendCategoryTreeRecord,
+  SpendCategoryLookupRecord,
+  ApprovalRequiredRole,
+  ProcurementApprovalRuleRecord,
+  ProcurementApprovalRuleBoardRecord,
+  ProcurementPolicyRecord,
+  ProcurementAuditEventRecord,
+  ProcurementFoundationDashboardRecord,
+  ProcurementFoundationCheckRecord,
+} from './Procurement/ProcurementFoundationService';
 // 🆕 بوابة المشتريات — Wave1: الموردون + طلبات الشراء
 export {
   supplierService,
@@ -423,7 +459,6 @@ export {
   pCardTransactionService,
   toleranceRuleService,
   poReleaseService,
-  procurementApprovalRuleService,
 } from './Procurement/SpendAnalyticsService';
 export type {
   SpendParetoRecord,

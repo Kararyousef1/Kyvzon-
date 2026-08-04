@@ -5,19 +5,26 @@ import Button from '../../../../shared/components/ui/Button';
 import { purchaseOrderService, poLineItemService, goodsReceiptService, rtvService, type PurchaseOrderRecord, type PoLineItemRecord } from '../../../../services/sdk';
 import { useUIStore } from '../../../../core/stores';
 
+type RtvReason = 'quality_rejected' | 'over_delivery' | 'damaged' | 'wrong_item' | 'expired' | 'other';
+type GoodsReceiptRow = { id: string; gr_number: string; status: string; received_at?: string | null };
+
 export default function PoDetailPage() {
   const { id } = useParams();
   const { addToast } = useUIStore();
   const [po, setPo] = useState<PurchaseOrderRecord | null>(null);
   const [lines, setLines] = useState<PoLineItemRecord[]>([]);
-  const [grs, setGrs] = useState<any[]>([]);
+  const [grs, setGrs] = useState<GoodsReceiptRow[]>([]);
+  const [statusTarget, setStatusTarget] = useState<string | null>(null);
+  const [trackingInput, setTrackingInput] = useState('');
+  const [rtvGrId, setRtvGrId] = useState<string | null>(null);
+  const [rtvForm, setRtvForm] = useState<{ qty: string; reason: RtvReason; details: string; lot: string }>({ qty: '1', reason: 'quality_rejected', details: '', lot: '' });
 
   useEffect(()=>{
     if (!id) return;
     (async()=>{
       try {
         const p = await purchaseOrderService.findById(id);
-        setPo(p as any);
+        if (p) setPo(p);
         const l = await poLineItemService.findByPo(id);
         setLines(l);
         const g = await goodsReceiptService.findAll({ filters: { po_id: id }, limit: 20 });
@@ -26,26 +33,37 @@ export default function PoDetailPage() {
     })();
   }, [id]);
 
-  const updateStatus = async (status: string) => {
+  const openStatusDialog = (status: string) => {
     if (!po) return;
-    const tracking = window.prompt('رقم التتبع (اختياري)', po.tracking_number || '') || undefined;
+    setTrackingInput(po.tracking_number || '');
+    setStatusTarget(status);
+  };
+
+  const confirmStatus = async () => {
+    if (!po || !statusTarget) return;
     try {
-      await purchaseOrderService.updateTracking(po.id, status, tracking);
+      await purchaseOrderService.updateTracking(po.id, statusTarget, trackingInput.trim() || undefined);
       addToast('تم تحديث حالة PO', 'success');
+      setStatusTarget(null);
       const p = await purchaseOrderService.findById(po.id);
-      setPo(p as any);
+      if (p) setPo(p);
     } catch (e:any) { addToast(e.message, 'error'); }
   };
 
-  const createRtv = async (grId: string) => {
-    if (!po) return;
-    const qty = Number(window.prompt('الكمية المراد إرجاعها', '1') || '0');
-    const reason = window.prompt('سبب الإعادة: quality_rejected / over_delivery / damaged / wrong_item / expired / other', 'quality_rejected') || 'other';
-    const details = window.prompt('تفاصيل الإعادة') || '';
-    const lot = window.prompt('رقم الدفعة Lot إن وجد') || undefined;
+  const openRtvDialog = (grId: string) => {
+    setRtvForm({ qty: '1', reason: 'quality_rejected', details: '', lot: '' });
+    setRtvGrId(grId);
+  };
+
+  const submitRtv = async () => {
+    if (!po || !rtvGrId) return;
+    const qty = Number(rtvForm.qty);
+    if (!Number.isFinite(qty) || qty <= 0) { addToast('الكمية يجب أن تكون أكبر من صفر', 'error'); return; }
+    if (!rtvForm.details.trim()) { addToast('تفاصيل الإعادة مطلوبة', 'error'); return; }
     try {
-      await rtvService.createRtv(grId, po.id, qty, reason, details, lot);
+      await rtvService.createRtv(rtvGrId, po.id, qty, rtvForm.reason, rtvForm.details.trim(), rtvForm.lot.trim() || undefined);
       addToast('تم إنشاء RTV وتحديث المخزون الخارج', 'success');
+      setRtvGrId(null);
     } catch (e:any) { addToast(e.message, 'error'); }
   };
 
@@ -63,10 +81,10 @@ export default function PoDetailPage() {
           <p className="text-sm text-slate-500 mt-1">حالة: {po.status} • مورد: {po.supplier_id.slice(0,8)} • تسليم: {po.delivery_date ? new Date(po.delivery_date).toLocaleDateString('ar-SA') : '-'} • تتبع: {po.tracking_number || '-'}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {po.status === 'approved' && <Button size="sm" onClick={() => updateStatus('sent')}>إرسال للمورد</Button>}
-          {po.status === 'sent' && <Button size="sm" onClick={() => updateStatus('acknowledged')}>تأكيد المورد</Button>}
-          {['sent','acknowledged'].includes(po.status) && <Button size="sm" variant="secondary" onClick={() => updateStatus('shipped')}>تم الشحن</Button>}
-          {po.status === 'received' && <Button size="sm" variant="secondary" onClick={() => updateStatus('closed')}>إغلاق PO</Button>}
+          {po.status === 'approved' && <Button size="sm" onClick={() => openStatusDialog('sent')}>إرسال للمورد</Button>}
+          {po.status === 'sent' && <Button size="sm" onClick={() => openStatusDialog('acknowledged')}>تأكيد المورد</Button>}
+          {['sent','acknowledged'].includes(po.status) && <Button size="sm" variant="secondary" onClick={() => openStatusDialog('shipped')}>تم الشحن</Button>}
+          {po.status === 'received' && <Button size="sm" variant="secondary" onClick={() => openStatusDialog('closed')}>إغلاق PO</Button>}
         </div>
       </div>
 
@@ -128,13 +146,17 @@ export default function PoDetailPage() {
               <div><span className="font-mono font-bold">{gr.gr_number}</span> • {new Date(gr.received_at).toLocaleString('ar-SA')} • طرود: {gr.total_packages || '-'} • ضرر: {gr.has_damage ? 'نعم' : 'لا'}</div>
               <div className="flex gap-2 items-center">
                 <span className={`text-[10px] px-2 py-1 rounded-full ${gr.status==='posted'?'bg-emerald-100 text-emerald-700':gr.status==='quality_hold'?'bg-amber-100 text-amber-700':'bg-slate-100'}`}>{gr.status}</span>
-                <Button size="xs" variant="secondary" onClick={() => createRtv(gr.id)}>RTV</Button>
+                <Button size="xs" variant="secondary" onClick={() => openRtvDialog(gr.id)}>RTV</Button>
               </div>
             </div>
           ))}
           {!grs.length && <div className="py-6 text-center text-slate-400 text-sm">لا توجد عمليات استلام — استخدم receive_goods() مع 4 خطوات: مطابقة PO مع إيصال شحن + فحص أضرار + عد كميات + تسجيل Lot Numbers</div>}
         </div>
       </Card>
+
+      {statusTarget && <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" dir="rtl"><div className="bg-white rounded-2xl p-6 w-full max-w-md"><h3 className="font-black text-lg mb-2">تحديث حالة أمر الشراء</h3><p className="text-sm text-slate-500 mb-4">الحالة الجديدة: <b>{statusTarget}</b></p><label className="block text-xs font-bold text-slate-600 mb-1">رقم التتبع (اختياري)</label><input value={trackingInput} onChange={e=>setTrackingInput(e.target.value)} className="w-full border rounded-xl p-2.5" placeholder="رقم الشحنة أو البوليصة" /><div className="flex gap-2 mt-4"><button type="button" onClick={confirmStatus} className="flex-1 bg-amber-600 text-white rounded-xl py-2.5 font-bold hover:bg-amber-700">تأكيد</button><button type="button" onClick={()=>setStatusTarget(null)} className="flex-1 border rounded-xl py-2.5 font-bold hover:bg-slate-50">إلغاء</button></div></div></div>}
+
+      {rtvGrId && <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" dir="rtl"><div className="bg-white rounded-2xl p-6 w-full max-w-md"><h3 className="font-black text-lg mb-2">إرجاع بضاعة للمورد (RTV)</h3><p className="text-sm text-slate-500 mb-4">سيُخصم المرتجع من المخزون ويُسجَّل في التدقيق.</p><div className="space-y-3"><div><label className="block text-xs font-bold text-slate-600 mb-1">الكمية *</label><input type="number" min={0} step="any" value={rtvForm.qty} onChange={e=>setRtvForm({...rtvForm, qty:e.target.value})} className="w-full border rounded-xl p-2.5" /></div><div><label className="block text-xs font-bold text-slate-600 mb-1">سبب الإعادة *</label><select value={rtvForm.reason} onChange={e=>setRtvForm({...rtvForm, reason:e.target.value as RtvReason})} className="w-full border rounded-xl p-2.5 bg-white"><option value="quality_rejected">رفض الجودة</option><option value="over_delivery">توريد زائد</option><option value="damaged">تالف</option><option value="wrong_item">صنف خاطئ</option><option value="expired">منتهي الصلاحية</option><option value="other">أخرى</option></select></div><div><label className="block text-xs font-bold text-slate-600 mb-1">التفاصيل *</label><textarea rows={2} value={rtvForm.details} onChange={e=>setRtvForm({...rtvForm, details:e.target.value})} className="w-full border rounded-xl p-2.5" /></div><div><label className="block text-xs font-bold text-slate-600 mb-1">رقم الدفعة Lot</label><input value={rtvForm.lot} onChange={e=>setRtvForm({...rtvForm, lot:e.target.value})} className="w-full border rounded-xl p-2.5" /></div></div><div className="flex gap-2 mt-4"><button type="button" onClick={submitRtv} className="flex-1 bg-rose-600 text-white rounded-xl py-2.5 font-bold hover:bg-rose-700">تأكيد الإرجاع</button><button type="button" onClick={()=>setRtvGrId(null)} className="flex-1 border rounded-xl py-2.5 font-bold hover:bg-slate-50">إلغاء</button></div></div></div>}
     </div>
   );
 }

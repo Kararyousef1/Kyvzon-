@@ -44,7 +44,7 @@ export default function SuppliersPage() {
         city: form.city,
         supplier_type: 'prospect',
         status: 'pending',
-      } as any);
+      });
       addToast('تم إنشاء المورد — بانتظار التأهيل', 'success');
       setShowCreate(false);
       setForm({ legal_name: '', supplier_code: '', tax_number: '', country: 'SA', city: '' });

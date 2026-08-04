@@ -14,6 +14,8 @@ export default function GoodsReceiptPage() {
   const [poLines, setPoLines] = useState<PoLineItemRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showReceive, setShowReceive] = useState(false);
+  const [iqcTarget, setIqcTarget] = useState<{ gr: GoodsReceiptRecord; status: 'approved'|'rejected'|'partial' } | null>(null);
+  const [iqcNotes, setIqcNotes] = useState('');
   const [form, setForm] = useState({ po_id: '', delivery_note_number: '', total_packages: 1, has_damage: false, damage_notes: '', items: [] as ReceiveLine[] });
 
   const load = async () => {
@@ -53,9 +55,23 @@ export default function GoodsReceiptPage() {
     } catch (err:any) { addToast(err.message,'error'); }
   };
 
-  const decideIqc = async (gr: GoodsReceiptRecord, status: 'approved'|'rejected'|'partial') => {
-    const notes = window.prompt('ملاحظات قرار الجودة') || '';
-    try { await goodsReceiptService.decideIqc(gr.id, status, notes); addToast('تم تحديث قرار الجودة', 'success'); await load(); }
+  const openIqcDialog = (gr: GoodsReceiptRecord, status: 'approved'|'rejected'|'partial') => {
+    setIqcTarget({ gr, status });
+    setIqcNotes('');
+  };
+
+  const submitIqc = async () => {
+    if (!iqcTarget) return;
+    if (iqcTarget.status !== 'approved' && !iqcNotes.trim()) {
+      addToast('الملاحظات مطلوبة عند الرفض أو القبول الجزئي', 'error');
+      return;
+    }
+    try {
+      await goodsReceiptService.decideIqc(iqcTarget.gr.id, iqcTarget.status, iqcNotes.trim());
+      addToast('تم تحديث قرار الجودة', 'success');
+      setIqcTarget(null);
+      await load();
+    }
     catch(e:any){ addToast(e.message,'error'); }
   };
 
@@ -83,7 +99,7 @@ export default function GoodsReceiptPage() {
                 <div className="text-xs text-slate-500 mt-1">استلام: {new Date(gr.received_at).toLocaleString('ar-SA')} • طرود: {gr.total_packages || '-'} • ضرر: {gr.has_damage ? 'نعم' : 'لا'}</div>
                 <div className="text-xs text-slate-400">إيصال شحن: {gr.delivery_note_number || '-'}</div>
               </div>
-              <div className="flex gap-2 items-center flex-wrap"><span className={`text-[10px] px-2 py-1 rounded-full ${gr.status==='posted'?'bg-emerald-100 text-emerald-700':gr.status==='quality_hold'?'bg-amber-100 text-amber-700':'bg-slate-100'}`}>{gr.status}</span>{gr.status==='quality_hold' && <><Button size="sm" variant="secondary" onClick={()=>decideIqc(gr,'approved')}>IQC قبول</Button><Button size="sm" variant="secondary" className="!bg-red-50 !text-red-700" onClick={()=>decideIqc(gr,'rejected')}>IQC رفض</Button><Button size="sm" onClick={()=>postGr(gr)}>Posting</Button></>}</div>
+              <div className="flex gap-2 items-center flex-wrap"><span className={`text-[10px] px-2 py-1 rounded-full ${gr.status==='posted'?'bg-emerald-100 text-emerald-700':gr.status==='quality_hold'?'bg-amber-100 text-amber-700':'bg-slate-100'}`}>{gr.status}</span>{gr.status==='quality_hold' && <><Button size="sm" variant="secondary" onClick={()=>openIqcDialog(gr,'approved')}>IQC قبول</Button><Button size="sm" variant="secondary" className="!bg-red-50 !text-red-700" onClick={()=>openIqcDialog(gr,'rejected')}>IQC رفض</Button><Button size="sm" onClick={()=>postGr(gr)}>Posting</Button></>}</div>
             </Card>
           ))}
           {!grs.length && <Card className="py-16 text-center text-slate-500">لا توجد عمليات استلام</Card>}
@@ -96,6 +112,8 @@ export default function GoodsReceiptPage() {
         <div className="space-y-2"><h4 className="font-bold">بنود الاستلام</h4>{form.items.map((it,idx)=>{ const line=poLines.find(l=>l.id===it.po_line_item_id); return <div key={it.po_line_item_id} className="p-3 border rounded-2xl bg-slate-50 space-y-2"><div className="font-bold text-sm">{line?.item_code || '-'} — {line?.description}</div><div className="grid md:grid-cols-5 gap-2"><Input type="number" placeholder="مستلم" value={it.received_qty} onChange={e=>updateLine(idx,{received_qty:Number(e.target.value)})}/><Input type="number" placeholder="مقبول" value={it.accepted_qty} onChange={e=>updateLine(idx,{accepted_qty:Number(e.target.value)})}/><Input placeholder="Lot" value={it.lot_number} onChange={e=>updateLine(idx,{lot_number:e.target.value})}/><Input type="date" value={it.expiry_date} onChange={e=>updateLine(idx,{expiry_date:e.target.value})}/><Input placeholder="الموقع" value={it.location} onChange={e=>updateLine(idx,{location:e.target.value})}/></div></div>})}{!form.items.length && <div className="text-center text-slate-400 py-6">اختر PO لعرض بنوده المفتوحة</div>}</div>
         <div className="flex gap-2"><Button type="submit" className="flex-1">حفظ وإرسال للجودة</Button><Button type="button" variant="secondary" className="flex-1" onClick={()=>setShowReceive(false)}>إلغاء</Button></div>
       </form></div></div>}
+
+      {iqcTarget && <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" dir="rtl"><div className="bg-white rounded-2xl p-6 w-full max-w-md"><h3 className="font-black text-lg mb-2">قرار فحص الجودة (IQC)</h3><p className="text-sm text-slate-500 mb-4">{iqcTarget.gr.gr_number} — القرار: <b>{iqcTarget.status === 'approved' ? 'قبول' : iqcTarget.status === 'rejected' ? 'رفض' : 'قبول جزئي'}</b></p><label className="block text-xs font-bold text-slate-600 mb-1">ملاحظات الفحص {iqcTarget.status !== 'approved' ? '*' : ''}</label><textarea rows={3} value={iqcNotes} onChange={e=>setIqcNotes(e.target.value)} placeholder="سبب القرار ونتائج الفحص" className="w-full border rounded-xl p-3" /><div className="flex gap-2 mt-4"><button type="button" onClick={submitIqc} className="flex-1 bg-amber-600 text-white rounded-xl py-2.5 font-bold hover:bg-amber-700">تأكيد القرار</button><button type="button" onClick={()=>setIqcTarget(null)} className="flex-1 border rounded-xl py-2.5 font-bold hover:bg-slate-50">إلغاء</button></div></div></div>}
     </div>
   );
 }

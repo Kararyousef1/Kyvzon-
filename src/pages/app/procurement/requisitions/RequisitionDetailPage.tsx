@@ -42,6 +42,8 @@ export default function RequisitionDetailPage() {
   const [comments, setComments] = useState<PrCommentRecord[]>([]);
   const [commentText, setCommentText] = useState('');
   const [revisionReason, setRevisionReason] = useState('');
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [attachmentForm, setAttachmentForm] = useState({ file_name: '', file_url: '' });
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,10 +114,15 @@ export default function RequisitionDetailPage() {
 
   const cancelPr = async () => {
     if (!pr) return;
-    const reason = window.prompt('سبب إلغاء الطلب') || '';
+    if (!cancelReason.trim()) {
+      addToast('سبب الإلغاء مطلوب', 'error');
+      return;
+    }
     try {
-      await purchaseRequisitionService.cancel(pr.id, reason);
+      await purchaseRequisitionService.cancel(pr.id, cancelReason.trim());
       addToast('تم إلغاء الطلب', 'info');
+      setCancelOpen(false);
+      setCancelReason('');
       await load();
     } catch (e: any) { addToast(e.message, 'error'); }
   };
@@ -126,7 +133,7 @@ export default function RequisitionDetailPage() {
       if (attachmentFile) {
         await prAttachmentService.uploadFile(pr.id, attachmentFile);
       } else if (attachmentForm.file_name.trim() && attachmentForm.file_url.trim()) {
-        await prAttachmentService.create({ pr_id: pr.id, file_name: attachmentForm.file_name.trim(), file_url: attachmentForm.file_url.trim() } as any);
+        await prAttachmentService.create({ pr_id: pr.id, file_name: attachmentForm.file_name.trim(), file_url: attachmentForm.file_url.trim() });
       } else {
         return;
       }
@@ -180,7 +187,7 @@ export default function RequisitionDetailPage() {
               </Button>
             </>
           )}
-          {['draft','submitted','under_review','pending_approval','revision_required','rejected'].includes(pr.status) && <Button variant="secondary" onClick={cancelPr}>إلغاء</Button>}
+          {['draft','submitted','under_review','pending_approval','revision_required','rejected'].includes(pr.status) && <Button variant="secondary" onClick={()=>{ setCancelReason(''); setCancelOpen(true); }}>إلغاء</Button>}
         </div>
       </div>
 
@@ -298,6 +305,27 @@ export default function RequisitionDetailPage() {
           </Card>
         </div>
       </div>
+
+      {cancelOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" dir="rtl">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 className="font-black text-lg mb-2">إلغاء طلب الشراء</h3>
+            <p className="text-sm text-slate-500 mb-4">{pr.pr_number}</p>
+            <label className="block text-xs font-bold text-slate-600 mb-1">سبب الإلغاء *</label>
+            <textarea
+              value={cancelReason}
+              onChange={e => setCancelReason(e.target.value)}
+              rows={3}
+              placeholder="اذكر سبب الإلغاء — يُسجَّل في سجل التدقيق"
+              className="w-full border rounded-xl p-3"
+            />
+            <div className="flex gap-2 mt-4">
+              <button type="button" onClick={cancelPr} className="flex-1 bg-rose-600 text-white rounded-xl py-2.5 font-bold hover:bg-rose-700">تأكيد الإلغاء</button>
+              <button type="button" onClick={() => { setCancelOpen(false); setCancelReason(''); }} className="flex-1 border rounded-xl py-2.5 font-bold hover:bg-slate-50">تراجع</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
