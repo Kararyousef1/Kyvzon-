@@ -19,6 +19,7 @@ import {
   User, Mail, Phone, Building, Calendar, Edit3, Save, X, Star,
   Plus, Trash2, Loader, Camera, LayoutTemplate, Briefcase,
   GraduationCap, Languages, Smile, FileText, Target, Award,
+  Archive,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { userService } from '../../services/sdk/UserService';
@@ -32,6 +33,7 @@ import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { isLocalUser } from '../../services/utils';
 import { getErrorMessage } from '../../services/errors';
+import type { CvArchiveInfo } from '../../services/sdk';
 import type { User as UserType } from '../../shared/types';
 
 // ════════════════════════════════════════════════════
@@ -120,6 +122,13 @@ export default function ProfilePage() {
   // السيرة الذاتية
   const [cvData, setCvData] = useState<CvFormData>({ ...EMPTY_CV });
   const [showCvBuilder, setShowCvBuilder] = useState(false);
+  // ★★ 0336: الحذف كان فورياً من زرّ سلّة بلا تأكيد — نقرة واحدة
+  //   تمسح ساعات عمل بلا رجعة. الآن تأكيد داخل الصفحة ثم أرشفة.
+  //   (ممنوع confirm() — قاعدة المشروع)
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [cvArchive, setCvArchive] = useState<CvArchiveInfo>({
+    hasArchive: false, archivedAt: null, skillCount: 0,
+  });
   const [employeeRecordId, setEmployeeRecordId] = useState('');
   const [profileSkills, setProfileSkills] = useState<{ id: string; skill_name: string; level: string; category?: string }[]>([]);
   const [profileGoals, setProfileGoals] = useState<{ id: string; title: string; progress_percent: number; status: string }[]>([]);
@@ -185,9 +194,21 @@ export default function ProfilePage() {
             employeeGoalService.findByEmployee(employeeId).catch(() => []),
             certificationService.findByEmployee(employeeId).catch(() => []),
           ]);
-          setProfileSkills((skills || []) as any);
-          setProfileGoals((goals || []).filter((goal: any) => goal.status !== 'cancelled').slice(0, 5) as any);
-          setProfileCertifications((certifications || []).slice(0, 5) as any);
+          // ★ المرحلة 1: نوع الحالة معرّف أعلاه — نمرّ عبر unknown لا any
+          setProfileSkills((skills ?? []) as unknown as Parameters<typeof setProfileSkills>[0]);
+          setProfileGoals(
+            ((goals ?? []) as unknown as { status?: string }[])
+              .filter((goal) => goal.status !== 'cancelled')
+              .slice(0, 5) as unknown as Parameters<typeof setProfileGoals>[0],
+          );
+          setProfileCertifications(
+            (certifications ?? []).slice(0, 5) as unknown as Parameters<typeof setProfileCertifications>[0],
+          );
+
+        // ★ 0336: حالة الأرشيف — لعرض شريط الاسترجاع
+        if (!isLocalUser(user.id)) {
+          setCvArchive(await userService.myCvArchiveInfo());
+        }
         }
       } catch (err) {
         console.error('فشل جلب البيانات الإضافية:', getErrorMessage(err));
@@ -255,16 +276,49 @@ export default function ProfilePage() {
     }
   };
 
-  // ── حذف السيرة الذاتية ────────────────────────────────────────
-  const handleDeleteCv = async () => {
+  // ── أرشفة السيرة الذاتية (0336) ───────────────────────────────
+  //
+  //   ★★ كانت `handleDeleteCv` تكتب `cv_data = {}` مباشرةً — حذف
+  //     نهائي بلا تأكيد ولا نسخة. الآن أرشفة قابلة للاسترجاع.
+  const handleArchiveCv = async () => {
     if (!user) return;
-    setCvData({ ...EMPTY_CV });
-    if (!isLocalUser(user.id)) {
-      try {
-        await userService.updateUser(user.id, { cv_data: {} });
-      } catch (err) {
-        console.error('فشل حذف السيرة الذاتية:', getErrorMessage(err));
+    setConfirmArchive(false);
+    if (isLocalUser(user.id)) {
+      setCvData({ ...EMPTY_CV });
+      addToast('تمت الأرشفة (وضع تجريبي)', 'success');
+      return;
+    }
+    try {
+      const ok = await userService.archiveMyCv();
+      if (!ok) {
+        addToast('لا توجد سيرة ذاتية لأرشفتها', 'info');
+        return;
       }
+      setCvData({ ...EMPTY_CV });
+      setCvArchive(await userService.myCvArchiveInfo());
+      addToast('أُرشفت السيرة الذاتية — يمكنك استرجاعها', 'success');
+    } catch (err) {
+      addToast('فشلت الأرشفة: ' + getErrorMessage(err), 'error');
+    }
+  };
+
+  // ── استرجاع السيرة المؤرشفة ───────────────────────────────────
+  const handleRestoreCv = async () => {
+    if (!user || isLocalUser(user.id)) return;
+    try {
+      const ok = await userService.restoreMyCv();
+      if (!ok) {
+        addToast('لا توجد نسخة مؤرشفة', 'info');
+        return;
+      }
+      const profile = await userService.findUserById(user.id);
+      setCvData(normalizeCvData(
+        (profile as unknown as Record<string, unknown>)?.cv_data,
+      ));
+      setCvArchive(await userService.myCvArchiveInfo());
+      addToast('استُرجعت السيرة الذاتية', 'success');
+    } catch (err) {
+      addToast('فشل الاسترجاع: ' + getErrorMessage(err), 'error');
     }
   };
 
@@ -462,11 +516,51 @@ export default function ProfilePage() {
               </div>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={() => setShowCvBuilder(true)} className="!bg-white !border-indigo-200 !text-indigo-700 hover:!bg-indigo-100">تعديل السيرة</Button>
-                <button onClick={handleDeleteCv} className="p-2.5 text-red-500 bg-white hover:bg-red-50 border border-red-200 rounded-xl shadow-sm transition-all"><Trash2 size={16} /></button>
+                <button
+                  onClick={() => setConfirmArchive(true)}
+                  title="أرشفة السيرة الذاتية"
+                  className="p-2.5 text-amber-600 bg-white hover:bg-amber-50 border border-amber-200 rounded-xl shadow-sm transition-all"
+                ><Archive size={16} /></button>
               </div>
             </div>
           ) : (
             <div className="grid sm:grid-cols-1 gap-4">
+{/* ★★ 0336: تأكيد الأرشفة داخل الصفحة — ممنوع confirm() */}
+{confirmArchive && (
+  <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+    <p className="text-sm font-bold text-amber-900 mb-1">أرشفة السيرة الذاتية؟</p>
+    <p className="text-xs text-amber-700 leading-relaxed mb-3">
+      لن تُحذف — ستُحفظ نسخة يمكنك استرجاعها متى شئت، لكنها ستختفي
+      من سجلّ المؤهلات لدى الموارد البشرية.
+    </p>
+    <div className="flex gap-2">
+      <Button size="sm" onClick={handleArchiveCv} className="!bg-amber-600 hover:!bg-amber-700">
+        نعم، أرشِف
+      </Button>
+      <Button size="sm" variant="secondary" onClick={() => setConfirmArchive(false)}>
+        إلغاء
+      </Button>
+    </div>
+  </div>
+)}
+
+{/* ★ شريط الاسترجاع — يظهر فقط حين توجد نسخة مؤرشفة */}
+{cvArchive.hasArchive && (
+  <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center gap-3 flex-wrap">
+    <Archive size={18} className="text-slate-400 shrink-0" />
+    <div className="min-w-0 flex-1">
+      <p className="text-sm font-bold text-slate-700">لديك سيرة ذاتية مؤرشفة</p>
+      <p className="text-xs text-slate-500 mt-0.5">
+        {cvArchive.skillCount} مهارة
+        {cvArchive.archivedAt
+          ? ` · أُرشفت ${new Date(cvArchive.archivedAt).toLocaleDateString('ar')}`
+          : ''}
+      </p>
+    </div>
+    <Button size="sm" variant="outline" onClick={handleRestoreCv}>استرجاع</Button>
+  </div>
+)}
+
               <div onClick={() => setShowCvBuilder(true)} className="border-2 border-dashed border-slate-200 rounded-2xl p-10 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all text-slate-500 hover:text-purple-600 group">
                 <LayoutTemplate size={28} className="group-hover:-translate-y-1 transition-transform" />
                 <p className="font-bold text-sm">إنشاء سيرة ذاتية</p>

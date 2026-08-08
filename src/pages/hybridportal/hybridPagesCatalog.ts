@@ -26,11 +26,12 @@
 
 import {
   LayoutDashboard, FolderKanban, Plus, Clock, CalendarClock, BookOpen, Target, CheckCircle2,
-  ScrollText, Bot, Heart, ClipboardList, MessageSquare, User, TrendingUp,
+  ScrollText, Bug, Plug, Bot, Heart, ClipboardList, MessageSquare, User, TrendingUp,
   ArrowRightLeft, Receipt, ClipboardCheck, Users, Award, Briefcase, UserPlus,
   FileText, DollarSign, CreditCard, ShieldAlert, HeartPulse, BarChart2,
   BarChart3, FileBarChart, Settings, Building2, Layers, ShieldCheck, Fingerprint,
   Radio, RefreshCw, Server, Shield, Package, Database, Globe, Map as MapIcon, Lightbulb, Truck, type LucideIcon,
+  Download,
 } from 'lucide-react';
 import type { UserRole } from '../../shared/types';
 import { VIEW_TO_PATH } from '../../router/legacyRedirect';
@@ -100,6 +101,12 @@ const RAW_CATALOG: HybridPageMeta[] = [
   { id: 'supervisor-shift',      label: 'إدارة الوردية',    icon: CalendarClock,   module: 'supervisor', group: 'team', roles: ['supervisor', 'manager'] },
   { id: 'supervisor-tasks',      label: 'مهام الفريق',      icon: ClipboardList,   module: 'supervisor', group: 'team', roles: ['supervisor', 'manager'] },
   { id: 'supervisor-checklists', label: 'قوائم الفحص',      icon: ClipboardCheck,  module: 'supervisor', group: 'team', roles: ['supervisor', 'manager'] },
+  // وحدات بوابة المشرف (0307) — الوصول بإسناد الوحدة لا بالدور
+  { id: 'supervisor-unit-movement-shift', label: 'وحدة الحركة — حركة الوردية', icon: ArrowRightLeft, module: 'supervisor', group: 'team', roles: ['supervisor', 'manager'] },
+  { id: 'supervisor-unit-hr-approvals', label: 'وحدة الموارد البشرية — المتابعة', icon: ClipboardCheck, module: 'supervisor', group: 'team', roles: ['supervisor', 'manager'] },
+  { id: 'supervisor-unit-inventory-approvals', label: 'وحدة المخزون — المتابعة', icon: ClipboardCheck, module: 'supervisor', group: 'team', roles: ['supervisor', 'manager'] },
+  { id: 'supervisor-unit-mrp-approvals', label: 'وحدة التصنيع — المتابعة', icon: ClipboardCheck, module: 'supervisor', group: 'team', roles: ['supervisor', 'manager'] },
+  { id: 'supervisor-unit-health-safety-approvals', label: 'وحدة الصحة والسلامة — المتابعة', icon: ClipboardCheck, module: 'supervisor', group: 'team', roles: ['supervisor', 'manager'] },
   { id: 'supervisor-breaks',     label: 'تصاريح الاستراحة', icon: ArrowRightLeft,  module: 'supervisor', group: 'team', roles: ['supervisor', 'manager'] },
 
   // ─── بوابة المدير ───────────────────────────────────────────────
@@ -107,6 +114,17 @@ const RAW_CATALOG: HybridPageMeta[] = [
   { id: 'manager-approvals',   label: 'مركز الموافقات', icon: ClipboardCheck,  module: 'manager', group: 'team', roles: ['manager'] },
   { id: 'manager-performance', label: 'أداء الفريق',    icon: TrendingUp,      module: 'manager', group: 'team', roles: ['manager'] },
   { id: 'manager-workload',    label: 'عبء العمل',      icon: BarChart3,       module: 'manager', group: 'team', roles: ['manager'] },
+  // وحدات بوابة المدير (0302/0303) — الوصول يُحسم بإسناد الوحدة لا بالدور
+  { id: 'manager-unit-movement-approvals', label: 'وحدة الحركة — اعتماد التصاريح', icon: ClipboardCheck, module: 'manager', group: 'team', roles: ['manager'] },
+  { id: 'manager-unit-movement-team',      label: 'وحدة الحركة — حركة الفريق',    icon: ArrowRightLeft, module: 'manager', group: 'team', roles: ['manager'] },
+  { id: 'manager-unit-hr-approvals', label: 'وحدة الموارد البشرية — الاعتماد', icon: ClipboardCheck, module: 'manager', group: 'team', roles: ['manager'] },
+  { id: 'manager-unit-finance-approvals', label: 'وحدة المالية — الاعتماد', icon: ClipboardCheck, module: 'manager', group: 'team', roles: ['manager'] },
+  { id: 'manager-unit-procurement-approvals', label: 'وحدة المشتريات — الاعتماد', icon: ClipboardCheck, module: 'manager', group: 'team', roles: ['manager'] },
+  { id: 'manager-unit-inventory-approvals', label: 'وحدة المخزون — الاعتماد', icon: ClipboardCheck, module: 'manager', group: 'team', roles: ['manager'] },
+  { id: 'manager-unit-mrp-approvals', label: 'وحدة التصنيع — الاعتماد', icon: ClipboardCheck, module: 'manager', group: 'team', roles: ['manager'] },
+  { id: 'manager-unit-contracts-approvals', label: 'وحدة العقود — الاعتماد', icon: ClipboardCheck, module: 'manager', group: 'team', roles: ['manager'] },
+  { id: 'manager-unit-crm-approvals', label: 'وحدة المبيعات — الاعتماد', icon: ClipboardCheck, module: 'manager', group: 'team', roles: ['manager'] },
+  { id: 'manager-unit-health-safety-approvals', label: 'وحدة الصحة والسلامة — الاعتماد', icon: ClipboardCheck, module: 'manager', group: 'team', roles: ['manager'] },
   { id: 'manager-attendance',  label: 'حضور الفريق',    icon: Users,           module: 'manager', group: 'team', roles: ['manager'] },
 
   // ─── بوابة الموارد البشرية (HR) ─────────────────────────────────
@@ -136,7 +154,11 @@ const RAW_CATALOG: HybridPageMeta[] = [
   { id: 'hr-training-reports',  label: 'تقارير التدريب',       icon: BookOpen,        module: 'hr', group: 'growth',    roles: ['hr', 'admin'] },
   { id: 'hr-sops',              label: 'إدارة SOP',           icon: ScrollText,      module: 'hr', group: 'operations', roles: ['hr', 'admin'] },
   { id: 'hr-analytics',         label: 'التحليلات',           icon: BarChart2,       module: 'hr', group: 'operations', roles: ['hr', 'admin', 'manager'] },
-  { id: 'hr-reports',           label: 'التقارير',            icon: FileBarChart,    module: 'hr', group: 'operations', roles: ['hr', 'admin', 'manager'] },
+  // ★★★ 0370: `manager` رُفع. `current_user_is_staff()` = admin·hr·developer·it_admin
+  //   ولا تشمل manager ⇒ كان المدير يضغط «تحميل» فينزل ملفٌّ بترويسةٍ
+  //   بلا صفوف ثمّ يقرأ «✅ تم بنجاح» (PROBE_7: incidents=0 · wellness=0).
+  //   حقٌّ لا يُمارَس ليس حقاً، والصمت أخطر من المنع.
+  { id: 'hr-reports',           label: 'التقارير',            icon: FileBarChart,    module: 'hr', group: 'operations', roles: ['hr', 'admin'] },
 
   // ─── بوابة الإدارة (Admin) ──────────────────────────────────────
   { id: 'admin-dashboard',       label: 'لوحة الإدارة',       icon: LayoutDashboard, module: 'admin', group: 'admin', roles: ['admin'] },
@@ -147,6 +169,8 @@ const RAW_CATALOG: HybridPageMeta[] = [
   { id: 'admin-org-structure',   label: 'الهيكل التنظيمي',     icon: Layers,          module: 'admin', group: 'admin', roles: ['admin'] },
   { id: 'admin-compliance',      label: 'مركز الامتثال',       icon: ShieldCheck,     module: 'admin', group: 'admin', roles: ['admin'] },
   { id: 'admin-ai-config',       label: 'إعدادات AI',         icon: Bot,             module: 'admin', group: 'admin', roles: ['admin'] },
+  { id: 'admin-approval-rules', label: 'قواعد الاعتماد', icon: ShieldCheck, module: 'admin', group: 'admin', roles: ['admin'] },
+  { id: 'admin-mrp-roles', label: 'أدوار التصنيع الدقيقة', icon: ShieldCheck, module: 'admin', group: 'admin', roles: ['admin'] },
   { id: 'admin-reports',         label: 'تقارير النظام',       icon: FileBarChart,    module: 'admin', group: 'admin', roles: ['admin'] },
   { id: 'admin-sops-reports',    label: 'تقارير SOP',         icon: ScrollText,      module: 'admin', group: 'admin', roles: ['admin'] },
   { id: 'admin-audit-log',       label: 'سجل العمليات',        icon: ShieldCheck,     module: 'admin', group: 'admin', roles: ['admin'] },
@@ -155,6 +179,34 @@ const RAW_CATALOG: HybridPageMeta[] = [
   // ─── بوابة الأمن والحراسة (Gatekeeper) ──────────────────────────
   { id: 'gatekeeper-portal',    label: 'تسجيل الدخول والخروج', icon: Fingerprint,    module: 'gatekeeper', group: 'operations', roles: ['gatekeeper', 'admin'] },
   { id: 'gatekeeper-movements', label: 'بوابة الحركة',        icon: ArrowRightLeft,  module: 'gatekeeper', group: 'operations', roles: ['gatekeeper', 'admin'] },
+  // ── بوابة الحركة واللوجستيات — الدور «أ»: حركة الموظفين ──
+  { id: 'movement-emp-foundation', label: 'الأساس والسياسات', icon: ArrowRightLeft, module: 'movement', group: 'operations', roles: ['employee_movement', 'movement_manager', 'admin', 'hr'] },
+  { id: 'movement-emp-permits', label: 'تصاريح الخروج', icon: ArrowRightLeft, module: 'movement', group: 'operations', roles: ['employee_movement', 'movement_manager', 'admin', 'hr'] },
+  { id: 'movement-emp-execution', label: 'تنفيذ البوابة', icon: ArrowRightLeft, module: 'movement', group: 'operations', roles: ['employee_movement', 'movement_manager', 'admin', 'hr'] },
+  { id: 'movement-emp-visits', label: 'الزيارات الميدانية', icon: ArrowRightLeft, module: 'movement', group: 'operations', roles: ['employee_movement', 'movement_manager', 'admin', 'hr'] },
+  { id: 'movement-emp-missions', label: 'المهام والانتدابات', icon: ArrowRightLeft, module: 'movement', group: 'operations', roles: ['employee_movement', 'movement_manager', 'admin', 'hr'] },
+  { id: 'movement-emp-compliance', label: 'الامتثال والمخالفات', icon: ArrowRightLeft, module: 'movement', group: 'operations', roles: ['employee_movement', 'movement_manager', 'admin', 'hr'] },
+  { id: 'movement-emp-analytics', label: 'تحليلات الحركة', icon: ArrowRightLeft, module: 'movement', group: 'operations', roles: ['employee_movement', 'movement_manager', 'admin', 'hr'] },
+  // ── الدور «ب»: الحركة واللوجستيات ──
+  { id: 'movement-log-dashboard', label: 'برج المراقبة', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-fleet', label: 'الأسطول والمركبات', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-drivers', label: 'السائقون والامتثال', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-maintenance', label: 'الصيانة والإصلاح', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-fuel', label: 'الوقود والطاقة', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-orders', label: 'أوامر النقل والشحنات', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-routes', label: 'تخطيط المسارات', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-dispatch', label: 'الإرسال والتنفيذ', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-tracking', label: 'التتبع الحي', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-track-replay', label: 'إعادة تشغيل المسار', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-safety', label: 'امتثال السلامة HOS/DVIR', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  // تطبيق السائق: الوصول يُحسم بسجل logistics_drivers لا بالدور (RequireDriver + 0301).
+  // نُبقي 'employee' لأن السائق الموظف دوره غالباً employee، لكن الحارس
+  // يفلتر من ليس سائقاً فعلياً — فلا يُعرض وعد تكسره الصفحة.
+  { id: 'movement-driver-trips', label: 'تطبيق السائق — رحلاتي', icon: Truck, module: 'movement', group: 'operations', roles: ['employee', 'logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-epod', label: 'التسليم وإثباته', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-carriers', label: 'الناقلون والتعاقد', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+  { id: 'movement-log-costs', label: 'التكاليف والتحليلات', icon: Truck, module: 'movement', group: 'operations', roles: ['logistics', 'movement_manager', 'admin'] },
+
   { id: 'kiosk-mode',           label: 'محطة التسجيل الذاتي',   icon: Radio,          module: 'gatekeeper', group: 'operations', roles: ['gatekeeper', 'admin'] },
 
   // ─── البوابة التقنية (IT) ───────────────────────────────────────
@@ -164,6 +216,10 @@ const RAW_CATALOG: HybridPageMeta[] = [
   { id: 'attendance-analytics', label: 'تحليلات الحضور',       icon: BarChart3,       module: 'tech_portal', group: 'tech', roles: ['it_admin', 'tech', 'admin'] },
   { id: 'system-health',        label: 'صحة النظام',          icon: Server,          module: 'tech_portal', group: 'tech', roles: ['it_admin', 'tech', 'admin'] },
   { id: 'security-events',      label: 'الأحداث الأمنية',      icon: Shield,          module: 'tech_portal', group: 'tech', roles: ['it_admin', 'tech', 'admin'] },
+  { id: 'tech-audit-trail',     label: 'سجل التدقيق الموحّد',  icon: ScrollText,      module: 'tech_portal', group: 'tech', roles: ['it_admin', 'tech', 'admin'] },
+  { id: 'tech-error-logs',      label: 'الأخطاء والمهام',      icon: Bug,             module: 'tech_portal', group: 'tech', roles: ['it_admin', 'tech', 'admin'] },
+  { id: 'tech-integrations',    label: 'التكاملات والصادرات',  icon: Plug,            module: 'tech_portal', group: 'tech', roles: ['it_admin', 'tech', 'admin'] },
+  { id: 'tech-data-exports',    label: 'الصادرات والناقلون',   icon: Download,        module: 'tech_portal', group: 'tech', roles: ['it_admin', 'tech', 'admin'] },
   { id: 'tech-settings',        label: 'الإعدادات التقنية',    icon: Settings,        module: 'tech_portal', group: 'tech', roles: ['it_admin', 'tech', 'admin'] },
 
   // ─── بوابة المشتريات ───────────────────────────────────────────
@@ -459,7 +515,7 @@ function moduleByPrefix(pageId: string): string {
   if (pageId.startsWith('gatekeeper-') || pageId === 'kiosk-mode') return 'gatekeeper';
   if (
     pageId === 'tech-portal' || pageId.startsWith('tech-') ||
-    ['biometric-devices', 'sync-logs', 'attendance-analytics', 'system-health', 'security-events'].includes(pageId)
+    ['biometric-devices', 'sync-logs', 'attendance-analytics', 'system-health', 'security-events', 'tech-audit-trail', 'tech-error-logs', 'tech-integrations', 'tech-data-exports'].includes(pageId)
   ) return 'tech_portal';
   if (pageId.startsWith('finance-')) return 'finance';
   if (pageId.startsWith('tawathul-')) return 'tawathul';

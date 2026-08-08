@@ -22,6 +22,7 @@ import type { SOP, SOPStatus } from '../../shared/types/sops';
 import { SOP_DEPARTMENTS, SOP_CATEGORIES } from '../../shared/types/sops';
 import { getErrorMessage } from '../../services/errors';
 import { requireTenantId } from '../../services/sdk/BaseService';
+import { archiveService } from '../../services/sdk/ArchiveService';
 
 // ── Helpers ──
 const generateTempId = () => `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -94,6 +95,9 @@ export default function AdminSOPsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingSop, setEditingSop] = useState<SOP | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
+  // ★ هدف الأرشفة — بديل confirm() المحظور (سياسة المنصة)
+  const [archiveTarget, setArchiveTarget] = useState<SOP | null>(null);
+  const [archiving, setArchiving] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -259,21 +263,37 @@ export default function AdminSOPsPage() {
     }
   };
 
-  const handleDelete = async (sop: SOP) => {
-    if (!confirm(`هل أنت متأكد من حذف ${sop.code} - ${sop.title}؟`)) return;
+  /**
+   * أرشفة الإجراء — لا حذف نهائي.
+   *
+   * ★ النسخة السابقة كانت:
+   *      confirm(...) ثم supabase.from('sops').delete()
+   *   وثلاث مخالفات فيها:
+   *     · confirm() محظور بسياسة المنصة
+   *     · الصفحة تلمس Supabase مباشرةً بدل طبقة SDK
+   *     · ON DELETE CASCADE على sop_readings يُبيد **دليل الامتثال**
+   *       (مقيس: سجلات القراءة 1 ⇒ 0 بعد الحذف · 1 بعد الأرشفة)
+   *
+   *   `sops.status` يقبل 'archived' أصلاً — الأرشفة كانت متاحة ولم تُستعمل.
+   */
+  const handleArchive = async () => {
+    if (!archiveTarget) return;
+    setArchiving(true);
     try {
-      const tenantId = requireTenantId();
-      const { error } = await supabase
-        .from('sops')
-        .delete()
-        .eq('id', sop.id)
-        .eq('tenant_id', tenantId);
-      if (error) throw error;
-      showToast(`تم حذف ${sop.code}`, 'warning');
-      addToast(`تم حذف ${sop.code}`, 'info');
+      const result = await archiveService.archiveSop(archiveTarget.id);
+      showToast(
+        result === 'already_archived'
+          ? `${archiveTarget.code} مؤرشف أصلاً`
+          : `تمت أرشفة ${archiveTarget.code} — سجلات القراءة محفوظة`,
+        result === 'already_archived' ? 'info' : 'success',
+      );
+      addToast(`تمت أرشفة ${archiveTarget.code}`, 'info');
+      setArchiveTarget(null);
       await loadSops();
-    } catch (err: any) {
+    } catch (err) {
       showToast(getErrorMessage(err), 'error');
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -359,7 +379,7 @@ export default function AdminSOPsPage() {
               </div>
               <div className="flex gap-1">
                 <button onClick={() => handleEdit(sop)} className="w-8 h-8 bg-slate-50 border rounded-xl flex items-center justify-center hover:bg-indigo-50 hover:text-indigo-600"><Edit3 size={14} /></button>
-                <button onClick={() => void handleDelete(sop)} className="w-8 h-8 bg-slate-50 border rounded-xl flex items-center justify-center hover:bg-red-50 hover:text-red-600"><Trash2 size={14} /></button>
+                <button onClick={() => setArchiveTarget(sop)} title="أرشفة" className="w-8 h-8 bg-slate-50 border rounded-xl flex items-center justify-center hover:bg-amber-50 hover:text-amber-600"><Trash2 size={14} /></button>
               </div>
             </div>
           </div>
@@ -373,6 +393,39 @@ export default function AdminSOPsPage() {
           </div>
         )}
       </div>
+
+      {/* ★ تأكيد الأرشفة — Modal لا confirm() (سياسة المنصة) */}
+      {archiveTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" dir="rtl">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-800">تأكيد الأرشفة</h3>
+            <p className="text-sm text-slate-700 leading-relaxed">
+              أرشفة <b>«{archiveTarget.code} — {archiveTarget.title}»</b>؟
+            </p>
+            <p className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded-xl p-3 leading-relaxed">
+              الإجراء يُؤرشَف ولا يُحذف. سجلات «من قرأ الإجراء ومتى» تبقى
+              محفوظة كدليل امتثال — الحذف النهائي كان يُبيدها.
+            </p>
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => setArchiveTarget(null)}
+                disabled={archiving}
+                className="px-5 py-2.5 bg-white border rounded-xl font-bold text-sm disabled:opacity-50"
+              >
+                تراجع
+              </button>
+              <button
+                onClick={() => void handleArchive()}
+                disabled={archiving}
+                className="px-5 py-2.5 bg-amber-600 text-white rounded-xl font-bold text-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {archiving && <Loader2 size={14} className="animate-spin" />}
+                أرشفة
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (

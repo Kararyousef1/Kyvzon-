@@ -19,7 +19,7 @@ import {
   Mail, Phone, User, GraduationCap, Languages, Smile, X,
   FileText, LayoutTemplate,
 } from 'lucide-react';
-import { supabase } from '../../services/supabase/supabase';
+import { userService } from '../../services/sdk';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Badge from '../../shared/components/ui/Badge';
 import Button from '../../shared/components/ui/Button';
@@ -72,6 +72,15 @@ interface TalentProfile {
   department?: string | null;
   position?: string | null;
   profile_image?: string | null;
+  /**
+   * ★★★ 0354: القائمة لم تعد تحمل السيرة — أسماء المهارات فقط.
+   *   كانت `cv_data` الكاملة تُرسَل لكل صفّ بلا حارس دور ⇒ أيّ موظف
+   *   يقرأ ملخّص زميله وتوقّعات راتبه. التفاصيل تُطلَب عند المعاينة.
+   */
+  skills?: string[];
+  skillCount?: number;
+  hasCv?: boolean;
+  /** يُملأ عند المعاينة فقط — عبر `talentProfileDetail`. */
   cv_data?: CvData | null;
 }
 
@@ -105,66 +114,66 @@ export default function TalentMarketPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [previewCv, setPreviewCv] = useState<TalentProfile | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [stats, setStats] = useState<{ kind: string; label: string; count: number }[]>([]);
 
   useEffect(() => {
+    let alive = true;
     const fetchTalents = async () => {
       setLoading(true);
       try {
-        const { data: profiles, error } = await supabase
-          .from('profiles')
-          .select('id, full_name, email, phone, department, position, profile_image, cv_data');
-        if (error) throw error;
-        setTalents((profiles as TalentProfile[]) || []);
+        // ★★★ إصلاح 0354: الدالة صارت محروسة بـcurrent_user_is_staff()
+        //   ولا تُعيد cv_data. والبحث يُمرَّر إليها بدل الترشيح في الذاكرة.
+        const [rows, st] = await Promise.all([
+          // ★ البحث الحرّ يُمرَّر كنصّ عام؛ ولو أراد المستخدم مهارةً بعينها
+          //   فالمُعامل `skill` مستقلّ (بحثٌ بالمهارة له دلالة أضيق).
+          userService.talentProfiles({ text: search.trim() || null, limit: 500 }),
+          userService.talentSkillStats(5),
+        ]);
+        if (!alive) return;
+        setTalents(rows as unknown as TalentProfile[]);
+        setStats(st);
       } catch (err) {
-        console.error('Error fetching talents:', getErrorMessage(err));
+        if (alive) addToast('تعذّر تحميل سجل المؤهلات: ' + getErrorMessage(err), 'error');
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     };
-    fetchTalents();
-  }, []);
+    const t = setTimeout(fetchTalents, search ? 350 : 0);
+    return () => { alive = false; clearTimeout(t); };
+  }, [search, addToast]);
 
-  const filteredTalents = talents.filter((t) => {
-    const searchLower = search.toLowerCase();
-    if (t.full_name?.toLowerCase().includes(searchLower)) return true;
-    if (t.position?.toLowerCase().includes(searchLower)) return true;
-    const skills = extractCvData(t.cv_data).skills || [];
-    if (skills.some((s) => s.name?.toLowerCase().includes(searchLower))) return true;
-    return false;
-  });
+  /** ★ التفاصيل تُطلَب عند المعاينة فقط — لا تُحمَّل مع القائمة. */
+  const openPreview = async (talent: TalentProfile) => {
+    setPreviewCv(talent);
+    setPreviewLoading(true);
+    try {
+      const detail = await userService.talentProfileDetail(talent.id);
+      setPreviewCv({ ...talent, cv_data: (detail?.cv_data ?? {}) as CvData });
+    } catch (err) {
+      addToast('تعذّر تحميل السيرة: ' + getErrorMessage(err), 'error');
+      setPreviewCv(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
-  // إحصائيات المهارات والمناصب واللغات
+  // ★ العطل ②: البحث يُنفَّذ في القاعدة الآن — القائمة تصل مُرشَّحة
+  //   ولا تُرشَّح مرّةً أخرى في الذاكرة.
+  const filteredTalents = talents;
+
+  // ★★★ العطل ②: الإحصاءات تُحسب في القاعدة — كانت الصفحة تجلب 500
+  //   سيرة كاملة لتعدّها في المتصفح، وهو ما ضخّم أثر تسريب العطل ①.
   const { topSkills, topPositions, topLanguages, cvCount } = useMemo(() => {
-    const skillMap: Record<string, number> = {};
-    const posMap: Record<string, number> = {};
-    const langMap: Record<string, number> = {};
-    let cvs = 0;
-
-    talents.forEach((t) => {
-      const pos = t.position || 'غير محدد';
-      posMap[pos] = (posMap[pos] || 0) + 1;
-
-      const cv = extractCvData(t.cv_data);
-      (cv.skills || []).forEach((s) => {
-        const skillName = s.name?.trim();
-        if (skillName) skillMap[skillName] = (skillMap[skillName] || 0) + 1;
-      });
-
-      if (cv.summary) cvs++;
-
-      (cv.languages || []).forEach((l) => {
-        const langName = l.name?.trim();
-        if (langName) langMap[langName] = (langMap[langName] || 0) + 1;
-      });
-    });
-
+    const pick = (kind: string): [string, number][] =>
+      stats.filter((r) => r.kind === kind).map((r) => [r.label, r.count]);
     return {
-      topSkills: Object.entries(skillMap).sort((a, b) => b[1] - a[1]).slice(0, 5),
-      topPositions: Object.entries(posMap).sort((a, b) => b[1] - a[1]).slice(0, 5),
-      topLanguages: Object.entries(langMap).sort((a, b) => b[1] - a[1]).slice(0, 5),
-      cvCount: cvs,
+      topSkills: pick('skill'),
+      topPositions: pick('position'),
+      topLanguages: pick('language'),
+      cvCount: stats.find((r) => r.kind === 'cv_count')?.count ?? 0,
     };
-  }, [talents]);
+  }, [stats]);
 
   const handlePrintCV = (talent: TalentProfile) => {
     addToast(`جاري تحضير السيرة الذاتية لـ ${talent.full_name}...`, 'info');
@@ -264,8 +273,10 @@ export default function TalentMarketPage() {
       ) : (
         <div className="grid lg:grid-cols-2 gap-5 print:grid-cols-1 print:gap-8">
           {filteredTalents.map((talent) => {
-            const cv = extractCvData(talent.cv_data);
-            const hasCv = !!(talent.cv_data && Object.keys(talent.cv_data).length > 0 && cv.summary);
+            // ★★★ 0354: القائمة لا تحمل السيرة — `hasCv` و`skills`
+            //   محسوبان في القاعدة. التفاصيل تُطلَب عند الضغط.
+            const hasCv = Boolean(talent.hasCv);
+            const skills = talent.skills ?? [];
 
             return (
               <Card key={talent.id} className="flex flex-col print:shadow-none print:border-slate-300 print:break-inside-avoid">
@@ -286,7 +297,7 @@ export default function TalentMarketPage() {
                   </div>
                   <div className="print:hidden">
                     {hasCv ? (
-                      <button onClick={() => setPreviewCv(talent)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors">
+                      <button onClick={() => openPreview(talent)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors">
                         <LayoutTemplate size={14} /> عرض السيرة الذكية
                       </button>
                     ) : (
@@ -304,29 +315,21 @@ export default function TalentMarketPage() {
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Star size={12} /> أبرز المهارات</p>
                     <div className="flex flex-wrap gap-2">
-                      {(cv.skills || []).length === 0 ? (
+                      {skills.length === 0 ? (
                         <span className="text-xs text-slate-400">لم يضف مهارات بعد</span>
-                      ) : cv.skills!.map((s, idx) => (
-                        <Badge key={idx} variant="primary" className="px-2.5 py-1">
-                          {s.name} {s.level && <span className="opacity-50 ml-1 text-[10px]">{s.level}</span>}
-                        </Badge>
+                      ) : skills.map((name, idx) => (
+                        <Badge key={idx} variant="primary" className="px-2.5 py-1">{name}</Badge>
                       ))}
                     </div>
                   </div>
 
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Award size={12} /> التعليم والمؤهلات</p>
-                    <div className="space-y-1.5">
-                      {(cv.education || []).length === 0 ? (
-                        <span className="text-xs text-slate-400">لا توجد مؤهلات</span>
-                      ) : cv.education!.map((c, idx) => (
-                        <p key={idx} className="text-sm text-slate-700 flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> {c.degree}
-                          {c.institution && <span className="text-xs text-slate-400">({c.institution})</span>}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
+                  {/* ★ التعليم والمؤهلات جزء من السيرة الكاملة — تُطلَب
+                      عند المعاينة، ولا تُحمَّل مع القائمة كلها. */}
+                  <p className="text-xs text-slate-400">
+                    {hasCv
+                      ? 'التعليم والمؤهلات في السيرة الكاملة — اضغط «عرض السيرة».'
+                      : 'لا سيرة ذاتية مسجّلة.'}
+                  </p>
                 </div>
               </Card>
             );
@@ -337,6 +340,7 @@ export default function TalentMarketPage() {
       {/* مودال عرض السيرة الذاتية */}
       {previewCv && (() => {
         const cv = extractCvData(previewCv.cv_data);
+        void previewLoading;
         return (
           <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white" onClick={() => setPreviewCv(null)}>
             <div className="bg-white w-full max-w-4xl min-h-[800px] rounded-3xl shadow-2xl relative my-8 print:my-0 print:shadow-none print:rounded-none animate-fade-in" onClick={(e) => e.stopPropagation()} dir="rtl">

@@ -17,13 +17,21 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Search, Plus, Edit2, Trash2, X, CheckCircle,
   BookOpen, AlertTriangle, Layers, Users, Award,
-  FileText, Image, HelpCircle, Loader2, Lock, Unlock,
-} from 'lucide-react';
+  FileText, Image, HelpCircle, Loader2, Lock, Unlock, Archive,} from 'lucide-react';
 import Card from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import { useUIStore, useAuthStore } from '../../core/stores';
-import { courseService, certificationService, employeeService } from '../../services/sdk';
+import { courseService, certificationService, employeeService, quizService } from '../../services/sdk';
 import { getErrorMessage } from '../../services/errors';
+import { trainingReportsService } from '../../services/sdk/TrainingReportsService';
+import {
+  trainingManagementService,
+  EMPTY_SUMMARY,
+  type TrainingMgmtSummary,
+  type CourseStatus,
+  type CourseLevelAr,
+  type CertValidity,
+} from '../../services/sdk/TrainingManagementService';
 import type { RichContent } from '../../shared/types/media';
 import type { Quiz } from '../../shared/types/quiz';
 import RichContentEditor from '../../shared/components/ui/RichContentEditor';
@@ -52,6 +60,7 @@ interface ManagedCourse {
   objectives: string[];
   modules: number;
   active: boolean;
+  status?: CourseStatus;
   createdAt: string;
   updatedAt: string;
   richContent?: RichContent;
@@ -60,13 +69,16 @@ interface ManagedCourse {
 interface EmployeeCert {
   id: string;
   employee_id: string;
-  title: string;
-  issuer: string;
-  issue_date: string;
-  approved: boolean;
-  approval_date?: string;
-  employee_name?: string;
-  employee_email?: string;
+  /** ★ الأعمدة الحقيقية: certification_name · issued_by · expiry_date */
+  certification_name: string;
+  issued_by: string;
+  issue_date: string | null;
+  expiry_date: string | null;
+  days_to_expiry: number | null;
+  /** محسوبة من expiry_date — لا `approved` الثابت (العطل ③+④) */
+  validity: CertValidity;
+  employee_name: string;
+  department: string;
 }
 
 /** صف خام من جدول courses */
@@ -84,21 +96,12 @@ interface CourseRow {
   instructor?: string;
   tags?: string[];
   objectives?: string[];
-  active?: boolean;
+  /** ★ العمود المُحقَّق — `active` غير موجود في المخطط. */
+  status?: string;
+  /** ★ أُضيف في 0353. */
+  rich_content?: RichContent;
   created_at?: string;
   updated_at?: string;
-  rich_content?: RichContent;
-}
-
-/** صف خام من جدول employee_certifications */
-interface CertRow {
-  id: string;
-  employee_id: string;
-  title: string;
-  issuer: string;
-  issue_date: string;
-  created_at?: string;
-  profiles?: { full_name?: string; email?: string } | null;
 }
 
 /** بيانات تحديث/إدراج دورة */
@@ -193,23 +196,22 @@ const convertRowToCourse = (c: CourseRow): ManagedCourse => ({
   tags: c.tags || [],
   objectives: c.objectives || [],
   modules: c.objectives?.length || 5,
-  active: c.active ?? true,
+  // ★★★ العطل ①: `courses.active` عمود **معدوم** — المُحقَّق `status`.
+  //   القديم `c.active ?? true` كان يجعل كل دورة «فعّالة» مهما كانت
+  //   حالتها الحقيقية (حتى المؤرشفة).
+  status: (c.status as CourseStatus) ?? 'active',
+  active: (c.status ?? 'active') === 'active',
   createdAt: c.created_at || '',
   updatedAt: c.updated_at || '',
-  richContent: c.rich_content || EMPTY_RICH_CONTENT,
+  // ★★★ 0353: العمود أُضيف — يُقرأ من مصدره بدل الفراغ الدائم
+  richContent: c.rich_content ?? EMPTY_RICH_CONTENT,
 });
 
-const convertRowToCert = (c: CertRow): EmployeeCert => ({
-  id: c.id,
-  employee_id: c.employee_id,
-  title: c.title,
-  issuer: c.issuer,
-  issue_date: c.issue_date,
-  approved: true,
-  approval_date: c.created_at,
-  employee_name: c.profiles?.full_name || '',
-  employee_email: c.profiles?.email || '',
-});
+// ★★★ `convertRowToCert` أُزيل في 0352.
+//   كان يقرأ `c.title` و`c.issuer` والجدول فيه `certification_name`
+//   و`issued_by` ⇒ عمودان فارغان أبداً. ويكتب `approved: true` ثابتاً
+//   ولا عمود اعتماد في الجدول أصلاً. الشكل النهائي يأتي الآن من
+//   `training_certifications()` بحالة صلاحية محسوبة.
 
 // ════════════════════════════════════════════════════
 // Course Edit Modal
@@ -327,6 +329,8 @@ export default function TrainingManagementPage() {
   const [certifications, setCertifications] = useState<EmployeeCert[]>([]);
   const [showQuizEditor, setShowQuizEditor] = useState(false);
   const [quizCourse, setQuizCourse] = useState<ManagedCourse | null>(null);
+  const [certSearch, setCertSearch] = useState('');
+  const [summary, setSummary] = useState<TrainingMgmtSummary>(EMPTY_SUMMARY);
 
   const fetchCourses = async () => {
     setLoading(true);
@@ -340,25 +344,43 @@ export default function TrainingManagementPage() {
     }
   };
 
-  const fetchCertifications = async () => {
+  /**
+   * ★★★ العطل ②+③+④+⑤: القراءة القديمة كانت:
+   *   - تقرأ `c.title` و`c.issuer` والجدول فيه `certification_name`
+   *     و`issued_by` ⇒ عمودا «الشهادة» و«الجهة» فارغان أبداً.
+   *   - تكتب `approved: true` ثابتاً ⇒ «معتمدة» للجميع.
+   *   - تتجاهل `expiry_date` ⇒ شهادة منتهية تظهر سارية.
+   *   - تقرأ `emp.full_name_ar` و`emp.email` وكلاهما NULL (مُقاس).
+   */
+  const fetchCertifications = async (q?: string) => {
     try {
-      const data = await certificationService.findAllCertifications();
-      // جلب أسماء الموظفين
-      const employees = await employeeService.findAll({ orderBy: 'full_name_ar' });
-      const empMap = new Map((employees || []).map((e: any) => [e.id, e]));
-      if (data) {
-        const mapped = (data as any[]).map((c) => ({
-          ...c,
-          profiles: empMap.get(c.employee_id) ? { full_name: empMap.get(c.employee_id).full_name_ar || '', email: empMap.get(c.employee_id).email || '' } : null,
-        }));
-        setCertifications(mapped.map(convertRowToCert));
-      }
+      const rows = await trainingManagementService.certifications(q ?? certSearch);
+      setCertifications(rows.map((r) => ({
+        id: r.id,
+        employee_id: r.employeeId,
+        certification_name: r.certificationName,
+        issued_by: r.issuedBy,
+        issue_date: r.issueDate,
+        expiry_date: r.expiryDate,
+        days_to_expiry: r.daysToExpiry,
+        validity: r.validity,
+        employee_name: r.employeeName,
+        department: r.department,
+      })));
     } catch (err) {
-      console.error('Failed to load certifications:', getErrorMessage(err));
+      addToast('تعذّر تحميل الشهادات: ' + getErrorMessage(err), 'error');
     }
   };
 
-  useEffect(() => { fetchCourses(); fetchCertifications(); }, []);
+  const refreshSummary = async () => {
+    try {
+      setSummary(await trainingManagementService.summary());
+    } catch {
+      setSummary(EMPTY_SUMMARY);
+    }
+  };
+
+  useEffect(() => { fetchCourses(); fetchCertifications(); refreshSummary(); }, []);
 
   const filteredCourses = useMemo(() => {
     if (!searchQuery) return courses;
@@ -373,80 +395,114 @@ export default function TrainingManagementPage() {
   const handleSaveCourse = async (data: Partial<ManagedCourse>) => {
     setSaving(true);
     try {
-      const courseData: CourseUpsertData = {
-        title: data.title,
-        title_en: data.titleEn,
+      // ★★★ العطل ①: الشيفرة القديمة كانت تبني courseData وفيه
+      //   `active` و`rich_content` — وكلاهما عمود **معدوم** في `courses`.
+      //   مُثبَت: INSERT/UPDATE بأيٍّ منهما يرفعه Postgres:
+      //     ERROR: column "active" of relation "courses" does not exist
+      //   ⇒ زرّا «إضافة دورة» و«حفظ التغييرات» كانا معطّلين تماماً.
+      //   الآن كل شيء عبر RPC تكتب أعمدة موجودة فقط وتتحقّق من الحدود.
+      const res = await trainingManagementService.upsertCourse({
+        id: editingCourse?.id ?? null,
+        title: data.title ?? '',
+        titleEn: data.titleEn,
         description: data.description,
-        description_en: data.descriptionEn,
+        descriptionEn: data.descriptionEn,
         category: data.category,
+        level: data.level as CourseLevelAr | undefined,
         duration: data.duration,
-        level: data.level,
         points: data.points,
         mandatory: data.mandatory,
         instructor: data.instructor,
         tags: data.tags,
         objectives: data.objectives,
-        active: data.active ?? true,
-        rich_content: data.richContent || EMPTY_RICH_CONTENT,
-      };
-
-      if (editingCourse) {
-        await courseService.updateCourse(editingCourse.id, courseData as unknown as Record<string, unknown>);
-        saveToLocal(editingCourse.id, courseData);
-        addToast('تم تحديث الدورة بنجاح', 'success');
-      } else {
-        const newId = `course-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        await courseService.createCourse({ id: newId, ...courseData, created_by: user?.id } as any);
-        saveToLocal(newId, courseData);
-        setCourses((prev) => [{
-          id: newId, title: data.title || '', titleEn: data.titleEn, description: data.description || '',
-          descriptionEn: data.descriptionEn, category: data.category || 'quality-basics', duration: data.duration || '2 ساعة',
-          level: data.level || 'مبتدئ', points: data.points || 0, mandatory: data.mandatory || false,
-          instructor: data.instructor || '', tags: data.tags || [], objectives: data.objectives || [],
-          modules: data.objectives?.length || 5, active: data.active ?? true, createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(), richContent: data.richContent || EMPTY_RICH_CONTENT,
-        }, ...prev]);
-        addToast('تم إضافة الدورة بنجاح', 'success');
-      }
+        status: (data.active ?? true) ? 'active' : 'inactive',
+        // ★★★ 0353: العمود صار موجوداً — التبويب لم يعد يحفظ في الفراغ
+        richContent: data.richContent
+          ? { ...data.richContent, blocks: data.richContent.blocks ?? [] }
+          : undefined,
+      });
+      addToast(res.created ? 'تمت إضافة الدورة' : 'تم حفظ التغييرات', 'success');
       setShowModal(false);
       setEditingCourse(null);
-      if (editingCourse) await fetchCourses();
+      await fetchCourses();
+      await refreshSummary();
     } catch (err) {
-      addToast('خطأ: ' + getErrorMessage(err), 'error');
+      addToast('تعذّر حفظ الدورة: ' + getErrorMessage(err), 'error');
     } finally {
       setSaving(false);
     }
   };
 
+  /**
+   * ★★★ العطل ①: `courseService.toggleActive` كان يكتب `active` المعدوم
+   *   ⇒ ERROR: column "active" … does not exist ⇒ التبديل يفشل دائماً.
+   *   الآن عبر RPC تكتب `status` الحقيقي.
+   */
   const handleToggleActive = async (courseId: string) => {
     const course = courses.find((c) => c.id === courseId);
     if (!course) return;
     try {
-      await courseService.toggleActive(courseId, !course.active);
-      setCourses((prev) => prev.map((c) => (c.id === courseId ? { ...c, active: !c.active } : c)));
-      addToast('تم تغيير حالة الدورة', 'info');
-    } catch {
-      addToast('حدث خطأ', 'error');
+      const res = await trainingManagementService.upsertCourse({
+        id: courseId,
+        title: course.title,
+        titleEn: course.titleEn,
+        description: course.description,
+        descriptionEn: course.descriptionEn,
+        category: course.category,
+        level: course.level as CourseLevelAr,
+        duration: course.duration,
+        points: course.points,
+        mandatory: course.mandatory,
+        instructor: course.instructor,
+        tags: course.tags,
+        objectives: course.objectives,
+        status: course.active ? 'inactive' : 'active',
+        // ★ لا نُمرّر richContent هنا: undefined ⇒ «لا تُغيّر».
+        //   تمريره من حالة الواجهة قد يمحو محتوى لم يُحمَّل بعد.
+      });
+      setCourses((prev) => prev.map((c) => (
+        c.id === courseId
+          ? { ...c, active: res.status === 'active', status: res.status as CourseStatus }
+          : c)));
+      addToast(res.status === 'active' ? 'فُعّلت الدورة' : 'أُوقفت الدورة', 'success');
+      await refreshSummary();
+    } catch (err) {
+      addToast('تعذّر تغيير الحالة: ' + getErrorMessage(err), 'error');
     }
   };
 
-  const handleDeleteCourse = async (courseId: string) => {
+  /**
+   * ★★★ إصلاح 0351 — كان حذفاً نهائياً.
+   *
+   *   `courseService.deleteCourse` كان `DELETE`، و
+   *   `course_progress.course_id` عليه `ON DELETE CASCADE` (مُحقَّق)
+   *   ⇒ حذف دورة يمحو **كل سجلّات تقدّم الموظفين** فيها بلا رجعة.
+   *
+   *   صار أرشفة: `status = 'archived'` وسجلّات التقدّم تبقى كاملة.
+   *
+   *   ★ هذه الصفحة لم تُراجَع صفحةً صفحة بعد (جولة لاحقة) — هذا
+   *     إصلاح نقطة الاستدعاء وحدها كي لا يبقى مسار حذفٍ مُدمِّر مفتوحاً.
+   */
+  const handleArchiveCourse = async (courseId: string) => {
     try {
-      await courseService.deleteCourse(courseId);
-      setCourses((prev) => prev.filter((c) => c.id !== courseId));
-      addToast('تم حذف الدورة', 'warning');
-    } catch {
-      addToast('حدث خطأ عند الحذف', 'error');
+      const res = await trainingReportsService.setCourseStatus(courseId, 'archived');
+      setCourses((prev) => prev.map((c) => (c.id === courseId ? { ...c, active: false } : c)));
+      addToast(`أُرشفت الدورة — ${res.enrolled} سجلّ تقدّم محفوظ`, 'success');
+    } catch (err) {
+      addToast('فشل أرشفة الدورة: ' + getErrorMessage(err), 'error');
     }
   };
 
+  // ★★★ العطل ③: كانت `completed` تعدّ `c.approved` وهو ثابت `true`
+  //   ⇒ «إتمام التدريب» = 100% أبداً. الآن كل رقم محسوب في القاعدة.
   const stats = {
-    total: courses.length,
-    active: courses.filter((c) => c.active).length,
-    mandatory: courses.filter((c) => c.mandatory).length,
-    completed: certifications.filter((c) => c.approved).length,
-    totalCertifications: certifications.length,
-    withMedia: courses.filter((c) => c.richContent?.blocks?.length).length,
+    total: summary.totalCourses,
+    active: summary.activeCourses,
+    mandatory: summary.mandatory,
+    totalCertifications: summary.totalCerts,
+    validCerts: summary.validCerts,
+    expiringCerts: summary.expiringCerts,
+    expiredCerts: summary.expiredCerts,
   };
 
   return (
@@ -454,10 +510,11 @@ export default function TrainingManagementPage() {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         {[
           { val: stats.total, label: 'إجمالي الدورات', icon: BookOpen, color: 'from-blue-500 to-blue-700' },
-          { val: stats.active, label: 'دورات فعالة', icon: CheckCircle, color: 'from-emerald-500 to-emerald-700' },
+          { val: stats.active, label: 'دورات فعّالة', icon: CheckCircle, color: 'from-emerald-500 to-emerald-700' },
           { val: stats.mandatory, label: 'إلزامية', icon: AlertTriangle, color: 'from-amber-500 to-amber-700' },
-          { val: stats.withMedia, label: 'بمحتوى وسائط', icon: Image, color: 'from-violet-500 to-violet-700' },
-          { val: `${Math.round((stats.completed / (stats.totalCertifications || 1)) * 100)}%`, label: 'إتمام التدريب', icon: Award, color: 'from-violet-500 to-violet-700' },
+          { val: stats.totalCertifications, label: 'شهادات', icon: Award, color: 'from-violet-500 to-violet-700' },
+          // ★ العطل ④: المنتهية كانت تظهر «معتمدة» كسائرها
+          { val: stats.expiredCerts, label: 'شهادات منتهية', icon: AlertTriangle, color: 'from-rose-500 to-rose-700' },
         ].map((s, i) => {
           const SIcon = s.icon;
           return (
@@ -502,7 +559,7 @@ export default function TrainingManagementPage() {
                   <th className="text-center px-4 py-3 text-xs font-bold text-slate-500">المدة</th>
                   <th className="text-center px-4 py-3 text-xs font-bold text-slate-500">الوسائط</th>
                   <th className="text-center px-4 py-3 text-xs font-bold text-slate-500">إلزامي</th>
-                  <th className="text-center px-4 py-3 text-xs font-bold text-slate-500">الحالة</th>
+                  <th className="text-center px-4 py-3 text-xs font-bold text-slate-500">الصلاحية</th>
                   <th className="text-center px-4 py-3 text-xs font-bold text-slate-500">الإجراءات</th>
                 </tr></thead>
                 <tbody>
@@ -519,7 +576,7 @@ export default function TrainingManagementPage() {
                         <td className="px-4 py-3 text-center">{hasMedia ? <span className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full" title={getMediaSummary(course.richContent)}><Layers size={10} /> وسائط</span> : <span className="text-[11px] text-slate-400">-</span>}</td>
                         <td className="px-4 py-3 text-center">{course.mandatory ? <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full"><AlertTriangle size={10} /> إلزامي</span> : <span className="text-[11px] text-slate-400">اختياري</span>}</td>
                         <td className="px-4 py-3 text-center"><button onClick={() => handleToggleActive(course.id)} className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${course.active ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-slate-100 text-slate-400'}`}>{course.active ? <Unlock size={10} /> : <Lock size={10} />} {course.active ? 'فعالة' : 'متوقفة'}</button></td>
-                        <td className="px-4 py-3"><div className="flex items-center justify-center gap-1"><button onClick={() => { setEditingCourse(course); setShowModal(true); }} className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title="تعديل"><Edit2 size={14} /></button><button onClick={() => { setQuizCourse(course); setShowQuizEditor(true); }} className="p-1.5 rounded-lg text-slate-400 hover:text-purple-600 hover:bg-purple-50" title="الاختبارات"><HelpCircle size={14} /></button><button onClick={() => handleDeleteCourse(course.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50" title="حذف"><Trash2 size={14} /></button></div></td>
+                        <td className="px-4 py-3"><div className="flex items-center justify-center gap-1"><button onClick={() => { setEditingCourse(course); setShowModal(true); }} className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title="تعديل"><Edit2 size={14} /></button><button onClick={() => { setQuizCourse(course); setShowQuizEditor(true); }} className="p-1.5 rounded-lg text-slate-400 hover:text-purple-600 hover:bg-purple-50" title="الاختبارات"><HelpCircle size={14} /></button><button onClick={() => handleArchiveCourse(course.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50" title="أرشفة"><Archive size={14} /></button></div></td>
                       </tr>
                     );
                   })}
@@ -538,7 +595,7 @@ export default function TrainingManagementPage() {
                 <th className="text-right px-4 py-3 text-xs font-bold text-slate-500">الموظف</th>
                 <th className="text-right px-4 py-3 text-xs font-bold text-slate-500">الدورة</th>
                 <th className="text-right px-4 py-3 text-xs font-bold text-slate-500">الجهة</th>
-                <th className="text-center px-4 py-3 text-xs font-bold text-slate-500">التاريخ</th>
+                <th className="text-center px-4 py-3 text-xs font-bold text-slate-500">تاريخ الإصدار</th>
                 <th className="text-center px-4 py-3 text-xs font-bold text-slate-500">الحالة</th>
               </tr></thead>
               <tbody>
@@ -546,11 +603,30 @@ export default function TrainingManagementPage() {
                   <tr><td colSpan={5} className="text-center py-12 text-slate-400"><Award size={32} className="mx-auto mb-2 opacity-40" /><p className="font-semibold">لا توجد شهادات</p></td></tr>
                 ) : certifications.map((cert) => (
                   <tr key={cert.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                    <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">{cert.employee_name?.charAt(0)}</div><div><p className="font-bold text-slate-800 text-sm">{cert.employee_name}</p><p className="text-[11px] text-slate-400">{cert.employee_email}</p></div></div></td>
-                    <td className="px-4 py-3"><p className="font-semibold text-slate-700 text-sm">{cert.title}</p></td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{cert.issuer}</td>
-                    <td className="px-4 py-3 text-center text-xs text-slate-600">{new Date(cert.issue_date).toLocaleDateString('ar-IQ')}</td>
-                    <td className="px-4 py-3 text-center"><span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full"><CheckCircle size={10} /> معتمدة</span></td>
+                    {/* ★ العطل ⑤: البريد كان employees.email وهو NULL — أُبدل بالقسم */}
+                    <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">{cert.employee_name?.charAt(0) || '؟'}</div><div><p className="font-bold text-slate-800 text-sm">{cert.employee_name}</p><p className="text-[11px] text-slate-400">{cert.department}</p></div></div></td>
+                    {/* ★ العطل ②: certification_name / issued_by الحقيقيان */}
+                    <td className="px-4 py-3"><p className="font-semibold text-slate-700 text-sm">{cert.certification_name}</p></td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{cert.issued_by}</td>
+                    <td className="px-4 py-3 text-center text-xs text-slate-600">{cert.issue_date ? new Date(cert.issue_date).toLocaleDateString('ar-IQ') : '—'}</td>
+                    {/* ★★★ العطل ③+④: الحالة محسوبة من expiry_date لا «معتمدة» ثابتة */}
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                        cert.validity === 'منتهية' ? 'text-rose-700 bg-rose-50'
+                        : cert.validity === 'تنتهي قريباً' ? 'text-amber-700 bg-amber-50'
+                        : cert.validity === 'سارية' ? 'text-emerald-600 bg-emerald-50'
+                        : 'text-slate-600 bg-slate-100'}`}>
+                        {cert.validity === 'منتهية' ? <AlertTriangle size={10} /> : <CheckCircle size={10} />}
+                        {cert.validity}
+                        {cert.days_to_expiry !== null && cert.validity !== 'بلا انتهاء' && (
+                          <span className="opacity-70">
+                            ({cert.days_to_expiry < 0
+                              ? `منذ ${Math.abs(cert.days_to_expiry)} يوماً`
+                              : `${cert.days_to_expiry} يوماً`})
+                          </span>
+                        )}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -566,22 +642,32 @@ export default function TrainingManagementPage() {
           courseId={quizCourse.id}
           courseTitle={quizCourse.title}
           courseContent={quizCourse.richContent}
-          onSave={async (quiz: any) => {
+          // ★★ المرحلة 1: هذه الكتلة كانت تجمع ثلاث مخالفات —
+          //   استيراد Supabase ديناميكياً داخل الصفحة · خمسة `as any`
+          //   رغم وجود نوع Quiz كامل · و`tenant_id` من localStorage
+          //   (قيمة يتحكّم بها المتصفح؛ RLS يحرسها لكن إرسالها عبث).
+          //   صارت عبر quizService.saveQuiz.
+          onSave={async (quiz: Partial<Quiz>) => {
+            if (!quiz.course_id) {
+              addToast('الاختبار بلا دورة — تعذّر الحفظ', 'error');
+              return;
+            }
             try {
-              const { supabase } = await import('../../services/supabase/supabase');
-              const tenant_id = localStorage.getItem('tenant_id');
-              const { error } = await supabase.from('quizzes').upsert({ 
-                id: (quiz as any).id || undefined,
-                course_id: (quiz as any).course_id, 
-                title: (quiz as any).title || 'اختبار',
-                questions: (quiz as any).questions || [],
-                tenant_id,
-                updated_at: new Date().toISOString()
-              } as any);
-              if (error) throw error;
-              addToast('تم حفظ الاختبار في Supabase', 'success');
-            } catch {
-              addToast('تم حفظ الاختبار محلياً', 'info');
+              await quizService.saveQuiz({
+                id: quiz.id,
+                course_id: quiz.course_id,
+                title: quiz.title,
+                description: quiz.description ?? null,
+                questions: quiz.questions ?? [],
+                passing_score: quiz.passingScore,
+                time_limit_minutes: quiz.timeLimit,
+                is_active: quiz.status !== 'archived',
+              });
+              addToast('تم حفظ الاختبار', 'success');
+            } catch (err) {
+              // ★ لا نبتلع الخطأ برسالة «حُفظ محلياً» كاذبة — لم يُحفظ.
+              addToast('تعذّر حفظ الاختبار: ' + getErrorMessage(err), 'error');
+              return;
             }
             setShowQuizEditor(false);
             setQuizCourse(null);

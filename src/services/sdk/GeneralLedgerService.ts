@@ -5,6 +5,7 @@
  */
 import { BaseService } from './BaseService';
 import { supabase } from '../supabase/supabase';
+import { logger } from '../utils/logger';
 import type { JournalEntryRecord } from '../../shared/types/sdk';
 
 export interface JournalDraftLineInput {
@@ -152,9 +153,34 @@ class GeneralLedgerService extends BaseService<JournalEntryRecord> {
     return data as JournalEntryRecord;
   }
 
+  /**
+   * تقديم قيد للاعتماد.
+   *
+   * يستدعي submit_journal_entry (المنطق المحاسبي) ثم جسر الموافقات
+   * create_financial_approval (0306) ليظهر القيد في مركز موافقات
+   * المدير الموحّد.
+   *
+   * ⚠️ فشل الجسر لا يُفشل التقديم: القيد قُدِّم فعلاً في القاعدة،
+   * وإرجاع خطأ هنا يوهم المستخدم بأن العملية لم تتم. نُسجّل تحذيراً
+   * فقط — والطلب يمكن إنشاؤه لاحقاً بإعادة التقديم (الجسر آمن للتكرار).
+   */
   async submitEntry(entryId: string, reason: string): Promise<JournalEntryRecord> {
     const { data, error } = await supabase.rpc('submit_journal_entry', { p_entry_id: entryId, p_reason: reason });
     if (error) throw new Error(error.message);
+
+    // p_amount = null ⇒ الجسر يستخرجه من سطور القيد (0310)
+    const { error: bridgeError } = await supabase.rpc('create_financial_approval', {
+      p_request_type: 'journal_entry',
+      p_reference_id: entryId,
+      p_amount: null,
+    });
+    if (bridgeError) {
+      logger.warn('تعذّر إنشاء طلب موافقة للقيد — القيد قُدِّم بنجاح', {
+        entryId,
+        error: bridgeError.message,
+      });
+    }
+
     return data as JournalEntryRecord;
   }
 

@@ -10,6 +10,7 @@ import Button from '../../../../shared/components/ui/Button';
 import { getErrorMessage } from '../../../../services/errors';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { MovementUnitNav } from '../shared/MovementUnitNav';
 
 export default function EmployeeMovementGateExecutionPage() {
   const { user } = useAuthStore();
@@ -119,6 +120,7 @@ export default function EmployeeMovementGateExecutionPage() {
 
   return (
     <div className="space-y-6 animate-fade-in" dir="rtl">
+      <MovementUnitNav unit="employee_execution" />
       <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white flex items-center justify-between flex-wrap gap-4">
         <div>
           <p className="text-white/70 text-sm font-semibold">Employee Movement • E02</p>

@@ -1,210 +1,628 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarClock, FileText, Loader2, Plus, Search, ShieldCheck } from 'lucide-react';
-import { useAuthStore, useUIStore } from '../../core/stores';
-import { employeeContractService, employeeService } from '../../services/sdk';
-import type { EmployeeContractRecord } from '../../shared/types/sdk';
+/**
+ * EmployeeContractsPage — عقود الموظفين (HR) · migration 0364
+ *
+ * ★★★ أُعيدت كتابتها بعد إثبات سبعة عشر عطلاً تشغيلياً على Postgres 17
+ *     (المسبار: tools/dev/_probe_0364.sql). أخطرها:
+ *
+ *  ① ★★★ **شرطٌ ميّتٌ في سياسة القراءة**: `employee_id = auth.uid()`
+ *     — `employees.id ≠ auth.users.id` وصفر صفّ يطابق `id = user_id`.
+ *     شيفرةٌ ميتة في جدارٍ أمنيّ تُوحي بأمانٍ مزدوج غير موجود.
+ *  ②/③ **`employee_id` بلا FK** — معدومٌ أو من **شركةٍ أخرى** يُقبل.
+ *  ④ **`end_date` قبل `start_date`** — عقدٌ ينتهي قبل أن يبدأ بـ400 يوم.
+ *  ⑤ ★★★ **ثلاثة عقودٍ نشطة للموظف نفسه** — أيُّها النافذ؟ والراتب
+ *     المرجعيّ ثلاثة أرقام متناقضة.
+ *  ⑥ **«محدد المدة» بلا نهاية** — تناقضٌ في التسمية نفسها.
+ *  ⑦ ★★★ **المنتهي يبقى «نشطاً»** — عقدان انتهيا منذ 400 يوم وحالتهما
+ *     `active`، وصفر دالة في المنظومة تُحدّث الحالة. فبطاقة «عقود
+ *     نشطة» تعدّ عقوداً منتهية.
+ *  ⑧ `renewal_notice_days = -30` يُقبل ⇒ شرط التنبيه عبث.
+ *  ⑨ راتبٌ سالب وعملةٌ بلا قيد.
+ *  ⑩ ★★★ **الحذف النهائيّ مسموح** — عقد العمل وثيقةٌ قانونية.
+ *  ⑪ ★★★ **التجديد يكتب فوق القديم** — لا `renewed_from` ولا
+ *     `previous_end_date` ولا `renewal_count` ولا جدول تاريخ.
+ *     عقدٌ جُدِّد خمس مرّات يبدو عقداً واحداً طويلاً.
+ *  ⑫ **الإنهاء بلا سبب ولا تاريخ.**
+ *  ⑬ **العقد جزيرةٌ معزولة** — لا ربط بالتوظيف (0362) ولا بإنهاء
+ *     الخدمة (0359).
+ *  ⑮ ★★★ **الحساب بتوقيت المتصفّح**: `differenceInCalendarDays`.
+ *     عند 01:30 بغداد يعطي **يوماً زائداً** لكل عقد.
+ *  ⑯ جلب **كل** الموظفين و`Map` يدويّ وترتيبٌ عشوائيّ.
+ *  ⑰ `created_by` لا يُملأ · ⑱ `contract_number` يقبل الفراغ.
+ *
+ * ★ الصفحة لا تلمس Supabase — كل شيء عبر `contractSdk`.
+ */
+import { useCallback, useEffect, useState } from 'react';
+import {
+  CalendarClock, FileText, Loader2, Plus, Search, ShieldCheck,
+  AlertTriangle, RefreshCw, XOctagon, History, UserX, Wallet,
+} from 'lucide-react';
+import { useUIStore } from '../../core/stores';
 import { getErrorMessage } from '../../services/errors';
-import { format, differenceInCalendarDays } from 'date-fns';
+import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
-import { Modal, FormField, ModalActions, DetailRow } from './LoansPage';
+import {
+  contractSdk, CONTRACT_TYPES, CONTRACT_STATES, CONTRACT_CURRENCIES,
+  contractTypeLabel, contractStateLabel, contractStateTone,
+  contractExpiryLabel, contractExpiryTone, needsEndDate,
+} from '../../services/sdk';
+import type {
+  ContractRow, ContractSummary, ContractType, ContractState, ContractCurrency,
+} from '../../services/sdk';
+import { Modal, FormField, ModalActions, EmployeePicker, DetailRow } from './LoansPage';
 
-const contractTypeLabels: Record<string, string> = {
-  permanent: 'دائم',
-  fixed_term: 'محدد المدة',
-  probation: 'تجربة',
-  part_time: 'دوام جزئي',
-  consultant: 'استشاري',
-  other: 'آخر',
-};
-
-const statusLabels: Record<string, string> = {
-  draft: 'مسودة',
-  active: 'نشط',
-  expired: 'منتهي',
-  terminated: 'منهى',
-  renewed: 'مجدد',
+const EMPTY_FORM = {
+  employeeId: '', contractNumber: '',
+  contractType: 'permanent' as ContractType,
+  title: '', startDate: '', endDate: '', noticeDays: 30,
+  salaryAmount: '', salaryCurrency: 'IQD' as ContractCurrency,
+  documentUrl: '', notes: '', status: 'active' as ContractState,
 };
 
 export default function EmployeeContractsPage() {
-  const { user } = useAuthStore();
   const { addToast } = useUIStore();
   const [loading, setLoading] = useState(true);
-  const [contracts, setContracts] = useState<EmployeeContractRecord[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [rows, setRows] = useState<ContractRow[]>([]);
+  const [summary, setSummary] = useState<ContractSummary | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | ContractState>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | ContractType>('all');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [selected, setSelected] = useState<EmployeeContractRecord | null>(null);
-  const [form, setForm] = useState({
-    employee_id: '',
-    contract_number: '',
-    contract_type: 'permanent' as EmployeeContractRecord['contract_type'],
-    title: '',
-    start_date: format(new Date(), 'yyyy-MM-dd'),
-    end_date: '',
-    renewal_notice_days: 30,
-    salary_amount: 0,
-    salary_currency: 'IQD',
-    document_url: '',
-    notes: '',
-  });
+  const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<ContractRow | null>(null);
+  const [renewing, setRenewing] = useState<ContractRow | null>(null);
+  const [renewEnd, setRenewEnd] = useState('');
+  const [renewSalary, setRenewSalary] = useState('');
+  const [renewNumber, setRenewNumber] = useState('');
+  const [terminating, setTerminating] = useState<ContractRow | null>(null);
+  const [terminateReason, setTerminateReason] = useState('');
 
-  const loadData = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [contractRows, employeeRows] = await Promise.all([
-        employeeContractService.findAll({ orderBy: 'end_date', ascending: true }),
-        employeeService.findAll({ filters: { is_active: true }, orderBy: 'full_name_ar' }),
+      // ★ العطل ⑯: استعلامٌ واحد بدل جلب كل الموظفين وبناء Map
+      const [board, sum] = await Promise.all([
+        contractSdk.board(
+          statusFilter === 'all' ? null : statusFilter,
+          typeFilter === 'all' ? null : typeFilter,
+          200,
+        ),
+        contractSdk.summary().catch(() => null),
       ]);
-      setContracts(contractRows || []);
-      setEmployees(employeeRows || []);
+      setRows(board);
+      setSummary(sum);
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, statusFilter, typeFilter]);
 
-  useEffect(() => { loadData(); }, [loadData]);
-
-  const employeeMap = useMemo(() => new Map(employees.map(e => [e.id, e])), [employees]);
-
-  const summary = useMemo(() => {
-    const today = new Date();
-    const active = contracts.filter(c => c.status === 'active').length;
-    const expiring = contracts.filter(c => c.status === 'active' && c.end_date && differenceInCalendarDays(new Date(c.end_date), today) <= (c.renewal_notice_days || 30) && differenceInCalendarDays(new Date(c.end_date), today) >= 0).length;
-    const expired = contracts.filter(c => c.status === 'expired' || (c.end_date && differenceInCalendarDays(new Date(c.end_date), today) < 0)).length;
-    return { active, expiring, expired, total: contracts.length };
-  }, [contracts]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return contracts;
-    return contracts.filter(c => {
-      const emp = employeeMap.get(c.employee_id);
-      return [c.contract_number, c.title, c.contract_type, emp?.full_name_ar, emp?.employee_code]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(q);
-    });
-  }, [contracts, employeeMap, search]);
+  useEffect(() => { void load(); }, [load]);
 
   const handleCreate = async () => {
-    if (!form.employee_id || !form.start_date) {
-      addToast('يرجى اختيار الموظف وتاريخ البداية', 'warning');
+    if (!form.employeeId) { addToast('اختر الموظف', 'warning'); return; }
+    // ★ العطل ⑥: نُخبر قبل أن ترفض القاعدة
+    if (needsEndDate(form.contractType) && !form.endDate) {
+      addToast(`«${contractTypeLabel(form.contractType)}» يحتاج تاريخ نهاية`, 'warning');
       return;
     }
+    // ★ العطل ④
+    if (form.endDate && form.startDate && form.endDate < form.startDate) {
+      addToast('تاريخ النهاية قبل البداية', 'warning');
+      return;
+    }
+    setSaving(true);
     try {
-      await employeeContractService.createContract({
-        employee_id: form.employee_id,
-        contract_number: form.contract_number.trim() || undefined,
-        contract_type: form.contract_type,
-        title: form.title.trim() || undefined,
-        start_date: form.start_date,
-        end_date: form.end_date || undefined,
-        renewal_notice_days: Number(form.renewal_notice_days || 30),
-        salary_amount: form.salary_amount ? Number(form.salary_amount) : undefined,
-        salary_currency: form.salary_currency,
-        document_url: form.document_url.trim() || undefined,
-        notes: form.notes.trim() || undefined,
-        created_by: user?.id,
+      await contractSdk.save({
+        employeeId:     form.employeeId,
+        contractType:   form.contractType,
+        contractNumber: form.contractNumber.trim() || null,
+        title:          form.title.trim() || null,
+        startDate:      form.startDate || null,
+        endDate:        form.endDate || null,
+        noticeDays:     form.noticeDays,
+        salaryAmount:   form.salaryAmount === '' ? null : Number(form.salaryAmount),
+        salaryCurrency: form.salaryCurrency,
+        documentUrl:    form.documentUrl.trim() || null,
+        notes:          form.notes.trim() || null,
+        status:         form.status,
       });
-      addToast('تم حفظ عقد الموظف', 'success');
+      addToast('تم حفظ العقد', 'success');
       setShowCreate(false);
-      setForm({ employee_id: '', contract_number: '', contract_type: 'permanent', title: '', start_date: format(new Date(), 'yyyy-MM-dd'), end_date: '', renewal_notice_days: 30, salary_amount: 0, salary_currency: 'IQD', document_url: '', notes: '' });
-      await loadData();
+      setForm({ ...EMPTY_FORM });
+      await load();
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-emerald-600" size={36} /></div>;
+  /** ★★★ العطل ⑦: الترحيل الذي لم يكن موجوداً */
+  const handleExpireDue = async () => {
+    setBusyId('expire');
+    try {
+      const n = await contractSdk.expireDue();
+      addToast(n === 0 ? 'لا عقود مستحقّة للترحيل' : `رُحّل ${n} عقداً إلى «منتهٍ»`, 'success');
+      await load();
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  /** ★★★ العطل ⑪: التجديد يُنشئ عقداً جديداً ويحفظ السلسلة */
+  const handleRenew = async () => {
+    if (!renewing) return;
+    if (!renewEnd) { addToast('تاريخ النهاية الجديد مطلوب', 'warning'); return; }
+    setSaving(true);
+    try {
+      await contractSdk.renew(
+        renewing.id, renewEnd,
+        renewSalary === '' ? null : Number(renewSalary),
+        renewNumber.trim() || null,
+      );
+      addToast('تم التجديد — والعقد القديم محفوظ في السلسلة', 'success');
+      setRenewing(null);
+      await load();
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** ★★ العطل ⑫: الإنهاء بسببٍ إلزاميّ */
+  const handleTerminate = async () => {
+    if (!terminating) return;
+    if (!terminateReason.trim()) { addToast('سبب الإنهاء مطلوب', 'warning'); return; }
+    setSaving(true);
+    try {
+      await contractSdk.terminate(terminating.id, terminateReason.trim());
+      addToast('أُنهي العقد مع تسجيل السبب', 'success');
+      setTerminating(null);
+      setTerminateReason('');
+      await load();
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? rows.filter((r) =>
+        r.employeeName.toLowerCase().includes(q)
+        || r.employeeCode.toLowerCase().includes(q)
+        || r.contractNumber.toLowerCase().includes(q)
+        || r.title.toLowerCase().includes(q))
+    : rows;
+
+  const fmtDate = (d: string | null): string =>
+    d ? format(new Date(d), 'd MMM yyyy', { locale: ar }) : '—';
+  const fmtMoney = (n: number | null, c: string): string =>
+    n == null ? '—' : `${new Intl.NumberFormat('ar-IQ').format(n)} ${c}`;
 
   return (
-    <div className="space-y-6 animate-fade-in" dir="rtl">
+    <div className="space-y-5 animate-fade-in p-4 sm:p-6 max-w-7xl mx-auto" dir="rtl">
       <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-6 text-white flex items-center justify-between gap-4 flex-wrap">
         <div>
           <p className="text-white/70 text-sm font-semibold">HR Contracts</p>
           <h2 className="text-2xl font-extrabold mt-1">عقود الموظفين</h2>
-          <p className="text-white/75 mt-2 text-sm">إدارة عقود العمل، انتهاء الصلاحية، والتنبيهات قبل التجديد.</p>
+          <p className="text-white/75 mt-2 text-sm">
+            العقود وتجديدها وإنهاؤها — والمدد محسوبةٌ بتوقيت بغداد.
+          </p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 bg-white/15 hover:bg-white/25 rounded-xl px-4 py-2 font-bold transition-colors"><Plus size={18} /> عقد جديد</button>
+        <div className="flex gap-2">
+          {/* ★★★ العطل ⑦: زرٌّ لم يكن موجوداً */}
+          <button
+            onClick={() => void handleExpireDue()}
+            disabled={busyId === 'expire'}
+            className="flex items-center gap-2 bg-white/15 hover:bg-white/25 rounded-xl px-4 py-2 font-bold transition-colors disabled:opacity-50"
+          >
+            {busyId === 'expire'
+              ? <Loader2 size={18} className="animate-spin" />
+              : <RefreshCw size={18} />} ترحيل المنتهية
+          </button>
+          <button
+            onClick={() => { setForm({ ...EMPTY_FORM }); setShowCreate(true); }}
+            className="flex items-center gap-2 bg-white text-emerald-700 hover:bg-emerald-50 rounded-xl px-4 py-2 font-bold transition-colors"
+          >
+            <Plus size={18} /> عقد جديد
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: 'إجمالي العقود', value: summary.total, icon: FileText, color: 'bg-slate-50 text-slate-700' },
-          { label: 'عقود نشطة', value: summary.active, icon: ShieldCheck, color: 'bg-emerald-50 text-emerald-700' },
-          { label: 'قريبة الانتهاء', value: summary.expiring, icon: CalendarClock, color: 'bg-amber-50 text-amber-700' },
-          { label: 'منتهية', value: summary.expired, icon: FileText, color: 'bg-red-50 text-red-700' },
-        ].map(item => { const Icon = item.icon; return (
-          <div key={item.label} className="bg-white border border-slate-100 rounded-2xl p-4">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${item.color}`}><Icon size={18} /></div>
-            <p className="text-2xl font-extrabold text-slate-900">{item.value}</p>
-            <p className="text-xs text-slate-500">{item.label}</p>
+      {summary && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <Stat label="الإجمالي" value={summary.total} tone="slate" icon={<FileText size={16} />} />
+            <Stat label="نشطة" value={summary.active} tone="emerald" icon={<ShieldCheck size={16} />} />
+            <Stat label="تقارب الانتهاء" value={summary.expiring} tone="amber" icon={<CalendarClock size={16} />} />
+            <Stat label="منتهية" value={summary.expired} tone="red" icon={<XOctagon size={16} />} />
+            <Stat label="مُنهاة" value={summary.terminated} tone="orange" icon={<UserX size={16} />} />
           </div>
-        );})}
-      </div>
+
+          {/* ★★★ العطل ⑦: التناقض القائم في البيانات */}
+          {summary.stale > 0 && (
+            <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-3">
+              <AlertTriangle size={18} className="text-red-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-red-800 leading-relaxed">
+                <b>{summary.stale}</b> عقداً حالته <b>«نشط»</b> وقد <b>انتهى فعلاً</b>.
+                لم يكن في المنظومة أيُّ مسارٍ يُحدّث الحالة — اضغط
+                «ترحيل المنتهية» لتصحيحها.
+              </p>
+            </div>
+          )}
+          {summary.uncovered > 0 && (
+            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <UserX size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-amber-800 leading-relaxed">
+                <b>{summary.uncovered}</b> موظفاً نشطاً <b>بلا عقدٍ نشط</b>.
+              </p>
+            </div>
+          )}
+          {summary.noDocument > 0 && (
+            <p className="text-xs text-slate-500 flex items-center gap-1.5">
+              <FileText size={13} className="text-slate-400" />
+              <b>{summary.noDocument}</b> عقداً نشطاً بلا ملفٍ مرفق.
+            </p>
+          )}
+        </>
+      )}
 
       <div className="relative">
-        <Search size={16} className="absolute right-3 top-3 text-slate-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث باسم الموظف أو رقم العقد..." className="w-full pr-9 pl-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-emerald-400" />
+        <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="بحث بالموظف أو رقم العقد أو المسمّى…"
+          className="w-full pr-9 pl-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-emerald-400"
+        />
       </div>
 
-      <div className="grid gap-3">
-        {filtered.length === 0 ? <div className="text-center py-16 bg-white rounded-2xl border border-slate-100 text-slate-400">لا توجد عقود مطابقة</div> : filtered.map(contract => {
-          const emp = employeeMap.get(contract.employee_id);
-          const daysLeft = contract.end_date ? differenceInCalendarDays(new Date(contract.end_date), new Date()) : null;
-          return (
-            <div key={contract.id} className="bg-white rounded-2xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <p className="font-bold text-slate-900">{emp?.full_name_ar || 'موظف'} <span className="text-xs text-slate-400">{emp?.employee_code}</span></p>
-                  <p className="text-xs text-slate-500 mt-1">{contractTypeLabels[contract.contract_type]} • {contract.contract_number || 'بدون رقم'} • يبدأ {format(new Date(contract.start_date), 'd MMM yyyy', { locale: ar })}</p>
+      <div className="flex gap-2 flex-wrap">
+        <Chip active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} label="كل الحالات" />
+        {CONTRACT_STATES.map((s) => (
+          <Chip key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)}
+                label={contractStateLabel(s)} />
+        ))}
+      </div>
+      <div className="flex gap-2 flex-wrap">
+        <Chip active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}
+              label="كل الأنواع" tone="slate" />
+        {CONTRACT_TYPES.map((t) => (
+          <Chip key={t} active={typeFilter === t} onClick={() => setTypeFilter(t)}
+                label={contractTypeLabel(t)} tone="slate" />
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="animate-spin text-emerald-600" size={36} />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-2xl border border-slate-100 text-slate-400">
+          لا توجد عقود مطابقة
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {filtered.map((c) => (
+            <div key={c.id} className="bg-white rounded-2xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button onClick={() => setDetail(c)}
+                      className="font-bold text-slate-900 hover:text-emerald-700">
+                      {c.employeeName}
+                    </button>
+                    <span className="text-xs text-slate-400">{c.employeeCode}</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${contractStateTone(c.status)}`}>
+                      {contractStateLabel(c.status)}
+                    </span>
+                    {/* ★★★ العطل ⑮: الحالة محسوبةٌ بتوقيت بغداد */}
+                    {c.expiryState !== 'open_ended' && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${contractExpiryTone(c.expiryState)}`}>
+                        {contractExpiryLabel(c.expiryState)}
+                      </span>
+                    )}
+                    {/* ★★ العطل ⑪: سلسلة التجديد */}
+                    {c.renewalCount > 0 && (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-indigo-50 text-indigo-700 border-indigo-200 flex items-center gap-1">
+                        <History size={11} /> تجديد {c.renewalCount}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {contractTypeLabel(c.contractType)} · {c.contractNumber} · {c.department}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    من {fmtDate(c.startDate)}
+                    {c.endDate ? ` إلى ${fmtDate(c.endDate)}` : ' — بلا نهاية'}
+                    {/* ★ NULL = بلا نهاية لا صفر (درس 0353) */}
+                    {c.daysLeft != null && (
+                      <span className={c.daysLeft < 0 ? 'text-red-600 font-semibold' : ''}>
+                        {' '}({c.daysLeft < 0
+                          ? `منذ ${Math.abs(c.daysLeft)} يوم`
+                          : `بعد ${c.daysLeft} يوم`})
+                      </span>
+                    )}
+                    {c.salaryAmount != null && (
+                      <> · <Wallet size={11} className="inline" />{' '}
+                        {fmtMoney(c.salaryAmount, c.salaryCurrency)}</>
+                    )}
+                  </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  {daysLeft !== null && <span className={`text-xs font-bold px-2 py-1 rounded-full ${daysLeft < 0 ? 'bg-red-50 text-red-700' : daysLeft <= contract.renewal_notice_days ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{daysLeft < 0 ? 'منتهي' : `${daysLeft} يوم`}</span>}
-                  <button onClick={() => setSelected(contract)} className="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100">التفاصيل</button>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {(c.status === 'active' || c.status === 'expired') && (
+                    <button
+                      onClick={() => {
+                        setRenewing(c); setRenewEnd(''); setRenewSalary(''); setRenewNumber('');
+                      }}
+                      className="flex items-center gap-1 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold hover:bg-indigo-100"
+                    >
+                      <RefreshCw size={13} /> تجديد
+                    </button>
+                  )}
+                  {c.status !== 'terminated' && (
+                    <button
+                      onClick={() => { setTerminating(c); setTerminateReason(''); }}
+                      className="flex items-center gap-1 px-3 py-2 rounded-xl bg-orange-50 text-orange-700 text-xs font-bold hover:bg-orange-100"
+                    >
+                      <XOctagon size={13} /> إنهاء
+                    </button>
+                  )}
+                  <button onClick={() => setDetail(c)}
+                    className="px-3 py-2 rounded-xl bg-slate-50 text-slate-700 text-xs font-bold hover:bg-slate-100">
+                    التفاصيل
+                  </button>
                 </div>
               </div>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
+      {/* ─────────────── عقد جديد ─────────────── */}
       {showCreate && (
         <Modal title="عقد موظف جديد" onClose={() => setShowCreate(false)}>
-          <FormField label="الموظف" required>
-            <select value={form.employee_id} onChange={e => setForm({ ...form, employee_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none">
-              <option value="">اختر موظف...</option>
-              {employees.map(e => <option key={e.id} value={e.id}>{e.full_name_ar || e.email} ({e.employee_code})</option>)}
-            </select>
+          <EmployeePicker
+            value={form.employeeId}
+            onChange={(id) => setForm({ ...form, employeeId: id })}
+          />
+          <FormField label="رقم العقد">
+            <input value={form.contractNumber}
+              onChange={(e) => setForm({ ...form, contractNumber: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
           </FormField>
-          <FormField label="رقم العقد"><input value={form.contract_number} onChange={e => setForm({ ...form, contract_number: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></FormField>
-          <FormField label="نوع العقد"><select value={form.contract_type} onChange={e => setForm({ ...form, contract_type: e.target.value as EmployeeContractRecord['contract_type'] })} className="w-full px-3 py-2 border border-slate-200 rounded-lg">{Object.entries(contractTypeLabels).map(([v,l]) => <option key={v} value={v}>{l}</option>)}</select></FormField>
+          <FormField label="نوع العقد" required>
+            <select value={form.contractType}
+              onChange={(e) => setForm({ ...form, contractType: e.target.value as ContractType })}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg">
+              {CONTRACT_TYPES.map((t) => (
+                <option key={t} value={t}>{contractTypeLabel(t)}</option>
+              ))}
+            </select>
+            {/* ★ العطل ⑥: نُخبر بالقاعدة قبل الاصطدام بها */}
+            {needsEndDate(form.contractType) && (
+              <p className="text-xs text-amber-700 mt-1">
+                «{contractTypeLabel(form.contractType)}» يُلزم بتاريخ نهاية.
+              </p>
+            )}
+          </FormField>
+          <FormField label="المسمّى">
+            <input value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+          </FormField>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="تاريخ البداية" required><input type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></FormField>
-            <FormField label="تاريخ النهاية"><input type="date" value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></FormField>
+            <FormField label="تاريخ البداية">
+              <input type="date" value={form.startDate}
+                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+            </FormField>
+            <FormField label="تاريخ النهاية" required={needsEndDate(form.contractType)}>
+              <input type="date" value={form.endDate}
+                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+            </FormField>
           </div>
-          <FormField label="تنبيه قبل الانتهاء بالأيام"><input type="number" min={1} value={form.renewal_notice_days} onChange={e => setForm({ ...form, renewal_notice_days: Number(e.target.value) })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></FormField>
-          <FormField label="رابط ملف العقد"><input value={form.document_url} onChange={e => setForm({ ...form, document_url: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></FormField>
-          <FormField label="ملاحظات"><textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg" /></FormField>
-          <ModalActions onClose={() => setShowCreate(false)} onSubmit={handleCreate} submitLabel="حفظ" color="emerald" />
+          <FormField label="التنبيه قبل الانتهاء (أيام)" required>
+            <input type="number" min={1} max={365} value={form.noticeDays}
+              onChange={(e) => setForm({ ...form, noticeDays: Number(e.target.value) })}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+            <p className="text-xs text-slate-400 mt-1">بين 1 و365 — والقاعدة تحرس ذلك.</p>
+          </FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="الراتب">
+              <input type="number" min={1} value={form.salaryAmount}
+                onChange={(e) => setForm({ ...form, salaryAmount: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+            </FormField>
+            <FormField label="العملة">
+              <select value={form.salaryCurrency}
+                onChange={(e) => setForm({ ...form, salaryCurrency: e.target.value as ContractCurrency })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg">
+                {CONTRACT_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </FormField>
+          </div>
+          <FormField label="رابط ملف العقد">
+            <input value={form.documentUrl}
+              onChange={(e) => setForm({ ...form, documentUrl: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+          </FormField>
+          <FormField label="ملاحظات">
+            <textarea value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+          </FormField>
+          <FormField label="الحالة" required>
+            <select value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value as ContractState })}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg">
+              {CONTRACT_STATES.map((s) => (
+                <option key={s} value={s}>{contractStateLabel(s)}</option>
+              ))}
+            </select>
+            {/* ★★★ العطل ⑤ */}
+            <p className="text-xs text-slate-400 mt-1">
+              للموظف <b>عقدٌ نشطٌ واحد</b> فقط — جدّد القائم أو أنهِه أولاً.
+            </p>
+          </FormField>
+          <ModalActions
+            onClose={() => setShowCreate(false)}
+            onSubmit={() => { if (!saving) void handleCreate(); }}
+            submitLabel={saving ? 'جارٍ الحفظ…' : 'حفظ'}
+            color="emerald"
+          />
         </Modal>
       )}
 
-      {selected && (
-        <Modal title="تفاصيل العقد" onClose={() => setSelected(null)}>
-          <DetailRow label="الموظف" value={employeeMap.get(selected.employee_id)?.full_name_ar} />
-          <DetailRow label="رقم العقد" value={selected.contract_number || '—'} />
-          <DetailRow label="نوع العقد" value={contractTypeLabels[selected.contract_type]} />
-          <DetailRow label="الحالة" value={statusLabels[selected.status]} />
-          <DetailRow label="البداية" value={format(new Date(selected.start_date), 'd MMM yyyy', { locale: ar })} />
-          <DetailRow label="النهاية" value={selected.end_date ? format(new Date(selected.end_date), 'd MMM yyyy', { locale: ar }) : 'غير محدد'} />
-          <DetailRow label="ملاحظات" value={selected.notes || '—'} />
-          {selected.document_url && <a href={selected.document_url} target="_blank" rel="noreferrer" className="block text-center text-sm font-bold text-emerald-700 bg-emerald-50 rounded-xl py-2">فتح ملف العقد</a>}
+      {/* ─────────────── التفاصيل ─────────────── */}
+      {detail && (
+        <Modal title={`عقد ${detail.employeeName}`} onClose={() => setDetail(null)}>
+          <DetailRow label="الموظف" value={`${detail.employeeName} · ${detail.employeeCode}`} />
+          <DetailRow label="القسم" value={detail.department} />
+          <DetailRow label="رقم العقد" value={detail.contractNumber} />
+          <DetailRow label="النوع" value={contractTypeLabel(detail.contractType)} />
+          <DetailRow label="المسمّى" value={detail.title} />
+          <DetailRow label="الحالة" value={contractStateLabel(detail.status)} />
+          <DetailRow label="البداية" value={fmtDate(detail.startDate)} />
+          <DetailRow
+            label="النهاية"
+            value={detail.endDate
+              ? `${fmtDate(detail.endDate)} — ${contractExpiryLabel(detail.expiryState)}`
+              : 'بلا نهاية'}
+          />
+          <DetailRow label="التنبيه قبل" value={`${detail.noticeDays} يوم`} />
+          <DetailRow
+            label="الراتب"
+            value={fmtMoney(detail.salaryAmount, detail.salaryCurrency)}
+          />
+          {/* ★★ العطل ⑪: سلسلة التجديد */}
+          <DetailRow label="عدد التجديدات" value={String(detail.renewalCount)} />
+          <DetailRow label="نهاية العقد السابق" value={fmtDate(detail.previousEnd)} />
+          {/* ★★ العطل ⑫ */}
+          <DetailRow label="تاريخ الإنهاء" value={fmtDate(detail.terminatedAt)} />
+          <DetailRow label="سبب الإنهاء" value={detail.terminationReason ?? undefined} />
+          {/* ★ العطل ⑰ */}
+          <DetailRow label="أنشأه" value={detail.creatorName} />
+          <DetailRow label="ملاحظات" value={detail.notes ?? undefined} />
+          {detail.documentUrl && (
+            <a href={detail.documentUrl} target="_blank" rel="noreferrer"
+              className="block text-center text-sm font-bold text-emerald-700 bg-emerald-50 rounded-xl py-2 mt-2">
+              فتح ملف العقد
+            </a>
+          )}
+        </Modal>
+      )}
+
+      {/* ─────────────── التجديد ─────────────── */}
+      {renewing && (
+        <Modal title={`تجديد عقد ${renewing.employeeName}`} onClose={() => setRenewing(null)}>
+          <DetailRow label="النهاية الحالية" value={fmtDate(renewing.endDate)} />
+          <DetailRow label="الراتب الحالي"
+            value={fmtMoney(renewing.salaryAmount, renewing.salaryCurrency)} />
+          <FormField label="النهاية الجديدة" required>
+            <input type="date" value={renewEnd}
+              onChange={(e) => setRenewEnd(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+            <p className="text-xs text-slate-400 mt-1">
+              يجب أن تكون <b>بعد</b> النهاية الحالية وليست في الماضي.
+            </p>
+          </FormField>
+          <FormField label="الراتب الجديد (اتركه فارغاً للإبقاء)">
+            <input type="number" min={1} value={renewSalary}
+              onChange={(e) => setRenewSalary(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+          </FormField>
+          <FormField label="رقم العقد الجديد">
+            <input value={renewNumber}
+              onChange={(e) => setRenewNumber(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+          </FormField>
+          {/* ★★★ العطل ⑪ */}
+          <p className="text-xs text-slate-700 bg-indigo-50 border border-indigo-200 rounded-xl p-3 leading-relaxed">
+            التجديد <b>يُنشئ عقداً جديداً</b> ويحفظ القديم في السلسلة
+            (نهايته الأصلية وعدد التجديدات). لا يُكتب فوق القديم —
+            فتاريخ العقود يبقى كاملاً.
+          </p>
+          <ModalActions
+            onClose={() => setRenewing(null)}
+            onSubmit={() => { if (!saving) void handleRenew(); }}
+            submitLabel={saving ? 'جارٍ التجديد…' : 'تجديد'}
+            color="blue"
+          />
+        </Modal>
+      )}
+
+      {/* ─────────────── الإنهاء ─────────────── */}
+      {terminating && (
+        <Modal title={`إنهاء عقد ${terminating.employeeName}`} onClose={() => setTerminating(null)}>
+          <DetailRow label="رقم العقد" value={terminating.contractNumber} />
+          <DetailRow label="النوع" value={contractTypeLabel(terminating.contractType)} />
+          <FormField label="سبب الإنهاء" required>
+            <textarea value={terminateReason}
+              onChange={(e) => setTerminateReason(e.target.value)}
+              rows={3} autoFocus
+              className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200" />
+          </FormField>
+          {/* ★★ العطلان ⑫/⑩ */}
+          <p className="text-xs text-slate-700 bg-orange-50 border border-orange-200 rounded-xl p-3 leading-relaxed">
+            الإنهاء بلا سبب <b>مرفوض في القاعدة نفسها</b>، وتاريخه
+            يُسجَّل تلقائياً. والعقد <b>لا يُحذف أبداً</b> — وثيقةٌ
+            قانونية قد تُطلب بعد سنوات.
+          </p>
+          <ModalActions
+            onClose={() => setTerminating(null)}
+            onSubmit={() => { if (!saving) void handleTerminate(); }}
+            submitLabel={saving ? 'جارٍ…' : 'تأكيد الإنهاء'}
+            color="orange"
+          />
         </Modal>
       )}
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────
+
+function Stat({ label, value, tone, icon }: {
+  label: string; value: number; tone: string; icon: React.ReactNode;
+}) {
+  const tones: Record<string, string> = {
+    slate:   'bg-slate-50 text-slate-700 border-slate-200',
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    amber:   'bg-amber-50 text-amber-700 border-amber-200',
+    red:     'bg-red-50 text-red-700 border-red-200',
+    orange:  'bg-orange-50 text-orange-700 border-orange-200',
+  };
+  return (
+    <div className={`rounded-2xl border p-4 ${tones[tone] ?? tones.slate}`}>
+      <div className="flex items-center gap-1.5 mb-1 opacity-80">
+        {icon}<span className="text-xs font-semibold">{label}</span>
+      </div>
+      <p className="text-2xl font-extrabold">{value}</p>
+    </div>
+  );
+}
+
+function Chip({ active, onClick, label, tone = 'emerald' }: {
+  active: boolean; onClick: () => void; label: string; tone?: string;
+}) {
+  const on = tone === 'slate' ? 'bg-slate-700 text-white' : 'bg-emerald-600 text-white';
+  return (
+    <button onClick={onClick}
+      className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+        active ? on : 'bg-white text-slate-600 border border-slate-200 hover:border-emerald-300'
+      }`}>
+      {label}
+    </button>
   );
 }

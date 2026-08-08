@@ -74,8 +74,10 @@ export interface ServiceStatus {
   name: string;
   nameAr: string;
   status: 'online' | 'degraded' | 'offline';
-  latency: number;
-  uptime: number;
+  /** null = القياس غير متاح (يحتاج Edge Function) — لا نختلق رقماً */
+  latency: number | null;
+  /** null = غير متاح */
+  uptime: number | null;
   lastChecked: string;
 }
 

@@ -45,7 +45,18 @@ class LeaveService extends BaseService<LeaveRecord> {
     return this.create(data as unknown as Partial<LeaveRecord>);
   }
 
-  /** الموافقة على إجازة */
+  /**
+   * الموافقة على إجازة — **مسار إداري مباشر**.
+   *
+   * ⚠️ هذا يتجاوز سلسلة الموافقات (مشرف → مدير → مدير مباشر).
+   *    المسار الطبيعي: `hrApprovalService.decide()` الذي يُحرّك السلسلة،
+   *    ويُزامن `leaves.status` في القاعدة عبر `sync_hr_source_status`
+   *    (محفّز migration 0323) — لا من المتصفح.
+   *
+   *    يبقى هنا لصلاحية HR في تصحيح سجل قديم بلا سلسلة اعتماد.
+   *    القيمة 'موافق' هي ما تقرؤه شاشات الموظف (LeaveRequestPage)
+   *    وهي ما تكتبه القاعدة — لا 'موافق عليه'.
+   */
   async approveLeave(id: string, approvedBy: string): Promise<LeaveRecord> {
     return this.update(id, {
       status: 'موافق',
@@ -53,7 +64,7 @@ class LeaveService extends BaseService<LeaveRecord> {
     } as unknown as Partial<LeaveRecord>);
   }
 
-  /** رفض إجازة */
+  /** رفض إجازة — مسار إداري مباشر (انظر ملاحظة approveLeave) */
   async rejectLeave(id: string, approvedBy: string, reason?: string): Promise<LeaveRecord> {
     return this.update(id, {
       status: 'مرفوض',

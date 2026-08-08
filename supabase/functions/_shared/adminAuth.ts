@@ -30,6 +30,12 @@ export const TARGET_ROLES = new Set([
   'procurement',
   'inventory',
   'manufacturing',
+  // بوابة الحركة واللوجستيات (0270-0299) — القيد profiles_role_check
+  // يقبل هذه الثلاثة منذ 0288؛ بدون إدراجها هنا يستحيل إنشاء أو ترقية
+  // موظف إليها من شاشة الإدارة رغم قبول القاعدة لها.
+  'employee_movement',
+  'logistics',
+  'movement_manager',
 ]);
 
 /** الأدوار المسموح لها باستدعاء Admin Functions */

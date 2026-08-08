@@ -356,7 +356,8 @@ export default function TechSettingsPage() {
   const loadSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const raw = await settingsService.findSystemSettings() as any;
+      type RawSettings = Record<string, unknown> | null;
+      const raw = (await settingsService.findSystemSettings()) as unknown as RawSettings;
       const techRaw = (raw?.tech_settings ?? {}) as Record<string, string>;
       const merged: TechSettingsForm = { ...DEFAULTS };
       (Object.keys(DEFAULTS) as (keyof TechSettingsForm)[]).forEach(k => {

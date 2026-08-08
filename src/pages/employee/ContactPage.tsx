@@ -7,6 +7,7 @@ import { useUIStore, useAuthStore } from '../../core/stores';
 import { employeeLetterRequestService, hrCaseService, messageService } from '../../services/sdk';
 import type { EmployeeLetterRequestRecord, HRCasePriority, HRCaseRecord } from '../../shared/types/sdk';
 import { getErrorMessage } from '../../services/errors';
+import { useEmployeeId } from '../../shared/hooks/useEmployeeId';
 
 const caseTypes = [
   { value: 'general_inquiry', label: 'استفسار عام' },
@@ -42,6 +43,9 @@ function statusVariant(status: HRCaseRecord['status']) {
 }
 
 export default function ContactPage() {
+  // ★ 0335: employees.id لا profiles.id — أربع صفحات مرّرت الخطأ
+  //   فعرضت قوائم فارغة دائماً.
+  const { employeeId, linkMissing } = useEmployeeId();
   const { addToast } = useUIStore();
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
@@ -64,11 +68,22 @@ export default function ContactPage() {
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
+    // ★★ 0335: لا نُمرّر سلسلة فارغة — هذا بالضبط العطل الذي
+    //   أصلحه 0333: `employee_id=eq.` يردّه Postgres بـ400
+    //   «invalid input syntax for type uuid». رسالة صريحة أوضح.
+    if (!employeeId) {
+      addToast('حسابك غير مرتبط بسجلّ موظف — راجع الموارد البشرية', 'error');
+      return;
+    }
     setLoading(true);
+    // ★ 0335: بلا سجلّ موظف لا معنى للجلب — والواجهة تعرض
+    //   رسالة «حسابك غير مرتبط بسجلّ موظف» عبر linkMissing.
+    if (!employeeId) { setLoading(false); return; }
     try {
       const [caseRows, letterRows] = await Promise.all([
-        hrCaseService.findByEmployee(user.id),
-        employeeLetterRequestService.findByEmployee(user.id),
+        // ★★ إصلاح 0335: employees.id لا profiles.id
+        hrCaseService.findByEmployee(employeeId),
+        employeeLetterRequestService.findByEmployee(employeeId),
       ]);
       setCases(caseRows || []);
       setLetters(letterRows || []);
@@ -95,10 +110,17 @@ export default function ContactPage() {
       addToast('يرجى ملء عنوان الطلب والوصف', 'warning');
       return;
     }
+    // ★★ 0335: لا نُمرّر سلسلة فارغة — هذا بالضبط العطل الذي
+    //   أصلحه 0333: `employee_id=eq.` يردّه Postgres بـ400
+    //   «invalid input syntax for type uuid». رسالة صريحة أوضح.
+    if (!employeeId) {
+      addToast('حسابك غير مرتبط بسجلّ موظف — راجع الموارد البشرية', 'error');
+      return;
+    }
     setSending(true);
     try {
       await hrCaseService.createCase({
-        employee_id: user.id,
+        employee_id: employeeId,
         case_type: form.case_type,
         subject: form.subject.trim(),
         description: form.description.trim(),
@@ -107,7 +129,7 @@ export default function ContactPage() {
 
       // توافق تشغيلي مع صندوق رسائل HR الحالي حتى تظهر الطلبات للموارد البشرية قبل بناء شاشة HR Cases.
       await messageService.createMessage({
-        employee_id: user.id,
+        employee_id: employeeId,
         subject: `[${caseTypes.find(t => t.value === form.case_type)?.label || 'طلب HR'}] ${form.subject}`,
         message: form.description,
         priority: form.priority,
@@ -128,10 +150,15 @@ export default function ContactPage() {
   const handleLetterRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id) return;
+    // ★★ 0335: لا سلسلة فارغة — راجع تعليل handleSend أعلاه
+    if (!employeeId) {
+      addToast('حسابك غير مرتبط بسجلّ موظف — راجع الموارد البشرية', 'error');
+      return;
+    }
     setSendingLetter(true);
     try {
       await employeeLetterRequestService.createLetterRequest({
-        employee_id: user.id,
+        employee_id: employeeId,
         letter_type: letterForm.letter_type,
         purpose: letterForm.purpose.trim() || undefined,
         language: letterForm.language,

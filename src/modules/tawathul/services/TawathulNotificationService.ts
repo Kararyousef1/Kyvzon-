@@ -42,6 +42,14 @@ class TawathulNotificationService {
     return count || 0;
   }
 
+  /**
+   * تعليم الإشعار مقروءاً.
+   *
+   * ★ منذ migration 0326 يُزامَن هذا تلقائياً مع الجرس الموحّد
+   *   (`notifications`) عبر محفّز `trg_sync_tawathul_read`، والعكس صحيح.
+   *   قبلها كان الإشعار يبقى مقروءاً هنا وغير مقروء في الجرس فلا يهدأ
+   *   العدّاد أبداً — نظامان مستقلان لنفس الحدث.
+   */
   async markRead(id: string): Promise<void> {
     const { error } = await supabase
       .from(this.table)

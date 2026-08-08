@@ -31,11 +31,17 @@ import { DevLayout } from './layouts/DevLayout';
 import { RequireAuth } from './guards/RequireAuth';
 import { RequireRole } from './guards/RequireRole';
 import { RequireModule } from './guards/RequireModule';
+import { RequireMovementRole } from './guards/RequireMovementRole';
+import { RequireDriver } from './guards/RequireDriver';
+import { RequirePortalUnit } from './guards/RequirePortalUnit';
+import { RequireDynamicPortalUnit } from './guards/RequireDynamicPortalUnit';
+import { MovementRoleRedirect } from './guards/MovementRoleRedirect';
 import { RequirePage } from './guards/RequirePage';
 import { RoleRedirect } from './guards/RoleRedirect';
 
 // legacy
 import { legacyViewToPath } from './legacyRedirect';
+import { legacyRouteService } from '../services/sdk/LegacyRouteService';
 
 // الصفحات العامة (eager — دائماً محتاجة)
 import LoginPage from '../pages/auth/LoginPage';
@@ -90,7 +96,10 @@ const APAgingPage           = lazy(() => import('../pages/app/finance/APAgingPag
 const VendorPaymentsPage    = lazy(() => import('../pages/app/finance/VendorPaymentsPage'));
 
 const EmployeeDashboard    = lazy(() => import('../pages/employee/EmployeeDashboard'));
-const ProblemsList         = lazy(() => import('../pages/employee/ProblemsList'));
+// ★ 0341: ProblemsList انقسمت إلى شاشتين. كانت مكوّناً واحداً يخدم
+//   دورين عبر isHR ويُسطّح بنيتَي بيانات مختلفتين في نوع واحد.
+const MyProblemsPage       = lazy(() => import('../pages/employee/MyProblemsPage'));
+const HrProblemsInboxPage  = lazy(() => import('../pages/hr/HrProblemsInboxPage'));
 const ProblemDetail        = lazy(() => import('../pages/employee/ProblemDetail'));
 const NewProblemPage       = lazy(() => import('../pages/employee/NewProblemPage'));
 const WellnessPage         = lazy(() => import('../pages/employee/WellnessPage'));
@@ -184,6 +193,11 @@ const LogisticsEpodPage = lazy(() => import('../pages/app/movement/logistics/Log
 const LogisticsFuelPage = lazy(() => import('../pages/app/movement/logistics/LogisticsFuelPage'));
 const LogisticsCarriersPage = lazy(() => import('../pages/app/movement/logistics/LogisticsCarriersPage'));
 const LogisticsCostAnalyticsPage = lazy(() => import('../pages/app/movement/logistics/LogisticsCostAnalyticsPage'));
+const LogisticsTrackReplayPage = lazy(() => import('../pages/app/movement/logistics/LogisticsTrackReplayPage'));
+const LogisticsSafetyCompliancePage = lazy(() => import('../pages/app/movement/logistics/LogisticsSafetyCompliancePage'));
+const DriverTripsPage = lazy(() => import('../pages/app/movement/driver/DriverTripsPage'));
+const DriverDeliveryPage = lazy(() => import('../pages/app/movement/driver/DriverDeliveryPage'));
+const DriverInspectionPage = lazy(() => import('../pages/app/movement/driver/DriverInspectionPage'));
 const SupervisorDashboard   = lazy(() => import('../pages/supervisor/SupervisorDashboard'));
 const SupervisorBreaksPage  = lazy(() => import('../pages/supervisor/SupervisorBreaksPage'));
 const SupervisorShiftPage   = lazy(() => import('../pages/supervisor/SupervisorShiftPage'));
@@ -194,6 +208,14 @@ const ManagerAttendancePage = lazy(() => import('../pages/manager/ManagerAttenda
 const ManagerApprovalsPage  = lazy(() => import('../pages/manager/ManagerApprovalsPage'));
 const ManagerTeamPerformancePage = lazy(() => import('../pages/manager/ManagerTeamPerformancePage'));
 const ManagerWorkloadPage   = lazy(() => import('../pages/manager/ManagerWorkloadPage'));
+// وحدات بوابة المدير
+const ManagerMovementApprovalsPage = lazy(() => import('../pages/manager/units/movement/ManagerMovementApprovalsPage'));
+const ManagerMovementTeamPage      = lazy(() => import('../pages/manager/units/movement/ManagerMovementTeamPage'));
+// وحدات بوابة المشرف
+const SupervisorMovementShiftPage  = lazy(() => import('../pages/supervisor/units/movement/SupervisorMovementShiftPage'));
+const UnitApprovalsPage            = lazy(() => import('../pages/manager/units/UnitApprovalsPage'));
+const ApprovalRulesAdminPage       = lazy(() => import('../pages/admin/ApprovalRulesAdminPage'));
+const MrpRolesAdminPage            = lazy(() => import('../pages/admin/MrpRolesAdminPage'));
 const TechPortal            = lazy(() => import('../pages/techportal/TechPortal'));
 const TechDashboard         = lazy(() => import('../pages/techportal/pages/TechDashboard'));
 const BiometricDevicesPage  = lazy(() => import('../pages/techportal/pages/BiometricDevicesPage'));
@@ -202,6 +224,10 @@ const SystemHealthPage      = lazy(() => import('../pages/techportal/pages/Syste
 const AttendanceAnalytics   = lazy(() => import('../pages/techportal/pages/AttendanceAnalytics'));
 const SecurityEventsPage    = lazy(() => import('../pages/techportal/pages/SecurityEventsPage'));
 const TechSettingsPage      = lazy(() => import('../pages/techportal/pages/TechSettingsPage'));
+const TechAuditTrailPage    = lazy(() => import('../pages/techportal/pages/AuditTrailPage'));
+const TechErrorLogsPage     = lazy(() => import('../pages/techportal/pages/ErrorLogsPage'));
+const TechIntegrationsPage  = lazy(() => import('../pages/techportal/pages/IntegrationsPage'));
+const TechDataExportsPage   = lazy(() => import('../pages/techportal/pages/DataExportsPage'));
 const MarketingPortal       = lazy(() => import('../pages/marketingportal/MarketingPortal'));
 // بوابة CRM
 const CrmPortal             = lazy(() => import('../pages/crmportal/CrmPortal'));
@@ -611,6 +637,20 @@ const KyvzonDevPortal       = lazy(() => import('../pages/devportal/KyvzonDevPor
 //  LegacyRedirect: يترجم ?view=xxx القديم إلى المسار الجديد
 // ═════════════════════════════════════════════════════════════════════════
 
+/**
+ * معالج المسارات القديمة `?view=xxx`.
+ *
+ * ⚠️ **طبقة مهجورة — قيد الإيقاف التدريجي (0329).**
+ *
+ * لا يولّد أي كود داخلي `?view=` (فُحص: صفر موضع في `src`، وصفر دالة
+ * في القاعدة تكتبه في `action_url`). وجودها لخدمة الروابط الخارجية
+ * القديمة وحدها: إشارات مرجعية وروابط بريد وإشعارات مُخزَّنة قبل
+ * الهجرة إلى `react-router-dom`.
+ *
+ * ★ يُسجّل كل استعمال فعلي ليصبح الحذف قراراً مبنيّاً على قياس:
+ *   `legacy_route_summary()` تُخبر متى يُؤمَن حذف هذه الطبقة.
+ *   القياس **لا يُؤخّر التوجيه**: يُطلق دون انتظار.
+ */
 function LegacyViewHandler({ children }: { children: React.ReactNode }) {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -619,6 +659,10 @@ function LegacyViewHandler({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!view) return;
     const target = legacyViewToPath(view);
+
+    // القياس أولاً لكن دون await: التوجيه لا ينتظر الشبكة
+    void legacyRouteService.recordHit(view, target);
+
     if (target) navigate(target, { replace: true });
   }, [view, navigate]);
 
@@ -690,10 +734,10 @@ export function AppRoutes() {
             صفحات أساسية متاحة لكل الأدوار وكل البوابات — بنفس مساراتها الأصلية
             (/app/employee/profile و /app/employee/problems) لكن خارج قيد دور الموظف.
             يحلّ "حسابي/البلاغات لا تعمل" لغير الموظف (HR/admin/الاشتراك الهجين).
-            صلاحية "نشر بلاغ" تبقى محكومة داخل ProblemsList (permKey new-problem).
+            صلاحية "نشر بلاغ" تبقى محكومة داخل MyProblemsPage (permKey new-problem).
           */}
           <Route path="employee/profile" element={<ProfilePage />} />
-          <Route path="employee/problems" element={<ProblemsList isHR={false} />} />
+          <Route path="employee/problems" element={<MyProblemsPage />} />
           <Route path="employee/problems/new" element={<NewProblemPage />} />
           <Route path="employee/problems/:id" element={<ProblemDetail />} />
 
@@ -1152,6 +1196,10 @@ export function AppRoutes() {
               <Route path="attendance-analytics" element={<AttendanceAnalytics />} />
               <Route path="system-health" element={<SystemHealthPage />} />
               <Route path="security-events" element={<SecurityEventsPage />} />
+              <Route path="audit-trail" element={<TechAuditTrailPage />} />
+              <Route path="error-logs" element={<TechErrorLogsPage />} />
+              <Route path="integrations" element={<TechIntegrationsPage />} />
+              <Route path="data-exports" element={<TechDataExportsPage />} />
               <Route path="settings" element={<TechSettingsPage />} />
             </Route>
           </Route>
@@ -1183,6 +1231,30 @@ export function AppRoutes() {
             <Route path="approvals" element={<ManagerApprovalsPage />} />
             <Route path="performance" element={<ManagerTeamPerformancePage />} />
             <Route path="workload" element={<ManagerWorkloadPage />} />
+
+            {/* وحدات بوابة المدير (0302/0303).
+                معمارية Scoped Roles: بدل دور جديد لكل بوابة، المدير يحمل
+                دور manager ووحدات مُسنَدة بنطاق. كل وحدة تعرض منظور فريقه
+                لا نسخة من البوابة الأصلية. */}
+            <Route
+              path="units/movement"
+              element={<RequirePortalUnit baseRole="manager" unitKey="movement" />}
+            >
+              <Route path="approvals" element={<ManagerMovementApprovalsPage />} />
+              <Route path="team" element={<ManagerMovementTeamPage />} />
+            </Route>
+
+            {/* الوحدات الثماني الأخرى — صفحة واحدة ديناميكية.
+                المحرك الموحّد (0305) يخدمها كلها؛ الاختلاف معامل لا صفحة. */}
+            <Route path="units/:unitKey" element={<RequireDynamicPortalUnit baseRole="manager" />}>
+              <Route path="approvals" element={<UnitApprovalsPage baseRole="manager" />} />
+            </Route>
+
+            {/* ★★★ 0339: 'manager-leave-requests' في VIEW_TO_PATH كان يوجّه
+                إلى /app/employee/leave-requests، والصفحة تفحص
+                startsWith('/app/manager/') لتمنح صلاحية اعتماد ⇒ الفرع لم
+                يُنفَّذ قط. المسار يُسجَّل الآن، والصلاحية من السلسلة. */}
+            <Route path="leave-requests" element={<LeaveRequestPage />} />
           </Route>
 
           {/* Supervisor */}
@@ -1192,12 +1264,30 @@ export function AppRoutes() {
             <Route path="shift" element={<SupervisorShiftPage />} />
             <Route path="tasks" element={<SupervisorTasksPage />} />
             <Route path="checklists" element={<SupervisorChecklistsPage />} />
+
+            {/* وحدات بوابة المشرف (0307) — أضيق من المدير: متابعة بلا اعتماد */}
+            <Route
+              path="units/movement"
+              element={<RequirePortalUnit baseRole="supervisor" unitKey="movement" />}
+            >
+              <Route path="shift" element={<SupervisorMovementShiftPage />} />
+            </Route>
+
+            <Route path="units/:unitKey" element={<RequireDynamicPortalUnit baseRole="supervisor" />}>
+              <Route path="approvals" element={<UnitApprovalsPage baseRole="supervisor" />} />
+            </Route>
+
+            {/* ★★★ 0339: كان VIEW_TO_PATH يوجّه المشرف إلى مسار غير مسجَّل
+                إطلاقاً، والصفحة تفحص startsWith('/app/supervisor/') لتمنح
+                صلاحية اعتماد. الصفحة الآن تستمدّ الصلاحية من السلسلة، لكن
+                المسار يُسجَّل ليعمل عنصر التنقّل. */}
+            <Route path="leave-requests" element={<LeaveRequestPage />} />
           </Route>
 
           {/* HR */}
           <Route path="hr" element={<RequireRole roles={['hr', 'admin']} />}>
             <Route index element={<HRDashboard />} />
-            <Route path="problems" element={<ProblemsList isHR={true} />} />
+            <Route path="problems" element={<HrProblemsInboxPage />} />
             <Route path="problems/:id" element={<ProblemDetail />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="team" element={<TeamPage />} />
@@ -1233,6 +1323,8 @@ export function AppRoutes() {
             <Route path="permissions" element={<AdminPermissionsTree />} />
             <Route path="permissions-management" element={<PermissionsPage />} />
             <Route path="audit-log" element={<AuditLogPage />} />
+            <Route path="approval-rules" element={<ApprovalRulesAdminPage />} />
+            <Route path="mrp-roles" element={<MrpRolesAdminPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="company-profile" element={<CompanyProfilePage />} />
             <Route path="branches" element={<BranchesPage />} />
@@ -1255,7 +1347,10 @@ export function AppRoutes() {
           {/* Movement & Logistics Portal — بوابة الحركة واللوجستيات */}
           <Route path="movement" element={<RequireRole roles={['employee_movement', 'logistics', 'movement_manager', 'gatekeeper', 'admin', 'developer', 'hr']} />}>
             <Route element={<RequireModule moduleKey="movement" />}>
-              <Route index element={<Navigate to="logistics/dashboard" replace />} />
+              {/* التحويل حسب دور المستخدم — لا وجهة ثابتة */}
+              <Route index element={<MovementRoleRedirect />} />
+              {/* الدور «أ» — حركة الموظفين: لا يراه صاحب دور اللوجستيات */}
+              <Route element={<RequireMovementRole role="employee_movement" />}>
               <Route path="employee/policies" element={<EmployeeMovementPoliciesPage />} />
               <Route path="employee/locations" element={<EmployeeMovementLocationsPage />} />
               <Route path="employee/permits" element={<EmployeeMovementPermitsPage />} />
@@ -1268,7 +1363,10 @@ export function AppRoutes() {
               <Route path="employee/missions" element={<EmployeeMissionsPage />} />
               <Route path="employee/compliance" element={<EmployeeComplianceViolationsPage />} />
               <Route path="employee/analytics" element={<EmployeeMovementAnalyticsPage />} />
+              </Route>
 
+              {/* الدور «ب» — الحركة واللوجستيات: لا يراه صاحب دور حركة الموظفين */}
+              <Route element={<RequireMovementRole role="logistics" />}>
               <Route path="logistics/dashboard" element={<LogisticsDashboardPage />} />
               <Route path="logistics/foundation" element={<LogisticsFoundationPage />} />
               <Route path="logistics/fleet" element={<LogisticsVehiclesPage />} />
@@ -1278,10 +1376,24 @@ export function AppRoutes() {
               <Route path="logistics/dispatch" element={<LogisticsDispatchPage />} />
               <Route path="logistics/routes" element={<LogisticsRoutePlanningPage />} />
               <Route path="logistics/tracking" element={<LogisticsLiveTrackingPage />} />
+              <Route path="logistics/track-replay" element={<LogisticsTrackReplayPage />} />
+              <Route path="logistics/safety" element={<LogisticsSafetyCompliancePage />} />
               <Route path="logistics/epod" element={<LogisticsEpodPage />} />
               <Route path="logistics/fuel" element={<LogisticsFuelPage />} />
               <Route path="logistics/carriers" element={<LogisticsCarriersPage />} />
               <Route path="logistics/costs" element={<LogisticsCostAnalyticsPage />} />
+              </Route>
+
+              {/* تطبيق السائق — حارس مستقل.
+                  كانت هذه الصفحات تحت RequireMovementRole role="logistics"،
+                  أي أن السائق يحتاج دور مدير الأسطول ليرى رحلاته (تصعيد
+                  امتياز). السائق يُعرَّف بـ logistics_drivers.user_id لا
+                  بدور بوابة — تماماً كما في movement_require_driver (0291). */}
+              <Route element={<RequireDriver />}>
+              <Route path="driver/trips" element={<DriverTripsPage />} />
+              <Route path="driver/delivery/:dispatchId" element={<DriverDeliveryPage />} />
+              <Route path="driver/inspection/:dispatchId" element={<DriverInspectionPage />} />
+              </Route>
             </Route>
           </Route>
 

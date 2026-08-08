@@ -1,15 +1,28 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Package, Plus, Truck, CheckCircle2 } from 'lucide-react';
+import { Package, Plus, Truck, CheckCircle2 , X } from 'lucide-react';
 import { useUIStore } from '../../../../core/stores';
 import { logisticsShipmentOrderService } from '../../../../services/sdk/LogisticsOrdersService';
 import type { LogisticsShipmentOrderRecord } from '../../../../shared/types/logistics-orders';
 import Card from '../../../../shared/components/ui/Card';
 import Button from '../../../../shared/components/ui/Button';
 import { getErrorMessage } from '../../../../services/errors';
+import Input from '../../../../shared/components/ui/Input';
+import { MovementUnitNav } from '../shared/MovementUnitNav';
+import {
+  logisticsDispatchOperationsService,
+  type OrderPriority,
+} from '../../../../services/sdk/LogisticsDispatchOperationsService';
 
 export default function LogisticsShipmentOrdersPage() {
   const { addToast } = useUIStore();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({
+    originAddress: '', destinationAddress: '', cargoDescription: '',
+    cargoWeightKg: 0, cargoVolumeCbm: 0,
+    priority: 'normal' as OrderPriority, scheduledDeparture: '',
+  });
   const [orders, setOrders] = useState<LogisticsShipmentOrderRecord[]>([]);
 
   const loadData = useCallback(async () => {
@@ -26,15 +39,38 @@ export default function LogisticsShipmentOrdersPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  /* الإنشاء عبر RPC create_shipment_order (0284) — رمز الأمر يُولَّد تلقائياً */
+  const submitOrder = async () => {
+    setSaving(true);
+    try {
+      await logisticsDispatchOperationsService.createOrder({
+        ...form,
+        scheduledDeparture: form.scheduledDeparture || null,
+      });
+      addToast('تم إنشاء أمر النقل', 'success');
+      setShowCreate(false);
+      setForm({
+        originAddress: '', destinationAddress: '', cargoDescription: '',
+        cargoWeightKg: 0, cargoVolumeCbm: 0, priority: 'normal', scheduledDeparture: '',
+      });
+      await loadData();
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in" dir="rtl">
+      <MovementUnitNav unit="logistics_orders" />
       <div className="bg-gradient-to-br from-indigo-700 to-slate-900 rounded-2xl p-6 text-white flex items-center justify-between flex-wrap gap-4">
         <div>
           <p className="text-white/70 text-sm font-semibold">Logistics Control • L05</p>
           <h2 className="text-2xl font-extrabold mt-1 flex items-center gap-2"><Package /> أوامر النقل والشحنات</h2>
           <p className="text-white/75 mt-2 text-sm">إدارة أوامر الشحن، الحمولة، نقاط المغادرة والوصول، والأولويات التشغيلية.</p>
         </div>
-        <Button onClick={() => addToast('إضافة أمر نقل جديد قيد التطوير', 'info')} className="!bg-white !text-indigo-900 hover:!bg-indigo-50 !border-none" icon={<Plus size={16} />} iconPosition="left">أمر نقل جديد</Button>
+        <Button onClick={() => setShowCreate(true)} className="!bg-white !text-indigo-900 hover:!bg-indigo-50 !border-none" icon={<Plus size={16} />} iconPosition="left">أمر نقل جديد</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -77,6 +113,71 @@ export default function LogisticsShipmentOrdersPage() {
           </table>
         </div>
       </Card>
+
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl" dir="rtl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg">أمر نقل جديد</h3>
+              <button type="button" onClick={() => setShowCreate(false)}
+                className="text-slate-400 hover:text-slate-700"><X size={20} /></button>
+            </div>
+            <div className="space-y-3">
+              <div className="grid md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-600">عنوان الانطلاق *</label>
+                  <Input value={form.originAddress}
+                    onChange={(e) => setForm({ ...form, originAddress: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600">عنوان الوجهة *</label>
+                  <Input value={form.destinationAddress}
+                    onChange={(e) => setForm({ ...form, destinationAddress: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600">وصف الحمولة *</label>
+                <Input value={form.cargoDescription}
+                  onChange={(e) => setForm({ ...form, cargoDescription: e.target.value })} />
+              </div>
+              <div className="grid md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-600">الوزن (كغ)</label>
+                  <Input type="number" value={form.cargoWeightKg}
+                    onChange={(e) => setForm({ ...form, cargoWeightKg: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600">الحجم (م³)</label>
+                  <Input type="number" value={form.cargoVolumeCbm}
+                    onChange={(e) => setForm({ ...form, cargoVolumeCbm: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600">الأولوية</label>
+                  <select value={form.priority} className="w-full border rounded-xl p-2.5 text-sm mt-1"
+                    onChange={(e) => setForm({ ...form, priority: e.target.value as OrderPriority })}>
+                    <option value="low">منخفضة</option>
+                    <option value="normal">عادية</option>
+                    <option value="high">عالية</option>
+                    <option value="urgent">عاجلة</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600">موعد الانطلاق المخطط</label>
+                <Input type="datetime-local" value={form.scheduledDeparture}
+                  onChange={(e) => setForm({ ...form, scheduledDeparture: e.target.value })} />
+              </div>
+              <p className="text-[11px] text-slate-400">
+                رمز الأمر يُولَّد تلقائياً. الحمولة تُفحص مقابل سعة المركبة عند الإرسال.
+              </p>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <Button onClick={() => void submitOrder()} loading={saving} className="flex-1">حفظ</Button>
+              <Button variant="secondary" onClick={() => setShowCreate(false)} className="flex-1">إلغاء</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

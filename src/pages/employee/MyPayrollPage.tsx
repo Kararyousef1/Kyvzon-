@@ -15,14 +15,18 @@ import { getErrorMessage } from '../../services/errors';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import type { PayrollRecord } from '../../shared/types/payroll';
+
+/** ★ المرحلة 1: الصفحة تُثري السجل بحقل payroll_periods يدوياً */
+interface PayrollPeriodSummary { id?: string; name?: string; payment_date?: string | null; }
+type PayrollRecordWithPeriod = PayrollRecord & { payroll_periods: PayrollPeriodSummary | null };
 import { PAYROLL_STATUS_LABELS, PAYROLL_STATUS_COLORS, formatCurrency } from '../../utils/payrollUtils';
 
 export default function MyPayrollPage() {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [employeeId, setEmployeeId] = useState<string | null>(null); // null = لم يُحدَّد بعد
-  const [records, setRecords] = useState<PayrollRecord[]>([]);
-  const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
+  const [records, setRecords] = useState<PayrollRecordWithPeriod[]>([]);
+  const [selectedRecord, setSelectedRecord] = useState<PayrollRecordWithPeriod | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // المرحلة 1: جلب employee_id للمستخدم الحالي
@@ -76,20 +80,23 @@ export default function MyPayrollPage() {
         });
 
         // جلب فترات الرواتب لإضافة الأسماء
-        let periodMap = new Map<string, any>();
+        let periodMap = new Map<string, PayrollPeriodSummary>();
         try {
           const periods = await payrollPeriodService.findAllPeriods();
-          periodMap = new Map((periods || []).map((p: any) => [p.id, p]));
+          periodMap = new Map<string, PayrollPeriodSummary>(
+            (periods ?? []).map((pp) => [pp.id, pp as PayrollPeriodSummary]),
+          );
         } catch {
           // الفترات اختيارية — نكمل بدونها
         }
 
-        const enriched = rawRecords.map((r: any) => ({
-          ...r,
-          payroll_periods: periodMap.get(r.period_id) || null,
-        }));
+        const enriched: PayrollRecordWithPeriod[] =
+          (rawRecords as unknown as PayrollRecord[]).map((r) => ({
+            ...r,
+            payroll_periods: periodMap.get(r.period_id) ?? null,
+          }));
 
-        setRecords(enriched as unknown as PayrollRecord[]);
+        setRecords(enriched);
       } catch (err) {
         console.error('خطأ في جلب الرواتب:', getErrorMessage(err));
         setError('تعذر جلب سجلات الرواتب');
@@ -192,7 +199,7 @@ export default function MyPayrollPage() {
       ) : (
         <div className="grid gap-3">
           {records.map((r) => {
-            const period = (r as any).payroll_periods;
+            const period = r.payroll_periods;
             const statusColor = PAYROLL_STATUS_COLORS[r.status] || PAYROLL_STATUS_COLORS.draft;
             return (
               <div
@@ -249,7 +256,7 @@ export default function MyPayrollPage() {
               <div>
                 <h3 className="text-lg font-bold text-slate-900">قسيمة الراتب</h3>
                 <p className="text-sm text-slate-500">
-                  {(selectedRecord as any).payroll_periods?.name || ''}
+                  {selectedRecord.payroll_periods?.name || ''}
                 </p>
               </div>
               <div className="flex items-center gap-2">

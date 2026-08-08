@@ -34,9 +34,12 @@ const SDK_ADJACENT_PATHS = [
   'src/modules/tawathul/services/',
 ];
 
+// ★ 0343: وأُزيل مدخل SOPsPage — صارت عبر sopService.
+// ★ 0342: أُزيل مدخلا البلاغات — NewProblemPage صارت عبر
+//   `incidentService.submit()`، و ProblemsList انقسمت في 0341 إلى
+//   MyProblemsPage و HrProblemsInboxPage وكلتاهما بلا لمس مباشر.
 const ALLOWLIST = [
   { file: 'src/services/notifications/notificationService.ts', reason: 'create_notification_safe + cleanup_expired_notifications RPCs — pending SDK migration' },
-  { file: 'src/services/integrations/leaveAttendanceLink.ts', reason: 'supabase.rpc(refresh_attendance_summary) — pending AttendanceService migration' },
   { file: 'src/pages/app/finance/CashForecastPage.tsx', reason: 'cash_forecast_scenarios direct query — pending CashForecastService migration' },
   { file: 'src/pages/app/finance/ApprovalsPage.tsx', reason: 'financial_approval_requests direct query — pending FinancialApprovalService migration' },
   { file: 'src/pages/app/finance/AdvancedVariancePage.tsx', reason: 'budget_variance_reports direct query — pending BudgetVarianceService migration' },
@@ -44,7 +47,6 @@ const ALLOWLIST = [
   { file: 'src/pages/admin/AdminEmployeesPage.tsx', reason: 'entity_memberships + cost_centers + finance_projects direct — pending FinanceMembershipService + CostCenterService migration to SDK' },
   { file: 'src/pages/admin/AdminEmployeesPageV2.tsx', reason: 'entity_memberships + cost_centers + finance_projects direct — pending SDK migration (duplicate file for V2)' },
   { file: 'src/pages/devportal/components/CompanyDetailDrawer.tsx', reason: 'profiles + legal_entities + platform_audit_log direct — pending CompanyDetailService SDK migration — needed for professional drawer with IDs' },
-  { file: 'src/pages/hr/TrainingManagementPage.tsx', reason: 'quizzes upsert direct — pending TrainingService Quiz migration — removed localStorage fallback' },
   // تم السماح مؤقتاً لحين النقل الكامل لـ SDK (P1) — هذه الملفات كانت تكسر سابقاً وتمر بسبب ثغرة الفحص:
   { file: 'src/services/notifications/attendanceNotificationService.ts', reason: 'attendance direct queries — pending Notification migration to SDK (P1)' },
   { file: 'src/shared/components/dashboard/DeveloperDashboard.tsx', reason: 'developer dashboard direct queries — internal dev portal, pending SDK migration (P1)' },
@@ -54,10 +56,6 @@ const ALLOWLIST = [
   { file: 'src/pages/admin/AdminSOPsPage.tsx', reason: 'SOPs direct queries — pending SOPService migration (P1)' },
   { file: 'src/pages/admin/AdminSOPsReport.tsx', reason: 'SOPs report direct queries — pending SOPService migration (P1)' },
   { file: 'src/pages/employee/AttendancePage.tsx', reason: 'attendance page direct queries — pending AttendanceService migration (P1)' },
-  { file: 'src/pages/employee/NewProblemPage.tsx', reason: 'problems direct — pending ProblemService migration (P1)' },
-  { file: 'src/pages/employee/ProblemsList.tsx', reason: 'problems list direct — pending ProblemService migration (P1)' },
-  { file: 'src/pages/employee/SOPsPage.tsx', reason: 'SOPs page direct — pending SOPService migration (P1)' },
-  { file: 'src/pages/hr/TalentMarketPage.tsx', reason: 'talent market direct — pending HRService migration (P1)' },
   { file: 'src/core/tenant/TenantContext.tsx', reason: 'tenant context direct — needed for initial tenant detection before SDK, pending refactor (P1)' },
   { file: 'src/shared/hooks/useTenantModules.ts', reason: 'tenant modules direct — pending TenantModuleService full migration (P1)' },
 ];

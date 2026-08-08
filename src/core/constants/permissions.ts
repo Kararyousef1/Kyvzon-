@@ -66,6 +66,11 @@ export const PERMISSION_KEYS = [
   'hr-succession',        // تخطيط التعاقب
   'hr-service-center',    // مركز خدمات HR
   'hr-health-safety',     // الصحة والسلامة المهنية
+  // ★ إصلاح 0365: 'hr-disciplinary' كان في الشريط الجانبي
+  //   (Sidebar.tsx:398) وفي التوجيه (AppRouter.tsx:1310) وفي
+  //   الكتالوج و VIEW_TO_PATH و PORTAL_PAGES — **وغائباً تماماً**
+  //   عن PERMISSION_KEYS. الموضع الخامس من السبعة، وهو الذي يُغفَل.
+  'hr-disciplinary',      // الإجراءات التأديبية
   
   // ═══════════════ الإشراف ═══════════════
   'supervisor-dashboard',
@@ -75,10 +80,28 @@ export const PERMISSION_KEYS = [
   'supervisor-checklists',
   
   // ═══════════════ الإدارة ═══════════════
+  'admin-approval-rules',
+  'admin-mrp-roles',
   'manager-dashboard',    // لوحة تحكم المدير
   'manager-approvals',
   'manager-performance',
   'manager-workload',
+  // وحدات بوابة المدير (0302/0303)
+  'manager-unit-movement-approvals',
+  'manager-unit-movement-team',
+  'supervisor-unit-movement-shift',
+  'manager-unit-hr-approvals',
+  'manager-unit-finance-approvals',
+  'manager-unit-procurement-approvals',
+  'manager-unit-inventory-approvals',
+  'manager-unit-mrp-approvals',
+  'manager-unit-contracts-approvals',
+  'manager-unit-crm-approvals',
+  'manager-unit-health-safety-approvals',
+  'supervisor-unit-hr-approvals',
+  'supervisor-unit-inventory-approvals',
+  'supervisor-unit-mrp-approvals',
+  'supervisor-unit-health-safety-approvals',
   
   // ═══════════════ الحراسة ═══════════════
   'gatekeeper-portal',    // بوابة الحراسة الرئيسية
@@ -121,12 +144,42 @@ export const PERMISSION_KEYS = [
   'developer-structure',   // هيكلية النظام
   'biometric-settings',    // إعدادات البصمة
   'tech-portal',           // البوابة التقنية
+  'tech-audit-trail',      // سجلّ التدقيق الموحّد (0330)
+  'tech-error-logs',       // الأخطاء والمهام المجدولة (0330)
+  'tech-integrations',     // التكاملات والصادرات (0331)
+  'tech-data-exports',     // الصادرات وأحداث الناقلين (0332)
   'tawathul-portal',       // بوابة التواصل
   'tawathul-admin',        // إدارة إعدادات التواصل
 
   // ═══════════════ التبليغات ═══════════════
   'announcements',          // عرض التبليغات
   'publish-announcements',  // نشر تبليغات
+
+  // ═══════════════ بوابة الحركة واللوجستيات ═══════════════
+  // الدور «أ» — حركة الموظفين
+  'movement-emp-foundation',
+  'movement-emp-permits',
+  'movement-emp-execution',
+  'movement-emp-visits',
+  'movement-emp-missions',
+  'movement-emp-compliance',
+  'movement-emp-analytics',
+  // الدور «ب» — الحركة واللوجستيات
+  'movement-log-dashboard',
+  'movement-log-fleet',
+  'movement-log-drivers',
+  'movement-log-maintenance',
+  'movement-log-fuel',
+  'movement-log-orders',
+  'movement-log-routes',
+  'movement-log-dispatch',
+  'movement-log-tracking',
+  'movement-log-track-replay',
+  'movement-log-safety',
+  'movement-driver-trips',
+  'movement-log-epod',
+  'movement-log-carriers',
+  'movement-log-costs',
 
 ] as const;
 
@@ -138,6 +191,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
   // ═══════════════ الموظف العادي ═══════════════
   employee: [
     'dashboard',
+    // تطبيق السائق: السائق موظف عادي بلا دور خاص — الحماية في الخادم
+    // عبر movement_require_driver الذي يتحقق من ارتباط الحساب بسجل سائق.
+    'movement-driver-trips',
     'problems',
     'new-problem',
     'wellness',
@@ -185,6 +241,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'supervisor-shift',
     'supervisor-tasks',
     'supervisor-checklists',
+    'supervisor-unit-movement-shift',
+    'supervisor-unit-hr-approvals',
+    'supervisor-unit-inventory-approvals',
+    'supervisor-unit-mrp-approvals',
+    'supervisor-unit-health-safety-approvals',
     'team',
     'reports',
     'attendance',
@@ -228,6 +289,21 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'manager-workload',
     'analytics',
     'manager-attendance',
+    'manager-unit-movement-approvals',
+    'manager-unit-movement-team',
+    'supervisor-unit-movement-shift',
+    'manager-unit-hr-approvals',
+    'manager-unit-finance-approvals',
+    'manager-unit-procurement-approvals',
+    'manager-unit-inventory-approvals',
+    'manager-unit-mrp-approvals',
+    'manager-unit-contracts-approvals',
+    'manager-unit-crm-approvals',
+    'manager-unit-health-safety-approvals',
+    'supervisor-unit-hr-approvals',
+    'supervisor-unit-inventory-approvals',
+    'supervisor-unit-mrp-approvals',
+    'supervisor-unit-health-safety-approvals',
   ],
   
   // ═══════════════ الموارد البشرية ═══════════════
@@ -261,6 +337,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'hr-ai-insights',
     'hr-contracts',
     'hr-succession',
+    'hr-disciplinary',
     'hr-service-center',
     'hr-health-safety',
     'movements',
@@ -302,6 +379,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'reports',
     'hr-reports',
     'admin-reports',
+    // ★ إصلاح 2026-08-05: 'admin-approval-rules' كان في PERMISSION_KEYS
+    // وفي الشريط الجانبي، لكنه غائب عن كتلة admin — فحجبه
+    // hasPermission() وصار عنصر «قواعد الاعتماد» غير مرئي للمدير
+    // منذ جولة 0308. أُثبت باستدعاء getEffectivePermissions('admin').
+    'admin-approval-rules',
+    'admin-mrp-roles',
     'notifications',
     'my-notifications',
     'attendance',
@@ -316,6 +399,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'hr-ai-insights',
     'hr-contracts',
     'hr-succession',
+    'hr-disciplinary',
     'hr-service-center',
     'hr-health-safety',
     'movements',
@@ -371,6 +455,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
   // ═══════════════ تقنية المعلومات ═══════════════
   it_admin: [
     'tech-portal',
+    'tech-audit-trail',
+    'tech-error-logs',
+    'tech-integrations',
+    'tech-data-exports',
     'dashboard',
     'notifications',
     'my-notifications',
@@ -381,6 +469,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
   // ═══════════════ تقنية ═══════════════
   tech: [
     'tech-portal',
+    'tech-audit-trail',
+    'tech-error-logs',
+    'tech-integrations',
+    'tech-data-exports',
     'dashboard',
     'notifications',
     'my-notifications',
@@ -428,6 +520,71 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'notifications',
     'my-notifications',
     'profile',
+    'reports',
+    'analytics',
+  ],
+
+  employee_movement: [
+    'dashboard',
+    'notifications',
+    'my-notifications',
+    'profile',
+    'movement-emp-foundation',
+    'movement-emp-permits',
+    'movement-emp-execution',
+    'movement-emp-visits',
+    'movement-emp-missions',
+    'movement-emp-compliance',
+    'movement-emp-analytics',
+  ],
+  logistics: [
+    'dashboard',
+    'notifications',
+    'my-notifications',
+    'profile',
+    'movement-log-dashboard',
+    'movement-log-fleet',
+    'movement-log-drivers',
+    'movement-log-maintenance',
+    'movement-log-fuel',
+    'movement-log-orders',
+    'movement-log-routes',
+    'movement-log-dispatch',
+    'movement-log-tracking',
+    'movement-log-track-replay',
+    'movement-log-safety',
+    'movement-driver-trips',
+    'movement-log-epod',
+    'movement-log-carriers',
+    'movement-log-costs',
+  ],
+  movement_manager: [
+    'dashboard',
+    'notifications',
+    'my-notifications',
+    'profile',
+    'movement-emp-foundation',
+    'movement-emp-permits',
+    'movement-emp-execution',
+    'movement-emp-visits',
+    'movement-emp-missions',
+    'movement-emp-compliance',
+    'movement-emp-analytics',
+    'movement-log-dashboard',
+    'movement-log-fleet',
+    'movement-log-drivers',
+    'movement-log-maintenance',
+    'movement-log-fuel',
+    'movement-log-orders',
+    'movement-log-routes',
+    'movement-log-dispatch',
+    'movement-log-tracking',
+    'movement-log-track-replay',
+    'movement-log-safety',
+    'movement-driver-trips',
+    'movement-log-epod',
+    'movement-log-carriers',
+    'movement-log-costs',
     'reports',
     'analytics',
   ],
@@ -585,12 +742,30 @@ export function getPermissionLabel(permissionKey: string): string {
     'reports': 'التقارير',
     'hr-contracts': 'عقود الموظفين',
     'hr-succession': 'تخطيط التعاقب',
+    'hr-disciplinary': 'الإجراءات التأديبية',
     'hr-service-center': 'مركز خدمات HR',
     'hr-health-safety': 'الصحة والسلامة المهنية',
+    'admin-approval-rules': 'قواعد الاعتماد',
+    'admin-mrp-roles': 'أدوار التصنيع الدقيقة',
     'manager-dashboard': 'لوحة المدير',
     'manager-approvals': 'مركز موافقات المدير',
     'manager-performance': 'أداء الفريق',
     'manager-workload': 'عبء العمل',
+    'manager-unit-movement-approvals': 'وحدة الحركة — اعتماد التصاريح',
+    'manager-unit-movement-team': 'وحدة الحركة — حركة الفريق',
+    'supervisor-unit-movement-shift': 'وحدة الحركة — حركة الوردية',
+    'manager-unit-hr-approvals': 'وحدة الموارد البشرية — الاعتماد',
+    'manager-unit-finance-approvals': 'وحدة المالية — الاعتماد',
+    'manager-unit-procurement-approvals': 'وحدة المشتريات — الاعتماد',
+    'manager-unit-inventory-approvals': 'وحدة المخزون — الاعتماد',
+    'manager-unit-mrp-approvals': 'وحدة التصنيع — الاعتماد',
+    'manager-unit-contracts-approvals': 'وحدة العقود — الاعتماد',
+    'manager-unit-crm-approvals': 'وحدة المبيعات — الاعتماد',
+    'manager-unit-health-safety-approvals': 'وحدة الصحة والسلامة — الاعتماد',
+    'supervisor-unit-hr-approvals': 'وحدة الموارد البشرية — المتابعة',
+    'supervisor-unit-inventory-approvals': 'وحدة المخزون — المتابعة',
+    'supervisor-unit-mrp-approvals': 'وحدة التصنيع — المتابعة',
+    'supervisor-unit-health-safety-approvals': 'وحدة الصحة والسلامة — المتابعة',
     'supervisor-dashboard': 'لوحة المشرف',
     'supervisor-breaks': 'تصاريح الاستراحة',
     'supervisor-shift': 'إدارة الوردية',

@@ -3,16 +3,29 @@
  *  GatekeeperService - خدمة البوابة والحركة
  *  Domain: Gatekeeper — تشمل الجلسات, الزوار, الحركة, الاستراحات
  *
- *  ✅ إصلاح: جداول gatekeeper_sessions, gatekeeper_visitor_logs,
- *             gatekeeper_visitors بدون عمود tenant_id في قاعدة البيانات.
- *             نستخدم skipTenantFilter=true لكل عمليات هذه الجداول
- *             حتى لا يضيف BaseService شرط WHERE tenant_id=? الذي
- *             يسبب إرجاع صفر نتائج أو خطأ.
+ *  ★★★ تصحيح جوهري (0350) — الترويسة السابقة كانت **خاطئة**:
  *
- *  ✅ إصلاح: جدول movements_log يملك tenant_id → نبقيه بدون skip.
+ *    كانت تقول: «جداول gatekeeper_sessions و gatekeeper_visitor_logs
+ *    و gatekeeper_visitors بدون عمود tenant_id في قاعدة البيانات»
+ *    و«الحماية تعتمد RLS المبنية على created_by / auth.uid()».
  *
- *  ملاحظة أمنية: الحماية في هذه الجداول تعتمد على RLS policies
- *  المبنية على created_by / auth.uid() بدلاً من tenant_id.
+ *    **كلا الادعاءين غير صحيح.** المُحقَّق على Postgres:
+ *      gatekeeper_sessions.tenant_id      uuid → tenants(id) CASCADE
+ *      gatekeeper_visitor_logs.tenant_id  uuid → tenants(id) CASCADE
+ *      gatekeeper_visitors.tenant_id      uuid
+ *    ولا سياسة واحدة تذكر `created_by` — السياسات تُرشّح بـtenant_id.
+ *
+ *    وبناءً على ذلك الوهم كان `NoTenantBaseService` **يحذف tenant_id
+ *    عند الإدراج**، والسياسة القديمة كانت:
+ *      ((tenant_id IS NULL) OR (tenant_id = current_user_tenant_id()))
+ *
+ *    فكل صفّ يُكتب بـNULL ⇒ الفرع الأول يجعله مرئياً **لكل مستأجري
+ *    المنصّة**. مُثبَت بدور `authenticated` حقيقي: مدير موارد الشركة (ب)
+ *    قرأ سجلّ زوّار الشركة (أ) — الاسم والهاتف ورقم الهوية والمضيف.
+ *
+ *    0350 جعل العمود NOT NULL بقيمة افتراضية من current_user_tenant_id()
+ *    وحذف الفرع المتساهل من السياسات. و`NoTenantBaseService` **أُزيل**:
+ *    الجداول الثلاثة صارت تستعمل `BaseService` القياسي بحقن tenant_id.
  * ════════════════════════════════════════════════════════════════
  */
 
@@ -25,32 +38,15 @@ import type {
   EmployeeBreakRecord,
 } from '../../shared/types/sdk';
 
-// ═══════════════════════════════════════════════════
-//  مساعد: BaseService بدون tenant filter
-//  للجداول التي لا تملك عمود tenant_id
-// ═══════════════════════════════════════════════════
-
-class NoTenantBaseService<T = any> extends BaseService<T> {
-  constructor(tableName: string) {
-    super(tableName);
-  }
-
-  /** تجاوز addTenantFilter — هذا الجدول بدون tenant_id */
-  protected override addTenantFilter(query: any, _skipTenantFilter?: boolean): any {
-    return query; // لا نضيف أي فلتر
-  }
-
-  /** تجاوز injectTenantId — لا نحقن tenant_id في INSERT */
-  protected override injectTenantId(data: Partial<T>): Record<string, unknown> {
-    const { tenant_id: _, ...cleanData } = data as Record<string, unknown>;
-    return cleanData; // نحذف tenant_id إن وُجد، لكن لا نضيف جديداً
-  }
-}
+// ★★★ `NoTenantBaseService` أُزيل في 0350.
+//   كان يحذف `tenant_id` عند الإدراج بناءً على اعتقاد خاطئ بأن الجداول
+//   لا تحويه — فأنتج صفوفاً بلا مالك تراها كل المستأجرين.
+//   الجداول الثلاثة تستعمل الآن `BaseService` القياسي.
 
 // ─── Gatekeeper Sessions ─────────────────────────
-// الجدول: gatekeeper_sessions — بدون tenant_id
+// الجدول: gatekeeper_sessions — يحوي tenant_id (إلزامي منذ 0350)
 
-class GatekeeperSessionService extends NoTenantBaseService<GatekeeperSessionRecord> {
+class GatekeeperSessionService extends BaseService<GatekeeperSessionRecord> {
   constructor() {
     super('gatekeeper_sessions');
   }
@@ -94,25 +90,56 @@ class GatekeeperSessionService extends NoTenantBaseService<GatekeeperSessionReco
 }
 
 // ─── Visitor Logs ────────────────────────────────
-// الجدول: gatekeeper_visitor_logs — بدون tenant_id
+// الجدول: gatekeeper_visitor_logs — يحوي tenant_id (إلزامي منذ 0350)
 
-class GatekeeperVisitorLogService extends NoTenantBaseService<GatekeeperVisitorLogRecord> {
+class GatekeeperVisitorLogService extends BaseService<GatekeeperVisitorLogRecord> {
   constructor() {
     super('gatekeeper_visitor_logs');
   }
 
+  /**
+   * ★★★ إصلاح 0350 — `fromDate` كان يُمرَّر ويُهمَل تماماً.
+   *
+   *   الشيفرة السابقة أعلنت المُعامل في التوقيع ثم لم تستعمله:
+   *     if (options?.sessionId) filters.session_id = options.sessionId;
+   *     // ولا سطر واحد يمسّ fromDate
+   *
+   *   والصفحة تستدعيها بـ`{ fromDate }` لكل نطاق («اليوم» · «7 أيام» …).
+   *   مُثبَت على Postgres (3 سجلات: اثنان قبل أكثر من سنة وواحد اليوم):
+   *     بلا مرشّح => 3 صفوف · بالمرشّح => 1
+   *   ⇒ مُرشِّح المدة لم يكن له أثر على تبويب الزوّار إطلاقاً.
+   *
+   *   ★ `BaseService.findAll` يحوّل كل مُرشِّح إلى `.eq()` فلا يدعم
+   *     النطاقات — لذلك نستعمل `findWhere` بـ`gte`/`lte`.
+   */
   async findVisitorLogs(options?: {
     sessionId?: string;
     fromDate?: string;
+    toDate?: string;
   }): Promise<GatekeeperVisitorLogRecord[]> {
-    const filters: Record<string, unknown> = {};
-    if (options?.sessionId) filters.session_id = options.sessionId;
+    const conditions: Array<{
+      column: string;
+      operator?: 'eq' | 'gte' | 'lte';
+      value: unknown;
+    }> = [];
+    if (options?.sessionId) {
+      conditions.push({ column: 'session_id', value: options.sessionId });
+    }
+    if (options?.fromDate) {
+      conditions.push({ column: 'check_in_time', operator: 'gte', value: options.fromDate });
+    }
+    if (options?.toDate) {
+      conditions.push({ column: 'check_in_time', operator: 'lte', value: options.toDate });
+    }
 
-    return this.findAll({
-      filters: Object.keys(filters).length > 0 ? filters : undefined,
-      orderBy: 'check_in_time',
-      ascending: false,
-    });
+    if (conditions.length > 0) {
+      return this.findWhere(conditions, {
+        orderBy: 'check_in_time',
+        ascending: false,
+      });
+    }
+
+    return this.findAll({ orderBy: 'check_in_time', ascending: false });
   }
 
   async createVisitorLog(
@@ -136,13 +163,24 @@ class GatekeeperVisitorLogService extends NoTenantBaseService<GatekeeperVisitorL
     } as unknown as Partial<GatekeeperVisitorLogRecord>);
   }
 
+  /**
+   * ★★★ إصلاح 0350 — كان تسريباً ثانياً بين المستأجرين.
+   *
+   *   التعليق السابق «هذا الجدول بدون tenant_id — نستعلم مباشرة» خاطئ:
+   *   العمود موجود ومرتبط بـ`tenants(id)`. والاستعلام المباشر بلا
+   *   ترشيح كان يعدّ زوّار **كل** الشركات في رقم واحد.
+   *
+   *   الآن يُرشَّح بمستأجر المستخدم صراحةً — ودفاعاً في العمق فوق RLS.
+   */
   async countVisitorsSince(fromDate: string): Promise<number> {
     try {
-      // هذا الجدول بدون tenant_id — نستعلم مباشرة
-      const { count, error } = await supabase
+      const tenantId = getCurrentTenantId();
+      let query = supabase
         .from(this.tableName)
         .select('*', { count: 'exact', head: true })
         .gte('check_in_time', fromDate);
+      if (tenantId) query = query.eq('tenant_id', tenantId);
+      const { count, error } = await query;
       return error ? 0 : (count || 0);
     } catch {
       return 0;

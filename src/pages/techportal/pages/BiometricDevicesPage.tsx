@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Fingerprint, Plus, RefreshCw, Trash2, Wifi, WifiOff, Edit3, X, Loader2 } from 'lucide-react';
 import { biometricDeviceService } from '../../../services/sdk/BiometricDeviceService';
+import { techMetricsService } from '../../../services/sdk/TechMetricsService';
 import { getErrorMessage } from '../../../services/errors';
 import { useUIStore } from '../../../core/stores';
 import type { BioDevice } from '../types';
@@ -20,6 +21,9 @@ export default function BiometricDevicesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<BioDevice | null>(null);
   const [saving, setSaving] = useState(false);
+  // ★ نافذة التعطيل — بديل confirm() المحظور بسياسة المنصة
+  const [deactivating, setDeactivating] = useState<BioDevice | null>(null);
+  const [working, setWorking] = useState(false);
   const [form, setForm] = useState({
     name: '',
     device_type: 'zkteco',
@@ -66,10 +70,10 @@ export default function BiometricDevicesPage() {
     setSaving(true);
     try {
       if (editing) {
-        await biometricDeviceService.update(editing.id, form as any);
+        await biometricDeviceService.update(editing.id, form as unknown as Parameters<typeof biometricDeviceService.update>[1]);
         addToast('تم تحديث الجهاز', 'success');
       } else {
-        await biometricDeviceService.create(form as any);
+        await biometricDeviceService.create(form as unknown as Parameters<typeof biometricDeviceService.create>[0]);
         addToast('تم إضافة الجهاز', 'success');
       }
       setModalOpen(false);
@@ -82,15 +86,40 @@ export default function BiometricDevicesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا الجهاز؟')) return;
+  /**
+   * تعطيل الجهاز — لا حذف نهائي.
+   *
+   * ★ النسخة السابقة: `confirm()` ثم `deleteDevice(id)`.
+   *   ثلاث مخالفات:
+   *     · `confirm()` محظور بسياسة المنصة
+   *     · حذف نهائي بينما `is_active` موجود على الجدول ولم يُستعمل
+   *     · `attendance_logs.device_id` نصّ حرّ بلا مفتاح أجنبي، فحذف
+   *       الجهاز يترك السجلّات ويضيع مصدرها.
+   *
+   *   مقيس على Postgres:
+   *     قبل الحذف : سجلات الحضور المرتبطة = 2
+   *     بعد الحذف : السجلات = 2 · اسم الجهاز = ✗ ضاع
+   *     بعد التعطيل: الاسم محفوظ ✔
+   */
+  const handleDeactivate = async () => {
+    if (!deactivating) return;
+    setWorking(true);
     try {
-      await biometricDeviceService.deleteDevice(id);
-      addToast('تم حذف الجهاز', 'success');
+      const next = !deactivating.is_active;
+      const r = await techMetricsService.setDeviceActive(deactivating.id, next);
+      addToast(
+        r === 'already_inactive' || r === 'already_active'
+          ? 'الجهاز في هذه الحالة أصلاً'
+          : next ? 'تم تفعيل الجهاز' : 'تم تعطيل الجهاز — سجلّات الحضور محفوظة',
+        'success',
+      );
+      setDeactivating(null);
       window.dispatchEvent(new CustomEvent('tech-portal-refresh'));
       await loadDevices();
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
+    } finally {
+      setWorking(false);
     }
   };
 
@@ -132,7 +161,7 @@ export default function BiometricDevicesPage() {
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => openEdit(device)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 text-slate-500 hover:text-slate-200"><Edit3 size={13} /></button>
-                  <button onClick={() => handleDelete(device.id)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-900/30 text-slate-500 hover:text-red-400"><Trash2 size={13} /></button>
+                  <button onClick={() => setDeactivating(device)} title={device.is_active ? 'تعطيل' : 'تفعيل'} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-900/30 text-slate-500 hover:text-amber-400"><Trash2 size={13} /></button>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -182,6 +211,42 @@ export default function BiometricDevicesPage() {
               <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl bg-cyan-900/50 border border-cyan-700/50 text-cyan-300 font-bold text-sm flex items-center justify-center gap-2">
                 {saving && <Loader2 size={14} className="animate-spin" />}
                 {saving ? 'جاري الحفظ...' : editing ? 'تحديث' : 'إضافة'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ★ تأكيد التعطيل — Modal لا confirm() (سياسة المنصة) */}
+      {deactivating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" dir="rtl">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-100">
+              {deactivating.is_active ? 'تعطيل الجهاز' : 'تفعيل الجهاز'}
+            </h3>
+            <p className="text-sm text-slate-300">
+              <b>«{deactivating.name}»</b>
+              {deactivating.location ? ` — ${deactivating.location}` : ''}
+            </p>
+            <p className="text-xs text-slate-400 bg-amber-950/40 border border-amber-800/50 rounded-xl p-3 leading-relaxed">
+              الجهاز يُعطَّل ولا يُحذف: سجلّات الحضور تشير إليه بمعرّفه، وحذفه
+              يجعلها يتيمة فلا يُعرف من أي بوابة جاءت البصمة.
+            </p>
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                onClick={() => setDeactivating(null)}
+                disabled={working}
+                className="px-5 py-2.5 bg-slate-800 border border-slate-700 text-slate-200 rounded-xl font-bold text-sm disabled:opacity-50"
+              >
+                تراجع
+              </button>
+              <button
+                onClick={() => void handleDeactivate()}
+                disabled={working}
+                className="px-5 py-2.5 bg-amber-600 text-white rounded-xl font-bold text-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {working && <Loader2 size={14} className="animate-spin" />}
+                {deactivating.is_active ? 'تعطيل' : 'تفعيل'}
               </button>
             </div>
           </div>

@@ -1,7 +1,37 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  PayrollPage - لوحة تحكم الرواتب
- *  إدارة فترات الرواتب، تشغيل الرواتب، وعرض الكشوف
+ *  PayrollPage — نظام الرواتب (أُعيد توصيله في 0348)
+ * ════════════════════════════════════════════════════════════════
+ *
+ *  ★★★ ما كان قبل 0348 — أعطال مُثبتة تشغيلياً على Postgres:
+ *
+ *  ① زرّ «فترة رواتب جديدة» يفشل **دائماً**: الصفحة ترسل
+ *    `frequency` و`payment_date` والجدول لا يحويهما ⇒
+ *      column "frequency" of relation "payroll_periods" does not exist
+ *
+ *  ② ومحفّز يُسند `NEW.updated_at` والعمود غير موجود ⇒ **كل**
+ *    UPDATE على الفترة يفشل بـ record "new" has no field "updated_at"
+ *    ⇒ «تشغيل الرواتب» و«الاعتماد» معطّلان تماماً.
+ *
+ *  ③ `basic_salary: emp.base_salary || emp.salary || 0` — و`employees`
+ *    لا يحوي أياً من العمودين (مُقاس: 0). الراتب الحقيقي في
+ *    `employee_contracts.salary_amount` و`profiles.salary`.
+ *    ⇒ **كشف رواتب كامل بأصفار** يُعتمد ويُدفع.
+ *
+ *  ④ `working_days: 26 · present_days: 26 · absent_days: 0` مكتوبة
+ *    يدوياً ⇒ لا غياب لأحد أبداً — رغم أن `attendance_summary` صار
+ *    يُبنى من البصمات فعلياً بعد 0347.
+ *
+ *  ⑤ الإعدادات المالية كلها مُهمَلة (ضريبة · ضمان · أوفرتايم · خصم
+ *    غياب)، وأقساط القروض لا تُخصم فلا يُسدَّد قرضٌ أبداً.
+ *
+ *  ⑥ `upsertRecords` هو `create` في حلقة بلا قيد فريد ⇒ ضغطتان على
+ *    «تشغيل الرواتب» = **راتب مضاعف**.
+ *
+ *  ⑦ لا حراسة انتقال ولا أثر تدقيق: اعتماد مرّتين مسموح، والكتابة
+ *    فوق فترة معتمَدة مسموحة، ولا يُعرف من وافق ومتى.
+ *
+ *  الحساب كلّه انتقل إلى `payroll_run` الذرّية.
  * ════════════════════════════════════════════════════════════════
  */
 
@@ -12,6 +42,9 @@ import {
 } from 'lucide-react';
 import { useUIStore } from '../../core/stores';
 import { payrollPeriodService, payrollRecordService, payrollSettingService, employeeService } from '../../services/sdk';
+import {
+  payrollRunService, type PayrollSummary,
+} from '../../services/sdk/PayrollRunService';
 import { getErrorMessage } from '../../services/errors';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -32,6 +65,13 @@ export default function PayrollPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [running, setRunning] = useState(false);
+  // ★ نوافذ التأكيد — بديل confirm() المحظور بسياسة المنصة.
+  //   إجراءا الرواتب هنا واسعا الأثر: تشغيل الرواتب يُنشئ سجلاً لكل
+  //   موظف نشط، والاعتماد يُقفل الفترة كاملةً.
+  const [confirmRun, setConfirmRun] = useState<PayrollPeriod | null>(null);
+  const [confirmApprove, setConfirmApprove] = useState<PayrollPeriod | null>(null);
+  // ★★ 0348: لم يكن للصفحة ملخّص مالي إطلاقاً
+  const [summary, setSummary] = useState<PayrollSummary | null>(null);
 
   // نموذج إنشاء فترة جديدة
   const [formData, setFormData] = useState({
@@ -66,6 +106,7 @@ export default function PayrollPage() {
       const empMap = new Map((employees || []).map((e: any) => [e.id, e]));
       const enriched = (data || []).map((r: any) => ({ ...r, employees: empMap.get(r.employee_id) || null }));
       setRecords(enriched as unknown as PayrollRecord[]);
+      setSummary(await payrollRunService.summary(selectedPeriod));
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
     }
@@ -99,40 +140,25 @@ export default function PayrollPage() {
     }
   };
 
-  // تشغيل الرواتب لفترة (إنشاء سجلات لكل الموظفين)
+  /**
+   * تشغيل الرواتب.
+   *
+   * ★★★ الحساب كلّه في القاعدة الآن: الراتب من العقد النافذ ثم الملف
+   *   ثم الافتراضي · والحضور من `attendance_summary` الفعليّ · مع
+   *   الضريبة والضمان والأوفرتايم وخصم الغياب وأقساط القروض.
+   *   والدالة ترفض التشغيل على فترة معتمَدة، ولا تُضاعف السجلّات.
+   */
   const handleRunPayroll = async (period: PayrollPeriod) => {
-    if (!confirm(`هل تريد تشغيل الرواتب للفترة "${period.name}"؟ سيتم إنشاء سجلات لكل الموظفين النشطين.`)) return;
+    setConfirmRun(null);
     setRunning(true);
     try {
-      // جلب الموظفين النشطين
-      const employees = await employeeService.findAll({ filters: { is_active: true } });
-
-      const recordsToInsert = (employees || []).map((emp: any) => ({
-        period_id: period.id,
-        employee_id: emp.id,
-        basic_salary: emp.base_salary || emp.salary || 0,
-        total_allowances: 0,
-        total_deductions: 0,
-        overtime_pay: 0,
-        bonus_amount: 0,
-        net_salary: emp.base_salary || emp.salary || 0,
-        working_days: 26,
-        present_days: 26,
-        absent_days: 0,
-        leave_days: 0,
-        overtime_hours: 0,
-        status: 'draft' as PayrollStatus,
-      }));
-
-      if (recordsToInsert.length > 0) {
-        await payrollRecordService.upsertRecords(recordsToInsert);
-      }
-
-      // تحديث حالة الفترة
-      await payrollPeriodService.updatePeriodStatus(period.id, 'pending_approval');
-
-      addToast(`تم تشغيل الرواتب لـ ${recordsToInsert.length} موظف`, 'success');
+      const res = await payrollRunService.run(period.id);
+      addToast(
+        `شُغّلت الرواتب لـ${res.employees} موظف · الصافي ${formatCurrency(res.net)}`,
+        'success',
+      );
       await fetchData();
+      if (tab === 'records') await fetchRecords();
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
     } finally {
@@ -140,17 +166,24 @@ export default function PayrollPage() {
     }
   };
 
-  // الموافقة على الرواتب
+  /**
+   * اعتماد الرواتب.
+   *
+   * ★★ الدالة تُسجّل `approved_by` و`approved_at` و`locked_at`، وترفض
+   *   الاعتماد المكرّر وفترةً بلا سجلّات.
+   */
   const handleApprovePeriod = async (period: PayrollPeriod) => {
-    if (!confirm(`هل تريد اعتماد رواتب الفترة "${period.name}"؟`)) return;
+    setConfirmApprove(null);
+    setRunning(true);
     try {
-      await payrollPeriodService.updatePeriodStatus(period.id, 'approved');
-      await payrollRecordService.updateStatusByPeriod(period.id, 'approved');
-
-      addToast('تم اعتماد الرواتب', 'success');
+      const n = await payrollRunService.approve(period.id);
+      addToast(`اعتُمدت الرواتب — ${n} سجلّاً`, 'success');
       await fetchData();
+      if (tab === 'records') await fetchRecords();
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
+    } finally {
+      setRunning(false);
     }
   };
 
@@ -246,7 +279,7 @@ export default function PayrollPage() {
                     <div className="flex gap-2">
                       {period.status === 'draft' && (
                         <button
-                          onClick={() => handleRunPayroll(period)}
+                          onClick={() => setConfirmRun(period)}
                           disabled={running}
                           className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-semibold hover:bg-emerald-100 transition-colors disabled:opacity-50"
                         >
@@ -262,7 +295,7 @@ export default function PayrollPage() {
                             <Eye size={14} /> عرض
                           </button>
                           <button
-                            onClick={() => handleApprovePeriod(period)}
+                            onClick={() => setConfirmApprove(period)}
                             className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors"
                           >
                             <CheckCircle size={14} /> اعتماد
@@ -308,21 +341,34 @@ export default function PayrollPage() {
             />
           ) : (
             <>
-              {/* ملخص الفترة */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                <StatCard label="إجمالي الموظفين" value={String(records.length)} icon={Users} color="#6366f1" />
-                <StatCard
-                  label="إجمالي الراتب"
-                  value={formatCurrency(records.reduce((s, r) => s + r.net_salary, 0))}
-                  icon={DollarSign} color="#10b981" />
-                <StatCard
-                  label="متوسط الراتب"
-                  value={formatCurrency(records.length ? records.reduce((s, r) => s + r.net_salary, 0) / records.length : 0)}
+              {/* ملخص الفترة
+                  ★★ 0348: كانت البطاقات تُجمِّع `records` المحمَّلة في
+                  المتصفح — فترشيحٌ أو صفحةٌ جزئية يُغيّران «إجمالي
+                  الرواتب». الملخّص الآن محسوب في القاعدة على **كل**
+                  سجلّات الفترة. */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                <StatCard label="عدد الموظفين"
+                  value={String(summary?.records ?? records.length)}
+                  icon={Users} color="#6366f1" />
+                <StatCard label="إجمالي المستحقّ"
+                  value={formatCurrency(summary?.gross ?? 0)}
+                  icon={DollarSign} color="#0ea5e9" />
+                {/* ★★★ الاستقطاعات: كانت صفراً أبداً (لا ضريبة ولا ضمان
+                    ولا قروض) — بطاقة جديدة تكشفها */}
+                <StatCard label="الاستقطاعات"
+                  value={formatCurrency(summary?.deductions ?? 0)}
+                  icon={XCircle} color="#ef4444" />
+                <StatCard label="صافي الرواتب"
+                  value={formatCurrency(summary?.net ?? 0)}
+                  icon={CheckCircle} color="#10b981" />
+                <StatCard label="متوسط الصافي"
+                  value={formatCurrency(summary?.avgNet ?? 0)}
                   icon={TrendingUp} color="#f59e0b" />
-                <StatCard
-                  label="موافق عليه"
-                  value={String(records.filter(r => r.status === 'approved' || r.status === 'paid').length)}
-                  icon={CheckCircle} color="#6366f1" />
+                {/* ★★★ أيام الغياب: كانت 0 أبداً (absent_days مكتوبة
+                    يدوياً) — الآن من attendance_summary الفعليّ */}
+                <StatCard label="أيام غياب · ساعات إضافية"
+                  value={`${summary?.absentDays ?? 0} · ${summary?.overtimeHours ?? 0}`}
+                  icon={Calendar} color="#8b5cf6" />
               </div>
 
               {/* جدول السجلات */}
@@ -436,6 +482,57 @@ export default function PayrollPage() {
                 className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
                 {running ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle size={16} />}
                 إنشاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ★ تأكيد تشغيل الرواتب — Modal لا confirm() (سياسة المنصة) */}
+      {confirmRun && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" dir="rtl">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-800">تشغيل الرواتب</h3>
+            <p className="text-sm text-slate-700">
+              تشغيل رواتب الفترة <b>«{confirmRun.name}»</b>؟
+            </p>
+            <p className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded-xl p-3 leading-relaxed">
+              سيُنشأ سجل راتب لكل موظف نشط في هذه الفترة. الإجراء واسع الأثر.
+            </p>
+            <div className="flex gap-2 justify-end pt-1">
+              <button onClick={() => setConfirmRun(null)} disabled={running}
+                className="px-5 py-2.5 bg-white border rounded-xl font-bold text-sm disabled:opacity-50">
+                تراجع
+              </button>
+              <button onClick={() => void handleRunPayroll(confirmRun)} disabled={running}
+                className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm disabled:opacity-50 flex items-center gap-2">
+                {running && <Loader2 size={14} className="animate-spin" />}
+                تشغيل
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ★ تأكيد اعتماد الرواتب */}
+      {confirmApprove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" dir="rtl">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-800">اعتماد الرواتب</h3>
+            <p className="text-sm text-slate-700">
+              اعتماد رواتب الفترة <b>«{confirmApprove.name}»</b>؟
+            </p>
+            <p className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded-xl p-3 leading-relaxed">
+              ستُعتمد الفترة وكل سجلات الرواتب فيها.
+            </p>
+            <div className="flex gap-2 justify-end pt-1">
+              <button onClick={() => setConfirmApprove(null)}
+                className="px-5 py-2.5 bg-white border rounded-xl font-bold text-sm">
+                تراجع
+              </button>
+              <button onClick={() => void handleApprovePeriod(confirmApprove)}
+                className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm">
+                اعتماد
               </button>
             </div>
           </div>

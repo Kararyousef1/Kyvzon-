@@ -25,6 +25,8 @@ import { syncLogService }          from '../../../services/sdk/SyncLogService';
 import { securityEventService }    from '../../../services/sdk/SecurityEventService';
 import { attendanceService }       from '../../../services/sdk/AttendanceService';
 import { settingsService }         from '../../../services/sdk/SettingsService';
+import { techMetricsService, type IsolationRow } from '../../../services/sdk/TechMetricsService';
+import { legacyRouteService, type LegacyRouteSummary } from '../../../services/sdk/LegacyRouteService';
 import { getErrorMessage }         from '../../../services/errors';
 import { useUIStore }              from '../../../core/stores';
 import type { HealthCheck, HealthStatus, ServiceStatus } from '../types';
@@ -100,6 +102,7 @@ const ScoreRing: FC<{ score: number }> = ({ score }) => {
         <span className="text-3xl font-black text-white leading-none">{score}</span>
         <span className="text-xs font-bold mt-1" style={{ color }}>{label}</span>
       </div>
+
     </div>
   );
 };
@@ -133,7 +136,7 @@ const ServiceRow: FC<{ svc: ServiceStatus }> = ({ svc }) => {
     <div className="flex items-center gap-3 py-2.5 border-b border-slate-800/60 last:border-0">
       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${online ? 'bg-emerald-400' : degraded ? 'bg-amber-400 animate-pulse' : 'bg-red-400'}`} />
       <span className="flex-1 text-sm text-slate-300">{svc.nameAr}</span>
-      <span className="text-xs font-mono text-slate-600" dir="ltr">{svc.latency}ms</span>
+      <span className="text-xs font-mono text-slate-600" dir="ltr">{svc.latency === null ? "—" : `${svc.latency}ms`}</span>
       <span className={`text-xs font-bold px-2 py-0.5 rounded-md border ${
         online ? 'bg-emerald-900/30 border-emerald-700/40 text-emerald-400' :
         degraded ? 'bg-amber-900/30 border-amber-700/40 text-amber-400' :
@@ -141,7 +144,7 @@ const ServiceRow: FC<{ svc: ServiceStatus }> = ({ svc }) => {
       }`}>
         {online ? 'يعمل' : degraded ? 'بطيء' : 'متوقف'}
       </span>
-      <span className="text-[10px] text-slate-700 w-12 text-left">{svc.uptime}%</span>
+      <span className="text-[10px] text-slate-700 w-12 text-left">{svc.uptime === null ? "—" : `${svc.uptime}%`}</span>
     </div>
   );
 };
@@ -160,6 +163,10 @@ export default function SystemHealthPage() {
   const [loading,       setLoading]       = useState(true);
   const [lastChecked,   setLastChecked]   = useState<Date | null>(null);
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
+  // ★ تقرير العزل (0328): يُثبِت للمسؤول التقني أن بيانات شركته معزولة
+  const [isolation, setIsolation] = useState<IsolationRow[]>([]);
+  // ★ جاهزية إيقاف البوابة القديمة (0329) — قياس قبل الحذف
+  const [legacy, setLegacy] = useState<LegacyRouteSummary | null>(null);
 
   // ─── Run All Health Checks ──────────────────────────────────
   const runChecks = useCallback(async () => {
@@ -178,9 +185,22 @@ export default function SystemHealthPage() {
         settingsService.findSystemSettings(),
       ]);
 
-      const devices = devs.status === 'fulfilled' ? devs.value as any[] : [];
-      const logs    = recentLogs.status === 'fulfilled' ? recentLogs.value as any[] : [];
-      const events  = secEvents.status === 'fulfilled' ? secEvents.value as any[] : [];
+      type DeviceRow = { is_active?: boolean | null; last_sync_at?: string | null };
+      type LogRow    = {
+        status?: string | null; synced_at?: string | null;
+        sync_time?: string | null; created_at?: string | null;
+      };
+      type EventRow  = {
+        severity?: string | null; threat_level?: string | null;
+        created_at?: string | null;
+      };
+
+      const devices = devs.status === 'fulfilled'
+        ? (devs.value as unknown as DeviceRow[]) : [];
+      const logs    = recentLogs.status === 'fulfilled'
+        ? (recentLogs.value as unknown as LogRow[]) : [];
+      const events  = secEvents.status === 'fulfilled'
+        ? (secEvents.value as unknown as EventRow[]) : [];
       const punches = punchesToday.status === 'fulfilled' ? punchesToday.value as number : 0;
       const cfg     = settings.status === 'fulfilled' ? settings.value : null;
 
@@ -190,9 +210,14 @@ export default function SystemHealthPage() {
         if (!d.last_sync_at) return true;
         return new Date(d.last_sync_at) < new Date(Date.now() - 2 * 60 * 60 * 1000);
       });
-      const recentFails   = logs.filter(l => l.status === 'failed' && (l.sync_time || l.created_at) >= yesterday);
-      const weekFails     = logs.filter(l => l.status === 'failed' && (l.sync_time || l.created_at) >= weekAgo);
-      const criticalSec   = events.filter(e => ['high', 'critical'].includes(e.threat_level));
+      // ★ هشاشة كشفها tsc: `(l.sync_time || l.created_at)` قد يكون
+      //   undefined، والمقارنة `undefined >= date` تعطي false **صامتاً**
+      //   فيبدو أن لا فشل حديثاً بينما السبب حقل زمني مفقود. التطبيع صريح.
+      const logTime = (l: LogRow): string => l.sync_time || l.created_at || '';
+      const recentFails   = logs.filter(l => l.status === 'failed' && logTime(l) >= yesterday);
+      const weekFails     = logs.filter(l => l.status === 'failed' && logTime(l) >= weekAgo);
+      const criticalSec   = events.filter(e =>
+        ['high', 'critical'].includes(e.threat_level ?? ''));
       const successRate   = logs.length > 0
         ? Math.round((logs.filter(l => l.status === 'success').length / logs.length) * 100) : 100;
 
@@ -324,15 +349,35 @@ export default function SystemHealthPage() {
       const computed = Math.max(0, 100 - (fails * 15) - (warnings * 5));
       setScore(computed);
 
-      // Simulate service statuses (real ping needs Edge Function)
+      // ★ إزالة محاكاة (2026-08-05): كان يعرض latency بـ Math.random()
+      //   و uptime بأرقام ثابتة (99.9 / 97.5) كأنها قياسات حقيقية.
+      //   مؤشر صحة مُختلَق أخطر من غيابه: يُطمئن حين يجب أن يُنذر.
+      //
+      //   القياس الحقيقي يحتاج Edge Function تفحص كل خدمة. حتى ذلك
+      //   الحين نعرض الحالة المشتقّة من الفحوص الفعلية أعلاه، ونترك
+      //   الكمّيات فارغة (null) لتُظهرها الواجهة «غير متاح».
       setServices(SERVICES.map(svc => ({
         name: svc.name,
         nameAr: svc.nameAr,
         status: computed > 60 ? 'online' : computed > 40 ? 'degraded' : 'offline',
-        latency: Math.floor(Math.random() * 40) + 5,
-        uptime: computed > 80 ? 99.9 : computed > 60 ? 97.5 : 92.0,
+        latency: null,
+        uptime: null,
         lastChecked: now.toISOString(),
       })));
+
+      // ★ تقرير العزل — SECURITY INVOKER فيقيس RLS الفعلي لا يتجاوزه
+      try {
+        setIsolation(await techMetricsService.isolationReport());
+      } catch {
+        setIsolation([]);
+      }
+
+      // ★ جاهزية حذف طبقة ?view= القديمة
+      try {
+        setLegacy(await legacyRouteService.summary(90));
+      } catch {
+        setLegacy(null);
+      }
 
       setLastChecked(new Date());
     } catch (err) {
@@ -490,6 +535,104 @@ export default function SystemHealthPage() {
               لتفعيل مراقبة الاتصال الحقيقي بأجهزة ZKTeco، أضف Edge Function من إعدادات النظام.
             </li>
           </ul>
+        </div>
+      )}
+
+      {/* ★ عزل بيانات الشركة (0328) ────────────────────────────────
+          بوابة التقنية خاصة بشركتك: لا تعرض ولا تصل بيانات أي شركة
+          أخرى. هذا التقرير يُقاس تحت صلاحياتك الفعلية (RLS) لا
+          بتجاوزها — فالرقم هنا هو ما تراه حقاً. */}
+      {isolation.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/60 p-5" dir="rtl">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-slate-100">عزل بيانات شركتك</h3>
+            {isolation.every((r) => r.isIsolated) ? (
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-800">
+                معزولة بالكامل
+              </span>
+            ) : (
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-red-950/60 text-red-300 border border-red-800">
+                خرق عزل — راجع فوراً
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+            بوابة التقنية خاصة بشركتك. «صفوف من شركات أخرى» يجب أن يكون صفراً
+            دائماً — أي رقم غيره خرقٌ يستوجب الإبلاغ.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-slate-400 text-xs">
+                  <th className="text-right py-2 font-semibold">المجال</th>
+                  <th className="text-center py-2 font-semibold">صفوف شركتك</th>
+                  <th className="text-center py-2 font-semibold">من شركات أخرى</th>
+                  <th className="text-center py-2 font-semibold">الحالة</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {isolation.map((r) => (
+                  <tr key={r.area}>
+                    <td className="py-2 text-slate-200">{r.area}</td>
+                    <td className="py-2 text-center text-slate-300">{r.visible - r.foreign}</td>
+                    <td className={`py-2 text-center font-bold ${r.foreign === 0 ? 'text-slate-500' : 'text-red-400'}`}>
+                      {r.foreign}
+                    </td>
+                    <td className="py-2 text-center">
+                      {r.isIsolated
+                        ? <span className="text-emerald-400 text-xs font-bold">معزول ✓</span>
+                        : <span className="text-red-400 text-xs font-bold">خرق ✗</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ★ إيقاف البوابة القديمة (0329) ─────────────────────────────
+          طبقة `?view=` لا يستعملها أي كود داخلي — تخدم الروابط
+          الخارجية القديمة وحدها. هذه اللوحة تُخبر متى يُؤمَن حذفها،
+          فالقرار يُبنى على قياس لا على تقدير. */}
+      {legacy && (
+        <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/60 p-5" dir="rtl">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-slate-100">إيقاف المسارات القديمة</h3>
+            <span
+              className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                legacy.activeViews === 0
+                  ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
+                  : 'bg-amber-950/60 text-amber-300 border-amber-800'
+              }`}
+            >
+              {legacy.activeViews === 0 ? 'جاهز للحذف' : `${legacy.activeViews} مساراً نشطاً`}
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+            روابط قديمة بصيغة <code className="text-slate-300">?view=</code> ما زالت تُوجَّه
+            تلقائياً. لا يستعملها أي كود داخلي — فقط إشارات مرجعية وروابط محفوظة لدى
+            المستخدمين.
+          </p>
+          <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="rounded-xl bg-slate-800/60 p-3 text-center">
+              <p className="text-xl font-black text-slate-100">{legacy.distinctViews}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">مسار مُستعمَل</p>
+            </div>
+            <div className="rounded-xl bg-slate-800/60 p-3 text-center">
+              <p className="text-xl font-black text-slate-100">{legacy.totalHits}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">إجمالي الزيارات</p>
+            </div>
+            <div className="rounded-xl bg-slate-800/60 p-3 text-center">
+              <p className={`text-xl font-black ${legacy.activeViews === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {legacy.activeViews}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">نشط خلال 90 يوماً</p>
+            </div>
+          </div>
+          <p className="text-xs text-slate-300 bg-slate-800/40 border border-slate-700 rounded-xl p-3 leading-relaxed">
+            {legacy.recommendation}
+          </p>
         </div>
       )}
     </div>

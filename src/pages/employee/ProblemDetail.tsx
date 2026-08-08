@@ -6,7 +6,7 @@ import {
   AlertCircle, Loader2, Check, ChevronDown,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
-import { incidentService } from '../../services/sdk/IncidentService';
+import { incidentService, incidentErrorMessage } from '../../services/sdk/IncidentService';
 import { incidentCommentService } from '../../services/sdk/IncidentCommentService';
 import type { CommentDetail } from '../../services/sdk/IncidentCommentService';
 import type { User } from '../../shared/types';
@@ -49,14 +49,6 @@ interface ProblemDetailData {
 
 type ProblemStatus = 'pending' | 'in_progress' | 'resolved' | 'closed';
 
-interface RealtimePayload {
-  type?: string;
-  eventType?: string;
-  new?: Record<string, unknown>;
-  old?: Record<string, unknown>;
-  data?: Record<string, unknown>;
-}
-
 const STATUS_META: Record<ProblemStatus, { label: string; color: string; bg: string }> = {
   pending:     { label: 'قيد الانتظار', color: 'text-amber-700', bg: 'bg-amber-100' },
   in_progress: { label: 'قيد المعالجة', color: 'text-blue-700',  bg: 'bg-blue-100' },
@@ -93,7 +85,6 @@ export default function ProblemDetail() {
   const [isInternal, setIsInternal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sendingComment, setSendingComment] = useState(false);
-  const [badgeTrigger, setBadgeTrigger] = useState(0);
   const commentEndRef = useRef<HTMLDivElement>(null);
 
   // ─── جلب البيانات ────────────────────────────────────────────
@@ -110,7 +101,8 @@ export default function ProblemDetail() {
   const fetchCommentsData = useCallback(async () => {
     if (!problemId) return;
     try {
-      const data = await incidentCommentService.findCommentsByIncident(problemId);
+      // ★ 0342: عبر incident_thread — يحترم RLS ويُخفي هوية المجهول
+      const data = await incidentCommentService.thread(problemId);
       setComments(data);
     } catch (err) {
       console.error('Error fetching comments:', getErrorMessage(err));
@@ -126,39 +118,20 @@ export default function ProblemDetail() {
     })();
   }, [problemId, fetchProblem, fetchCommentsData]);
 
-  // ─── Realtime subscription ────────────────────────────────────
+  // ─── تحديث دوري ───────────────────────────────────────────────
+  //
+  // ★ 0342: كان اشتراكاً لحظياً يستورد `supabase` مباشرةً — خرقٌ لقاعدة
+  //   «الصفحات لا تلمس Supabase». والاشتراك على `incidents` و
+  //   `incident_comments` كان يبثّ **كل** تغيير في الجدول إلى العميل
+  //   قبل أن يُرشّحه، بما فيه التعليقات الداخلية.
+  //   الاستقصاء عبر طبقة SDK يحترم RLS ويُبقي الحدود سليمة.
   useEffect(() => {
     if (!problemId) return;
-
-    let channel: any = null;
-    let cancelled = false;
-
-    (async () => {
-      const { supabase } = await import('../../services/supabase/supabase');
-      if (cancelled) return;
-      channel = supabase
-        .channel(`problem-${problemId}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'incidents', filter: `id=eq.${problemId}` },
-          async () => { if (!cancelled) await fetchProblem(); }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'incident_comments', filter: `incident_id=eq.${problemId}` },
-          async () => { if (!cancelled) await fetchCommentsData(); }
-        )
-        .subscribe();
-    })();
-
-    return () => {
-      cancelled = true;
-      if (channel) {
-        import('../../services/supabase/supabase').then(({ supabase }) => {
-          supabase.removeChannel(channel);
-        });
-      }
-    };
+    const timer = window.setInterval(() => {
+      void fetchProblem();
+      void fetchCommentsData();
+    }, 20000);
+    return () => window.clearInterval(timer);
   }, [problemId, fetchProblem, fetchCommentsData]);
 
   // ─── Auto scroll ──────────────────────────────────────────────
@@ -171,18 +144,15 @@ export default function ProblemDetail() {
     if (!newComment.trim() || !user?.id || !problemId) return;
     setSendingComment(true);
     try {
-      await incidentCommentService.addComment({
-        incident_id: problemId,
-        user_id: user.id,
-        text: newComment.trim(),
-        is_internal: isInternal,
-      });
+      // ★★★ 0342: `addComment` لم تكن تمرّر tenant_id والسياسة تشترطه
+      //   ⇒ إضافة أي تعليق كانت مستحيلة (مُقاس: RLS يصدّ الإدراج).
+      //   ولا نمرّر user_id — تشتقّه القاعدة من الجلسة.
+      await incidentCommentService.add(problemId, newComment.trim(), isInternal);
       setNewComment('');
       setIsInternal(false);
       await fetchCommentsData();
-      setBadgeTrigger(prev => prev + 1);
     } catch (err) {
-      addToast('فشل إرسال التعليق: ' + getErrorMessage(err), 'error');
+      addToast(incidentErrorMessage(getErrorMessage(err)), 'error');
     } finally {
       setSendingComment(false);
     }
@@ -192,11 +162,13 @@ export default function ProblemDetail() {
   const handleStatusChange = async (newStatus: ProblemStatus) => {
     if (!problemId) return;
     try {
-      await incidentService.updateStatus(problemId, newStatus);
+      // ★ 0341: عبر بوّابة القاعدة. `updateStatus` القديمة كانت تكتب
+      //   مباشرةً وتفشل **صامتةً** لغير staff (0 صفوف متأثّرة).
+      await incidentService.setStatus(problemId, newStatus);
       await fetchProblem();
       addToast(`تم تحديث الحالة إلى ${STATUS_META[newStatus].label}`, 'success');
     } catch (err) {
-      addToast('فشل تحديث الحالة: ' + getErrorMessage(err), 'error');
+      addToast(incidentErrorMessage(getErrorMessage(err)), 'error');
     }
   };
 

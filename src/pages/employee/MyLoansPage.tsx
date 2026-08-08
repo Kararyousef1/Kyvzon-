@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarClock, CreditCard, Eye, Loader2, Plus, TrendingDown } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { employeeService, employeeLoanService } from '../../services/sdk';
+import { financialRequestService } from '../../services/sdk/FinancialRequestService';
 import { getErrorMessage } from '../../services/errors';
 import { addMonths, format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -71,8 +72,8 @@ export default function MyLoansPage() {
         return;
       }
       try {
-        if ((user as any).employee_id) {
-          setEmployeeId((user as any).employee_id);
+        if (user.employee_id) {
+          setEmployeeId(user.employee_id);
           return;
         }
         const employees = await employeeService.findAll({ filters: { user_id: user.id }, limit: 1 });
@@ -90,7 +91,7 @@ export default function MyLoansPage() {
     if (!employeeId) return;
     setLoading(true);
     try {
-      const data = await employeeLoanService.findByEmployee(employeeId) as any[];
+      const data = await employeeLoanService.findByEmployee(employeeId);
       setLoans((data || []).map(normalizeLoan));
     } catch (err) {
       console.error(getErrorMessage(err));
@@ -125,17 +126,26 @@ export default function MyLoansPage() {
     }
     setSubmitting(true);
     try {
-      await employeeLoanService.createLoan({
+      const created = await employeeLoanService.createLoan({
         employee_id: employeeId,
         amount: Number(form.amount),
         months_count: Number(form.months_count),
         monthly_installment: Number(form.amount) / Number(form.months_count),
-        remaining_amount: Number(form.amount),
+        // ★ remaining_amount تُضبط عند **الاعتماد** لا عند الطلب
+        //   (sync_hr_source_status في 0325). نتركها صفراً حتى يُعتمد.
+        remaining_amount: 0,
         months_paid: 0,
         start_date: form.start_date,
         purpose: form.purpose.trim(),
         status: 'pending',
-      } as any);
+      } as unknown as Parameters<typeof employeeLoanService.createLoan>[0]);
+
+      // ★ سلسلة الاعتماد (migration 0325) — بحسب مبلغ السلفة
+      if (created?.id) {
+        await financialRequestService.createApproval(
+          'loan', created.id, employeeId, Number(form.amount),
+        );
+      }
       addToast('تم إرسال طلب السلفة إلى الموارد البشرية', 'success');
       setShowRequest(false);
       setForm({ amount: 0, months_count: 6, purpose: '', start_date: format(new Date(), 'yyyy-MM-dd') });

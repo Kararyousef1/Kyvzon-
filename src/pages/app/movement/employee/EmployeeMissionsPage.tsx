@@ -6,6 +6,7 @@ import type { EmployeeMissionRecord } from '../../../../shared/types/employee-vi
 import Card from '../../../../shared/components/ui/Card';
 import Button from '../../../../shared/components/ui/Button';
 import { getErrorMessage } from '../../../../services/errors';
+import { MovementUnitNav } from '../shared/MovementUnitNav';
 
 export default function EmployeeMissionsPage() {
   const { user } = useAuthStore();
@@ -78,6 +79,7 @@ export default function EmployeeMissionsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in" dir="rtl">
+      <MovementUnitNav unit="employee_missions" />
       <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white flex items-center justify-between flex-wrap gap-4">
         <div>
           <p className="text-white/70 text-sm font-semibold">Employee Movement • E04</p>
@@ -151,7 +153,7 @@ export default function EmployeeMissionsPage() {
               <label className="block text-xs font-bold text-slate-600 mb-1">نوع المهمة</label>
               <select
                 value={form.mission_type}
-                onChange={e => setForm({ ...form, mission_type: e.target.value as any })}
+                onChange={e => setForm({ ...form, mission_type: e.target.value as EmployeeMissionRecord['mission_type'] })}
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400"
               >
                 <option value="official_mission">مهمة رسمية (Official Mission)</option>

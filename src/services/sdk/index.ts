@@ -21,12 +21,23 @@ export type { PublicSignupRequestRecord, PublicSignupStatus } from './PublicSign
 export type { PublicSignupIntentType, PublicSignupRequestInput } from './PublicSignupService';
 export type { LoginResult, SessionResult } from './AuthService';
 export { userService } from './UserService';
-export type { UserProfile, UserUpdateInput } from './UserService';
+export type { UserProfile, UserUpdateInput, TalentProfileRecord, CvArchiveInfo } from './UserService';
 export { employeeService } from './EmployeeService';
 export type { EmployeeInput, EmployeeRecord } from './EmployeeService';
 export { attendanceService, attendanceSummaryService } from './AttendanceService';
 export { leaveService, leaveBalanceService, leaveSettingsService, holidayService } from './LeaveService';
+// ★ 0339: بوّابة النزاهة — تغلّف دوال القاعدة لا الجدول الخام
+export { leaveRequestService, leaveErrorMessage } from './LeaveRequestService';
+export type {
+  LeaveScope, LeaveStatusValue, LeaveRequestRow, SubmitLeaveResult,
+} from './LeaveRequestService';
 export { permissionService, permissionRequestService } from './PermissionService';
+// ★ 0340: بوّابة نزاهة الزمنيات — تغلّف دوال القاعدة لا الجدول الخام
+export { permissionRequestGateway, permissionErrorMessage } from './PermissionRequestGatewayService';
+export type {
+  PermissionScope, PermissionStatusValue, PermissionKind,
+  PermissionRequestRow, SubmitPermissionResult,
+} from './PermissionRequestGatewayService';
 export { notificationService } from './NotificationService';
 export { payrollService } from './PayrollService';
 export { aiService } from './AIService';
@@ -52,6 +63,8 @@ export { gatekeeperSessionService, gatekeeperVisitorLogService, movementLogServi
 export { gatekeeperVisitorService } from './GatekeeperVisitorService';
 export { expenseRequestService, employeeLoanService, bonusService } from './FinanceService';
 export { courseService, courseProgressService } from './TrainingService';
+export { quizService } from './QuizService';
+export type { QuizRecord, QuizUpsertInput } from './QuizService';
 export { disciplinaryActionService, employeeDocumentService } from './HRService';
 export { performanceCycleService, performanceReviewService } from './PerformanceService';
 export { onboardingTaskService, employeeOnboardingService, offboardingRecordService } from './OnboardingService';
@@ -296,6 +309,19 @@ export type { ProjectAccountingRecord, ProjectBudgetLineRecord, ProjectActualSna
 export { financeIntegrationService } from './FinanceIntegrationService';
 export type { FinanceIntegrationConnectorRecord, FinanceIntegrationEventRecord, FinanceIntegrationDashboardRecord } from './FinanceIntegrationService';
 export { hrApprovalService } from './HrApprovalService';
+export { financialRequestService } from './FinancialRequestService';
+export { techMetricsService } from './TechMetricsService';
+export { legacyRouteService } from './LegacyRouteService';
+export { techAuditService } from './TechAuditService';
+export { techIntegrationsService } from './TechIntegrationsService';
+export type {
+  IntegrationHealth, IntegrationEvent, ExportRecord, ExportSummaryRow,
+  ExportSource, ExportFailure, CarrierWebhookEvent, CarrierWebhookSummary,
+} from './TechIntegrationsService';
+export type { AuditEvent, AuditModule, TechError, ErrorSeverityCount, ScheduledJob } from './TechAuditService';
+export type { LegacyRouteReadiness, LegacyRouteSummary } from './LegacyRouteService';
+export type { DeviceHealth, DeviceToggleResult, IsolationRow } from './TechMetricsService';
+export type { FinancialRequestType, ApprovalDecision, DecisionOutcome, FinancialApprovalStep } from './FinancialRequestService';
 // 🆕 مفاتيح المزوّدين لكل شركة (BYOK — النموذج ب)
 export { tenantProviderService, SUPPORTED_PROVIDERS } from './TenantProviderService';
 export type { ProviderChannel, ProviderStatus, ProviderMeta } from './TenantProviderService';
@@ -631,3 +657,239 @@ export { mrpCostElementService, mrpCostingProfileService, mrpStandardCostService
 
 // 🆕 بوابة التصنيع MRP — Unit 10: Manufacturing Analytics
 export { mrpManufacturingKpiTargetService, mrpManufacturingSnapshotService, mrpManufacturingAlertService, mrpManufacturingRcaService, mrpManufacturingReportService, mrpManufacturingAnalyticsService } from './MrpAnalyticsService';
+export { employeeDashboardService } from './EmployeeDashboardService';
+export { hrDashboardService } from './HrDashboardService';
+export { hrAttendanceBoardService } from './HrAttendanceBoardService';
+export { kioskService } from './KioskService';
+export { payrollRunService } from './PayrollRunService';
+export type { PayrollRunResult, PayrollSummary } from './PayrollRunService';
+export type {
+  KioskBoardRow, KioskStats, KioskPunchResult, PunchType,
+} from './KioskService';
+export type {
+  DailyAttendanceRow, DailyAttendanceSummary, DailyAttendanceStatus,
+} from './HrAttendanceBoardService';
+export type {
+  HrDashboardSummary, HrDepartmentStat, HrMonthlyPoint, HrWellnessPoint,
+} from './HrDashboardService';
+export type { DashboardSummary, LeaveBalanceSummary } from './EmployeeDashboardService';
+export type { MyAttendanceDay, MyAttendanceStats, MyAttendanceStreak } from './AttendanceService';
+export type { MyIncident, HrIncident, HrIncidentStats } from './IncidentService';
+
+// 🆕 دورة حياة السلف (migration 0355)
+export { loanService, LOAN_STATUSES, LOAN_STATUS_AR, LOAN_STATUS_TONE } from './LoanService';
+export type {
+  LoanDbStatus, LoanDecision, RepaymentSource,
+  LoanSummary, LoanRow, RepaymentRow, LoanCreateInput,
+} from './LoanService';
+
+// 🆕 تقييم الأداء (migration 0356)
+export {
+  performanceReviewSdk,
+  REVIEW_STATUSES, REVIEW_STATUS_AR, REVIEW_STATUS_TONE, REVIEW_TRANSITIONS,
+  CYCLE_STATUSES, CYCLE_STATUS_AR, CYCLE_STATUS_TONE, CYCLE_TRANSITIONS,
+  CYCLE_PERIODS, CYCLE_PERIOD_AR,
+} from './PerformanceReviewService';
+export type {
+  ReviewDbStatus, CycleDbStatus, CyclePeriod,
+  PerformanceSummary, CycleRow, ReviewRow,
+  CycleCreateInput, ReviewCreateInput,
+} from './PerformanceReviewService';
+
+// 🆕 دليل فريق العمل (migration 0357)
+export {
+  teamDirectoryService,
+  TEAM_STATUSES, TEAM_STATUS_AR, TEAM_STATUS_TONE,
+  ROLE_AR, ROLE_TONE, roleLabel, roleTone,
+} from './TeamDirectoryService';
+export type {
+  TeamStatus, TeamMember, TeamSummary, TeamDepartment,
+} from './TeamDirectoryService';
+
+// 🆕 دورة حياة المكافآت (migration 0358)
+export {
+  bonusSdk,
+  BONUS_STATUSES, BONUS_STATUS_AR, BONUS_STATUS_TONE, BONUS_TRANSITIONS,
+  BONUS_TYPES, BONUS_TYPE_AR,
+} from './BonusService';
+export type {
+  BonusDbStatus, BonusDbType, BonusDecision,
+  BonusSummary, BonusRow, BonusCreateInput,
+} from './BonusService';
+
+// 🆕 التعريف وإنهاء الخدمة (migration 0359)
+export {
+  onboardingLifecycleSdk,
+  ONBOARDING_TASK_STATUSES, ONBOARDING_TASK_STATUS_AR,
+  ONBOARDING_TASK_STATUS_TONE,
+  EXIT_TYPES, EXIT_TYPE_AR, EXIT_TYPE_TONE, exitTypeLabel, exitTypeTone,
+} from './OnboardingLifecycleService';
+export type {
+  OnboardingTaskStatus, ExitType, OnboardingTask, OnboardingRow,
+  OffboardingRow, OnboardingSummary, OffboardingInput,
+} from './OnboardingLifecycleService';
+
+// 🆕 مستندات الموظفين (migration 0360)
+export {
+  employeeDocumentsSdk,
+  DOCUMENT_TYPES, DOCUMENT_KIND_AR, DOCUMENT_KIND_TONE,
+  EXPIRY_STATES, EXPIRY_STATE_AR, EXPIRY_STATE_TONE,
+  ALWAYS_CONFIDENTIAL, isAlwaysConfidential,
+  documentKindLabel, documentKindTone, expiryStateLabel, expiryStateTone,
+  DOCUMENTS_BUCKET, DOCUMENTS_FOLDER, MAX_DOCUMENT_BYTES,
+} from './EmployeeDocumentsService';
+export type {
+  DocumentKind, ExpiryState, DocumentRow, DocumentsSummary,
+  DocumentUploadInput,
+} from './EmployeeDocumentsService';
+
+// 🆕 تخطيط التعاقب (migration 0361)
+export {
+  successionPlanningSdk,
+  READINESS_LEVELS, READINESS_AR, READINESS_TONE, READINESS_RANK,
+  READINESS_MIN_SCORE, RISK_LEVELS, RISK_AR, RISK_TONE, POSITION_STATUSES,
+  readinessLabel, readinessTone, riskLabel, riskTone, minScoreFor,
+} from './SuccessionPlanningService';
+export type {
+  ReadinessLevel, RiskLevel, PositionStatus, SuccessionCandidate,
+  SuccessionPositionRow, SuccessionSummary, PositionInput, NominateInput,
+} from './SuccessionPlanningService';
+
+// 🆕 التوظيف (migration 0362)
+export {
+  recruitmentSdk,
+  POSTING_STATUSES, POSTING_STATUS_AR, POSTING_STATUS_TONE,
+  APPLICATION_STATUSES, APPLICATION_STAGE_AR, APPLICATION_STAGE_TONE,
+  EMPLOYMENT_TYPES, EMPLOYMENT_TYPE_AR, STAGE_RANK, TERMINAL_STAGES,
+  postingStatusLabel, postingStatusTone, stageLabel, stageTone,
+  employmentTypeLabel,
+} from './RecruitmentPipelineService';
+export type {
+  PostingStatus, ApplicationStage, EmploymentType, PostingRow,
+  ApplicationRow, RecruitmentSummary, PostingInput, ApplicationInput,
+  HireResult,
+} from './RecruitmentPipelineService';
+
+// 🆕 دورة حياة النفقات (migration 0363)
+export {
+  expenseSdk,
+  EXPENSE_STATES, EXPENSE_STATE_AR, EXPENSE_STATE_TONE,
+  EXPENSE_CATEGORIES, EXPENSE_CATEGORY_AR, EXPENSE_DECISIONS,
+  expenseStateLabel, expenseStateTone, expenseCategoryLabel,
+} from './ExpenseLifecycleService';
+export type {
+  ExpenseState, ExpenseCategory, ExpenseDecision, ExpenseRow,
+  ExpenseSummary, ChainState, ExpenseInput,
+} from './ExpenseLifecycleService';
+
+// 🆕 عقود الموظفين (migration 0364)
+export {
+  contractSdk,
+  CONTRACT_TYPES, CONTRACT_TYPE_AR, CONTRACT_STATES, CONTRACT_STATE_AR,
+  CONTRACT_STATE_TONE, CONTRACT_EXPIRY_STATES, CONTRACT_EXPIRY_AR,
+  CONTRACT_EXPIRY_TONE, CONTRACT_CURRENCIES, TERM_TYPES, needsEndDate,
+  contractTypeLabel, contractStateLabel, contractStateTone,
+  contractExpiryLabel, contractExpiryTone,
+} from './EmployeeContractService';
+export type {
+  ContractType, ContractState, ContractExpiryState, ContractCurrency,
+  ContractRow, ContractSummary, ContractInput,
+} from './EmployeeContractService';
+
+// 🆕 الإجراءات التأديبية (migration 0365)
+// ★ تضارب أسماء مُتفادى: البادئة DISCIPLINARY_* في كل الثوابت،
+//   و`SEVERE_KINDS` فريدةٌ في الحزمة (فُحصت قبل التصدير).
+export {
+  disciplinarySdk,
+  DISCIPLINARY_TYPES, DISCIPLINARY_KIND_AR, DISCIPLINARY_KIND_TONE,
+  DISCIPLINARY_SEVERITIES, DISCIPLINARY_SEVERITY_AR, DISCIPLINARY_SEVERITY_TONE,
+  DISCIPLINARY_STATES, DISCIPLINARY_STATE_AR, DISCIPLINARY_STATE_TONE,
+  APPEAL_DECISIONS, APPEAL_DECISION_AR, SEVERE_KINDS, isSevereKind,
+  disciplinaryKindLabel, disciplinarySeverityLabel, disciplinaryStateLabel,
+  appealDecisionLabel, disciplinaryKindTone, disciplinarySeverityTone,
+  disciplinaryStateTone,
+} from './DisciplinaryService';
+export type {
+  DisciplinaryKind, DisciplinarySeverity, DisciplinaryState, AppealDecision,
+  DisciplinaryRow, DisciplinarySummary, DisciplinaryInput,
+} from './DisciplinaryService';
+
+// 🆕 مركز خدمات الموارد البشرية (migration 0367)
+// ★ فُحص التضارب قبل التصدير: صفر اسمٍ مُكرَّر في الحزمة.
+export {
+  serviceCenterSdk,
+  CASE_STATES, CASE_STATE_AR, CASE_STATE_TONE,
+  CASE_PRIORITIES, CASE_PRIORITY_AR, CASE_PRIORITY_TONE,
+  CASE_CHANNELS, CASE_CHANNEL_AR, CASE_TYPES, CASE_TYPE_AR,
+  LETTER_TYPES, LETTER_TYPE_AR, LETTER_STATES, LETTER_STATE_AR,
+  LETTER_STATE_TONE, LETTER_LANGUAGES, LETTER_LANGUAGE_AR,
+  LETTER_DELIVERIES, LETTER_DELIVERY_AR,
+  CASE_CLOSED_STATES, LETTER_FINAL_STATES, isCaseClosed, isLetterFinal,
+  caseStateLabel, casePriorityLabel, caseChannelLabel, caseTypeLabel,
+  letterTypeLabel, letterStateLabel, letterLanguageLabel, letterDeliveryLabel,
+  caseStateTone, casePriorityTone, letterStateTone,
+} from './ServiceCenterService';
+export type {
+  CaseState, CasePriority, CaseChannel, CaseType,
+  LetterType, LetterState, LetterLanguage, LetterDelivery,
+  CaseRow, LetterRow, ServiceCenterSummary, CaseInput, LetterInput,
+} from './ServiceCenterService';
+
+// 🆕 جدولة الورديات (migration 0368)
+// ★ فُحص التضارب قبل التصدير: صفر اسمٍ مُكرَّر في الحزمة.
+export {
+  shiftScheduleSdk,
+  SHIFT_CODES, SHIFT_CODE_AR, SHIFT_CODE_TONE,
+  SHIFT_STATES, SHIFT_STATE_AR, SHIFT_STATE_TONE,
+  shiftCodeLabel, shiftStateLabel, shiftCodeTone, shiftStateTone,
+  isShiftCancelled,
+} from './ShiftScheduleService';
+export type {
+  ShiftCode, ShiftState, ShiftRow, ShiftSummary,
+  ShiftConflict, ShiftAssignInput,
+} from './ShiftScheduleService';
+
+// 🆕 الصحة والسلامة المهنية / CAPA (migration 0369)
+// ★ فُحص التضارب قبل التصدير: صفر اسمٍ مُكرَّر في الحزمة.
+export {
+  occupationalSafetySdk,
+  SAFETY_CATEGORIES, SAFETY_CATEGORY_AR,
+  SAFETY_SEVERITIES, SAFETY_SEVERITY_AR, SAFETY_SEVERITY_TONE,
+  SAFETY_STATES, SAFETY_STATE_AR, SAFETY_STATE_TONE,
+  CAPA_STATES, CAPA_STATE_AR, CAPA_STATE_TONE,
+  CAPA_PRIORITIES, CAPA_PRIORITY_AR, CAPA_PRIORITY_TONE,
+  safetyCategoryLabel, safetySeverityLabel, safetyStateLabel,
+  capaStateLabel, capaPriorityLabel,
+  safetySeverityTone, safetyStateTone, capaStateTone, capaPriorityTone,
+  isCapaFinal, isIncidentClosed,
+} from './OccupationalSafetyService';
+export type {
+  SafetyCategory, SafetySeverity, SafetyState, CapaState, CapaPriority,
+  SafetyIncidentRow, CapaRow, HealthSafetySummary, CapaInput,
+} from './OccupationalSafetyService';
+
+// 🆕 تقارير الموارد البشرية (migration 0370)
+// ★ فُحص التضارب قبل التصدير: صفر اسمٍ مُكرَّر في الحزمة.
+export {
+  hrReportSdk,
+  HR_REPORT_CATEGORIES, HR_REPORT_CATEGORY_AR, HR_REPORT_CATEGORY_TONE,
+  hrReportCategoryLabel, hrReportCategoryTone,
+  hrReportToCsv, hrReportFileName,
+} from './HrReportService';
+export type {
+  HrReportCategory, HrReportDefinitionRow, HrReportResultRow,
+  HrReportResult, HrReportRunRow,
+} from './HrReportService';
+
+// 🆕 صندوق بريد الموارد البشرية (migration 0371)
+// ★ فُحص التضارب قبل التصدير: صفر اسمٍ مُكرَّر في الحزمة.
+export {
+  hrInboxSdk,
+  INBOX_STATES, INBOX_STATE_AR, INBOX_STATE_TONE,
+  INBOX_PRIORITIES, INBOX_PRIORITY_AR, INBOX_PRIORITY_TONE,
+  inboxStateLabel, inboxStateTone, inboxPriorityLabel, inboxPriorityTone,
+  isInboxFinal,
+} from './HrInboxService';
+export type {
+  InboxState, InboxPriority, InboxMessageRow, InboxSummary,
+} from './HrInboxService';

@@ -28,6 +28,20 @@ import { getCurrentTenantId } from '../../services/sdk/BaseService';
 import { supabase } from '../../services/supabase/supabase';
 import { getErrorMessage } from '../../services/errors';
 import type { UserRole } from '../../shared/types';
+import { portalUnitService } from '../../services/sdk/PortalUnitService';
+import { employeePlacementService, type ShiftOption } from '../../services/sdk/EmployeePlacementService';
+import {
+  PortalUnitPicker,
+  validatePortalUnits,
+  type SelectedPortalUnit,
+} from './components/PortalUnitPicker';
+import {
+  findUnit,
+  pagesForUnit,
+  allUnitPageIds,
+  type PortalUnitBaseRole,
+  type PortalUnitKey,
+} from '../../shared/constants/portalUnits';
 
 type FinanceRole = 'viewer' | 'accountant' | 'approver' | 'finance_manager' | 'entity_admin';
 
@@ -53,6 +67,10 @@ const ROLES: { value: string; label: string; color: string }[] = [
   { value: 'procurement',label: 'مشتريات',       color: 'bg-amber-100 text-amber-700'  },
   { value: 'inventory',  label: 'مخزون ومستودعات', color: 'bg-indigo-100 text-indigo-700'},
   { value: 'manufacturing', label: 'تصنيع MRP', color: 'bg-orange-100 text-orange-700'},
+  // بوابة الحركة واللوجستيات (0270-0299)
+  { value: 'employee_movement', label: 'حركة الموظفين', color: 'bg-sky-100 text-sky-700'   },
+  { value: 'logistics',      label: 'لوجستيات',      color: 'bg-lime-100 text-lime-700'   },
+  { value: 'movement_manager', label: 'مدير الحركة واللوجستيات', color: 'bg-purple-100 text-purple-700'},
 ];
 
 const ROLE_LABELS: Record<string, string> = Object.fromEntries(ROLES.map(r => [r.value, r.label]));
@@ -61,6 +79,7 @@ const ROLE_MODULE_MAP: Record<string, string> = {
   employee: 'employee', supervisor: 'supervisor', manager: 'manager',
   hr: 'hr', gatekeeper: 'gatekeeper', admin: 'admin', finance: 'finance', tech: 'tech_portal',
   marketing: 'marketing', sales: 'crm', procurement: 'procurement', inventory: 'inventory', manufacturing: 'mrp',
+  employee_movement: 'movement', logistics: 'movement', movement_manager: 'movement',
 };
 
 type PortalPage = { id: string; label: string };
@@ -108,6 +127,8 @@ const PORTAL_PAGES: PortalPagesConfig[] = [
     portalLabel: 'بوابة الموارد البشرية (HR)', moduleKey: 'hr',
     pages: [
       { id: 'hr-dashboard', label: 'الرئيسية' }, { id: 'hr-problems', label: 'البلاغات' },
+      // ★ كانت غائبة رغم تسجيلها في الكتالوج وlegacyRedirect
+      { id: 'hr-leave-requests', label: 'طلبات الإجازات' },
       { id: 'hr-analytics', label: 'التحليلات' }, { id: 'hr-team', label: 'إدارة الموظفين' },
       { id: 'hr-reports', label: 'التقارير' }, { id: 'hr-attendance', label: 'سجلات الحضور' },
       { id: 'hr-talent-market', label: 'سجل المؤهلات' }, { id: 'hr-movement-analysis', label: 'تحليل الحركة' },
@@ -131,6 +152,11 @@ const PORTAL_PAGES: PortalPagesConfig[] = [
       { id: 'admin-compliance', label: 'مركز الامتثال' }, { id: 'admin-ai-config', label: 'إعدادات AI' },
       { id: 'admin-reports', label: 'تقارير النظام' }, { id: 'admin-sops-reports', label: 'تقارير SOP' },
       { id: 'admin-audit-log', label: 'سجل العمليات' },
+      { id: 'admin-approval-rules', label: 'قواعد الاعتماد' },
+      // ★ كانتا غائبتين رغم تسجيلهما في الكتالوج وPERMISSION_KEYS
+      //   وlegacyRedirect — فلم تُمنحا لأي مسؤول جديد.
+      { id: 'admin-permissions', label: 'شجرة الصلاحيات' },
+      { id: 'admin-mrp-roles', label: 'أدوار التصنيع الدقيقة' },
     ],
   },
   {
@@ -139,6 +165,11 @@ const PORTAL_PAGES: PortalPagesConfig[] = [
       { id: 'supervisor-dashboard', label: 'الرئيسية' }, { id: 'supervisor-breaks', label: 'تسجيل الخروج' },
       { id: 'supervisor-shift', label: 'إدارة الوردية' }, { id: 'supervisor-tasks', label: 'المهام اليومية' },
       { id: 'supervisor-checklists', label: 'قوائم الفحص' },
+      { id: 'supervisor-unit-movement-shift', label: 'وحدة الحركة — حركة الوردية' },
+      { id: 'supervisor-unit-hr-approvals', label: 'وحدة الموارد البشرية — المتابعة' },
+      { id: 'supervisor-unit-inventory-approvals', label: 'وحدة المخزون — المتابعة' },
+      { id: 'supervisor-unit-mrp-approvals', label: 'وحدة التصنيع — المتابعة' },
+      { id: 'supervisor-unit-health-safety-approvals', label: 'وحدة الصحة والسلامة — المتابعة' },
     ],
   },
   {
@@ -147,6 +178,16 @@ const PORTAL_PAGES: PortalPagesConfig[] = [
       { id: 'manager-dashboard', label: 'الرئيسية' }, { id: 'manager-attendance', label: 'حضور الفريق' },
       { id: 'manager-approvals', label: 'مركز الموافقات' }, { id: 'manager-performance', label: 'أداء الفريق' },
       { id: 'manager-workload', label: 'عبء العمل' },
+      { id: 'manager-unit-movement-approvals', label: 'وحدة الحركة — اعتماد التصاريح' },
+      { id: 'manager-unit-movement-team', label: 'وحدة الحركة — حركة الفريق' },
+      { id: 'manager-unit-hr-approvals', label: 'وحدة الموارد البشرية — الاعتماد' },
+      { id: 'manager-unit-finance-approvals', label: 'وحدة المالية — الاعتماد' },
+      { id: 'manager-unit-procurement-approvals', label: 'وحدة المشتريات — الاعتماد' },
+      { id: 'manager-unit-inventory-approvals', label: 'وحدة المخزون — الاعتماد' },
+      { id: 'manager-unit-mrp-approvals', label: 'وحدة التصنيع — الاعتماد' },
+      { id: 'manager-unit-contracts-approvals', label: 'وحدة العقود — الاعتماد' },
+      { id: 'manager-unit-crm-approvals', label: 'وحدة المبيعات — الاعتماد' },
+      { id: 'manager-unit-health-safety-approvals', label: 'وحدة الصحة والسلامة — الاعتماد' },
     ],
   },
   {
@@ -158,6 +199,45 @@ const PORTAL_PAGES: PortalPagesConfig[] = [
     ],
   },
   {
+    portalLabel: 'بوابة الحركة واللوجستيات — حركة الموظفين', moduleKey: 'movement',
+    pages: [
+      { id: 'movement-emp-foundation', label: 'الأساس والسياسات' },
+      { id: 'movement-emp-permits', label: 'تصاريح الخروج' },
+      { id: 'movement-emp-execution', label: 'تنفيذ البوابة' },
+      { id: 'movement-emp-visits', label: 'الزيارات الميدانية' },
+      { id: 'movement-emp-missions', label: 'المهام والانتدابات' },
+      { id: 'movement-emp-compliance', label: 'الامتثال والمخالفات' },
+      { id: 'movement-emp-analytics', label: 'تحليلات الحركة' },
+    ],
+  },
+  {
+    portalLabel: 'بوابة الحركة واللوجستيات — اللوجستيات', moduleKey: 'movement',
+    pages: [
+      { id: 'movement-log-dashboard', label: 'برج المراقبة' },
+      { id: 'movement-log-fleet', label: 'الأسطول والمركبات' },
+      { id: 'movement-log-drivers', label: 'السائقون والامتثال' },
+      { id: 'movement-log-maintenance', label: 'الصيانة والإصلاح' },
+      { id: 'movement-log-fuel', label: 'الوقود والطاقة' },
+      { id: 'movement-log-orders', label: 'أوامر النقل والشحنات' },
+      { id: 'movement-log-routes', label: 'تخطيط المسارات' },
+      { id: 'movement-log-dispatch', label: 'الإرسال والتنفيذ' },
+      { id: 'movement-log-tracking', label: 'التتبع الحي' },
+      { id: 'movement-log-track-replay', label: 'إعادة تشغيل المسار' },
+      { id: 'movement-log-safety', label: 'امتثال السلامة HOS/DVIR' },
+      { id: 'movement-driver-trips', label: 'تطبيق السائق — رحلاتي' },
+      { id: 'movement-log-epod', label: 'التسليم وإثباته' },
+      { id: 'movement-log-carriers', label: 'الناقلون والتعاقد' },
+      { id: 'movement-log-costs', label: 'التكاليف والتحليلات' },
+    ],
+  },
+  {
+    // ★★ عطل مُصلَح (0332): كانت سبع صفحات من إحدى عشرة. الصفحات
+    //   الأربع المضافة في 0330·0331·0332 غابت عن هذه القائمة، فلم
+    //   تُمنح لأي تقني جديد — و`Sidebar.tsx` يُرجِع
+    //   `allowedPages.includes(item.id)` فتختفي من الشريط الجانبي
+    //   تماماً لكل من له `custom_permissions.allowed_pages`.
+    //   القائمة هنا مكتوبة يدوياً ومنفصلة عن `hybridPagesCatalog.ts`،
+    //   ويحرس تطابقهما الآن `adminUserPagesContract.test.ts`.
     portalLabel: 'البوابة التقنية (IT)', moduleKey: 'tech_portal',
     pages: [
       { id: 'tech-dashboard', label: 'لوحة التحكم التقنية' },
@@ -166,6 +246,10 @@ const PORTAL_PAGES: PortalPagesConfig[] = [
       { id: 'attendance-analytics', label: 'تحليلات الحضور التقنية' },
       { id: 'system-health', label: 'صحة النظام' },
       { id: 'security-events', label: 'الأحداث الأمنية' },
+      { id: 'tech-audit-trail', label: 'سجل التدقيق الموحّد' },
+      { id: 'tech-error-logs', label: 'الأخطاء والمهام المجدولة' },
+      { id: 'tech-integrations', label: 'التكاملات والصادرات' },
+      { id: 'tech-data-exports', label: 'الصادرات وأحداث الناقلين' },
       { id: 'tech-settings', label: 'الإعدادات التقنية' },
     ],
   },
@@ -546,6 +630,8 @@ const EMPTY_FORM = {
   department: '', department_id: '', position: '', phone: '',
   branch_id: '', shift_code: '', status: 'active',
   allowed_pages: [] as string[],
+  // وحدات بوابتَي المدير والمشرف (0302) — تظهر فقط لهذين الدورين
+  portal_units: [] as SelectedPortalUnit[],
   finance: {
     legal_entity_id: '', finance_role: 'viewer' as FinanceRole,
     canPostJE: false, canClosePeriod: false, canManageCoA: false,
@@ -565,6 +651,8 @@ export default function AdminEmployeesPage() {
   const [employees,       setEmployees]       = useState<any[]>([]);
   const [departments,     setDepartments]     = useState<any[]>([]);
   const [branches,        setBranches]        = useState<any[]>([]);
+  // كتالوج الورديات من القاعدة (0319) — كان أربع قيم ثابتة في JSX
+  const [shiftOptions,    setShiftOptions]    = useState<ShiftOption[]>([]);
   const [legalEntities,   setLegalEntities]   = useState<LegalEntityRecord[]>([]);
   const [costCenters,     setCostCenters]     = useState<any[]>([]);
   const [projects,        setProjects]        = useState<any[]>([]);
@@ -660,6 +748,8 @@ export default function AdminEmployeesPage() {
       setEmployees(emps || []);
       setDepartments(depts || []);
       setBranches(brs || []);
+      // كتالوج الورديات (0319) — فشله لا يُسقط الشاشة
+      setShiftOptions(await employeePlacementService.findShifts().catch(() => []));
       setLegalEntities(entities as any || []);
       setCostCenters(cc as any);
       setProjects(projs as any);
@@ -733,19 +823,48 @@ export default function AdminEmployeesPage() {
       passcode:     '',
       role:         emp.role || 'employee',
       department:   emp.department || '',
-      department_id:'',
+      // ⚠️ إصلاح 2026-08-05: كان يُترك فارغاً دائماً فيُملأ فقط عند تغيير
+      // القسم يدوياً. النتيجة: إسناد وحدة بنطاق «قسم» لموظف قائم يفشل
+      // على قيد portal_unit_scope_coherence لأن scope_id فارغ.
+      // نستنتجه بمطابقة الاسم — نفس جسر is_in_my_team في 0302.
+      department_id: departments.find(
+        (d: any) => String(d.name_ar ?? '').trim().toLowerCase()
+          === String(emp.department ?? '').trim().toLowerCase(),
+      )?.id || '',
       position:     emp.position || '',
       phone:        emp.phone || '',
       branch_id:    emp.branch_id || '',
       shift_code:   '',
       status:       emp.status || 'active',
       allowed_pages: existingAllowedPages,
+      portal_units: [],
       finance: { ...EMPTY_FORM.finance },
     });
     setFormMode('edit');
     setSelectedEmp(emp);
     setWizardStep(1);
     setModalOpen(true);
+
+    // ★ تحميل التنسيب الحقيقي من employees (0319).
+    //
+    //   قبله كان النموذج يقرأ `emp.branch_id` — وهو عمود غير موجود على
+    //   profiles (القيمة كانت محبوسة في custom_permissions) — و
+    //   `shift_code: ''` ثابتاً. فالحقلان يظهران فارغين مهما كانت القيمة
+    //   المحفوظة، ثم يُحفظ الفراغ فوق الأصل.
+    void employeePlacementService
+      .findPlacement(emp.id)
+      .then(pl => {
+        if (!pl) return;
+        setForm(f => ({
+          ...f,
+          department_id: pl.departmentId ?? f.department_id,
+          department:    pl.departmentName ?? f.department,
+          branch_id:     pl.branchId ?? '',
+          shift_code:    pl.shiftCode ?? '',
+        }));
+      })
+      .catch(() => { /* لا تنسيب بعد — النموذج يبقى بقيمه المستنتَجة */ });
+
     try {
       const { data } = await supabase
         .from('entity_memberships')
@@ -757,6 +876,22 @@ export default function AdminEmployeesPage() {
         setForm(f => ({ ...f, finance: { ...f.finance, legal_entity_id: first.legal_entity_id, finance_role: first.finance_role } }));
       }
     } catch { /* silent */ }
+
+    // وحدات البوابة القائمة (0302) — نحمّلها ليعرضها المعالج محدَّدة
+    try {
+      const assignments = await portalUnitService.findForUser(emp.id);
+      const baseRole = emp.role === 'supervisor' ? 'supervisor' : 'manager';
+      setForm(f => ({
+        ...f,
+        portal_units: assignments
+          .filter(a => a.base_role === baseRole)
+          .map(a => ({
+            unitKey: a.unit_key,
+            scopeType: a.scope_type,
+            scopeId: a.scope_id,
+          })),
+      }));
+    } catch { /* الوحدات اختيارية — فشل قراءتها لا يمنع التحرير */ }
   };
 
   const openView = async (emp: any) => {
@@ -800,13 +935,57 @@ export default function AdminEmployeesPage() {
   };
 
   // ─── handleSave ───────────────────────────────────────────────────────────
+  /** هل هذا الدور يقبل وحدات بوابة؟ (0302) */
+  const unitBaseRole = (role: string): PortalUnitBaseRole | null =>
+    role === 'manager' ? 'manager' : role === 'supervisor' ? 'supervisor' : null;
+
+  /**
+   * صفحات الوحدات المختارة — تُضاف إلى allowed_pages تلقائياً.
+   * الوحدة تُنتج صفحاتها ولا تُبدّل بقية الصلاحيات.
+   */
+  const pagesFromUnits = useCallback(
+    (role: string, units: SelectedPortalUnit[]): string[] => {
+      const base = unitBaseRole(role);
+      if (!base) return [];
+      return units.flatMap(u => {
+        const def = findUnit(u.unitKey);
+        return def ? pagesForUnit(def, base).map(p => p.id) : [];
+      });
+    },
+    [],
+  );
+
   const handleSave = async () => {
     if (!validateStep1() || !validateStep2()) return;
+
+    // تحقق الوحدات قبل أي كتابة — أفضل من فشل قيد القاعدة بعد نصف الحفظ
+    const baseRole = unitBaseRole(form.role);
+    if (baseRole) {
+      const unitError = validatePortalUnits(form.portal_units);
+      if (unitError) {
+        addToast(unitError, 'error');
+        setWizardStep(3);
+        return;
+      }
+    }
+
     const tenantId = getCurrentTenantId();
     const defaultPages = getDefaultPagesForRole(form.role);
-    const effectiveAllowedPages = (form.allowed_pages.length > 0 || pageSelectionTouched)
+    const basePages = (form.allowed_pages.length > 0 || pageSelectionTouched)
       ? form.allowed_pages
       : defaultPages;
+
+    // صفحات الوحدات تُضاف، وصفحات الوحدات غير المختارة تُزال.
+    // هكذا يعكس allowed_pages الوحدات المُسنَدة دائماً بلا بقايا.
+    const selectedUnitPages = pagesFromUnits(form.role, form.portal_units);
+    const allKnownUnitPages = new Set(allUnitPageIds());
+    const effectiveAllowedPages = [
+      ...new Set([
+        ...basePages.filter(id => !allKnownUnitPages.has(id)),
+        ...selectedUnitPages,
+      ]),
+    ];
+
     setSaving(true);
     try {
       if (formMode === 'edit' && selectedEmp) {
@@ -841,6 +1020,27 @@ export default function AdminEmployeesPage() {
           custom_permissions: { ...currentCustom, allowed_pages: effectiveAllowedPages },
         }).eq('id', selectedEmp.id);
 
+        // ★ حفظ التنسيب: القسم والفرع والوردية (0319)
+        //
+        //   العطل الذي يُصلحه: مسار التعديل كان يحفظ الاسم والقسم نصّاً
+        //   فقط، فأي تغيير في الفرع أو الوردية يُهمَل صامتاً. والقسم
+        //   كنصّ لا يُحدِّث employees.department_id فلا يظهر الموظف في
+        //   الهيكل التنظيمي.
+        //
+        //   set_employee_placement تكتب في employees وتتحقق من انتماء
+        //   كل مرجع للمستأجر. تمرير undefined يعني «لا تغيير» فلا يُمحى
+        //   حقل لم يُلمَس.
+        try {
+          await employeePlacementService.savePlacement(selectedEmp.id, {
+            departmentId: form.department_id || null,
+            branchId:     form.branch_id || null,
+            // '' يمسح الوردية عمداً حين يختار المستخدم «-- اختر --»
+            shiftCode:    form.shift_code ?? '',
+          });
+        } catch (err) {
+          addToast('تعذّر حفظ القسم/الفرع/الوردية: ' + getErrorMessage(err), 'error');
+        }
+
         // مزامنة حالة Auth إذا تغيرت
         if (form.status !== selectedEmp.status) {
           await adminUserService.toggleUserStatus(selectedEmp.id, form.status === 'inactive', currentUser?.id || '');
@@ -865,6 +1065,32 @@ export default function AdminEmployeesPage() {
               finance_role:    form.finance.finance_role,
               is_active:       true,
             });
+          }
+        }
+
+        // ─── وحدات البوابة (0302) ───────────────────────────────────────
+        // syncUserUnits لا يحذف: ما يخرج من الاختيار يُعطَّل (is_active=false).
+        // تغيير الدور من مدير إلى موظف يُعطّل وحداته تلقائياً (قائمة فارغة).
+        if (tenantId) {
+          try {
+            const base = unitBaseRole(form.role);
+            await portalUnitService.syncUserUnits(
+              selectedEmp.id,
+              tenantId,
+              base
+                ? form.portal_units.map(u => ({
+                    userId: selectedEmp.id,
+                    baseRole: base,
+                    unitKey: u.unitKey,
+                    scopeType: u.scopeType,
+                    scopeId: u.scopeId,
+                  }))
+                : [],
+            );
+          } catch (unitErr) {
+            // لا نُفشل الحفظ كله — الملف حُدِّث فعلاً. نُبلّغ بوضوح.
+            addToast('حُفظت البيانات، لكن تعذّرت مزامنة وحدات البوابة: '
+              + getErrorMessage(unitErr), 'error');
           }
         }
 
@@ -910,6 +1136,28 @@ export default function AdminEmployeesPage() {
               finance_role:    form.finance.finance_role,
               is_active:       true,
             });
+          }
+
+          // ─── وحدات البوابة (0302) ─────────────────────────────────────
+          const base = unitBaseRole(form.role);
+          if (base && tenantId && form.portal_units.length > 0) {
+            try {
+              await portalUnitService.syncUserUnits(
+                newUserId,
+                tenantId,
+                form.portal_units.map(u => ({
+                  userId: newUserId,
+                  baseRole: base,
+                  unitKey: u.unitKey,
+                  scopeType: u.scopeType,
+                  scopeId: u.scopeId,
+                })),
+              );
+            } catch (unitErr) {
+              // الحساب أُنشئ فعلاً — لا نُخفي فشل الوحدات خلف رسالة نجاح
+              addToast('أُنشئ الحساب، لكن تعذّر إسناد وحدات البوابة: '
+                + getErrorMessage(unitErr), 'error');
+            }
           }
         }
 
@@ -1302,10 +1550,13 @@ export default function AdminEmployeesPage() {
                     <label className="text-xs font-bold text-slate-600 mb-1.5 block">الوردية التشغيلية</label>
                     <select value={form.shift_code} onChange={e => setForm(f => ({ ...f, shift_code: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500">
                       <option value="">-- اختر الوردية --</option>
-                      <option value="morning">الوردية الصباحية (08:00 ص — 04:00 م)</option>
-                      <option value="evening">الوردية المسائية (04:00 م — 12:00 ص)</option>
-                      <option value="night">الوردية الليلية (12:00 ص — 08:00 ص)</option>
-                      <option value="flexible">وردية مرنة (Flexible)</option>
+                      {/* من structure_shifts عبر shift_catalog (0319).
+                          كانت أربع قيم ثابتة فلا تظهر ورديات الشركة الخاصة. */}
+                      {shiftOptions.map(sh => (
+                        <option key={sh.code} value={sh.code}>
+                          {sh.nameAr} ({sh.startTime} — {sh.endTime}){sh.isGlobal ? '' : ' ★'}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -1318,6 +1569,21 @@ export default function AdminEmployeesPage() {
                     <p className="font-bold">الخطوة 3: البوابات والصلاحيات المالية المتقدمة</p>
                     <p className="mt-0.5 text-indigo-700">تحديد صلاحيات الكيانات القانونية والوصول المالي.</p>
                   </div>
+
+                  {/* وحدات البوابة (0302) — للمدير والمشرف فقط */}
+                  {unitBaseRole(form.role) && (
+                    <PortalUnitPicker
+                      baseRole={unitBaseRole(form.role) as PortalUnitBaseRole}
+                      value={form.portal_units}
+                      onChange={(next) => {
+                        setPageSelectionTouched(true);
+                        setForm(f => ({ ...f, portal_units: next }));
+                      }}
+                      departments={departments as any}
+                      branches={branches as any}
+                      employeeDepartmentId={form.department_id}
+                    />
+                  )}
 
                   {/* Page Permissions */}
                   <div className="space-y-4">

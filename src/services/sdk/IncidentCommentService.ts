@@ -7,116 +7,92 @@
  */
 
 import { BaseService } from './BaseService';
+import { incidentErrorMessage } from './IncidentService';
 import type { IncidentCommentRecord } from '../../shared/types/sdk';
 import { supabase } from '../supabase/supabase';
+import { logger } from '../utils/logger';
 
 export interface CommentDetail {
   id: string;
   incident_id: string;
-  user_id: string;
+  /** ★ 0342: `null` حين يكون الكاتب صاحبَ بلاغ مجهول — الإخفاء من القاعدة */
+  user_id: string | null;
   text: string;
   is_internal: boolean;
   created_at: string;
   user_name?: string;
   user_role?: string;
+  /** ★ 0342: هل التعليق لي؟ يُحسب في القاعدة */
+  is_mine?: boolean;
 }
 
-interface CommentRow {
-  id: string;
-  incident_id: string;
-  user_id: string;
-  text: string;
-  is_internal: boolean;
-  created_at: string;
-  profiles?: { full_name?: string; role?: string } | null;
-}
 
 class IncidentCommentService extends BaseService<IncidentCommentRecord> {
   constructor() {
     super('incident_comments');
   }
 
-  /** جلب التعليقات لبلاغ معين (مع معلومات المستخدم) */
-  async findCommentsByIncident(incidentId: string): Promise<CommentDetail[]> {
-    try {
-      const { data, error } = await supabase
-        .from(this.tableName)
-        .select('id, incident_id, user_id, text, is_internal, created_at, profiles(full_name, role)')
-        .eq('incident_id', incidentId)
-        .order('created_at', { ascending: true });
-
-      if (error) return [];
-
-      return ((data as CommentRow[]) || []).map((comment) => ({
-        id: comment.id,
-        incident_id: comment.incident_id,
-        user_id: comment.user_id,
-        text: comment.text,
-        is_internal: comment.is_internal,
-        created_at: comment.created_at,
-        user_name: comment.profiles?.full_name || 'مستخدم',
-        user_role: comment.profiles?.role,
-      }));
-    } catch {
+  /**
+   * خيط تعليقات البلاغ (migration 0342).
+   *
+   * ★★★ كانت تستعلم عن الجدول مباشرةً بـ`profiles(full_name, role)`.
+   *   المشكلة لم تكن الاستعلام بل **من يرى ماذا**:
+   *   `kyvzon_incident_comments_select` تشترط `user_id = auth.uid()`
+   *   أي **كاتب التعليق** لا صاحب البلاغ. مُقاس على بلاغ فيه ثلاثة
+   *   تعليقات: صاحبه يرى **1** (تعليقه هو) والموارد ترى 3 ⇒ المحادثة
+   *   أحادية الاتجاه، الموظف يكتب ولا يرى الجواب.
+   *
+   * ★★ والدالة تُخفي اسم صاحب البلاغ المجهول في تعليقاته أيضاً —
+   *   وإلا كُشفت الهوية من الخيط رغم إخفائها في الصندوق (0338).
+   */
+  async thread(incidentId: string): Promise<CommentDetail[]> {
+    const { data, error } = await supabase.rpc('incident_thread', {
+      p_incident_id: incidentId,
+    });
+    if (error) {
+      logger.error('incident_thread فشل: ' + error.message, {
+        component: 'IncidentCommentService', action: 'thread',
+      });
       return [];
     }
+    type Raw = {
+      out_id: string; out_text: string; out_is_internal: boolean;
+      out_author_id: string | null; out_author: string;
+      out_is_mine: boolean; out_created_at: string;
+    };
+    return ((data ?? []) as Raw[]).map((r) => ({
+      id: r.out_id,
+      incident_id: incidentId,
+      user_id: r.out_author_id,
+      text: r.out_text,
+      is_internal: Boolean(r.out_is_internal),
+      created_at: r.out_created_at,
+      user_name: r.out_author,
+      is_mine: Boolean(r.out_is_mine),
+    }));
   }
 
-  /** إضافة تعليق جديد */
-  async addComment(data: {
-    incident_id: string;
-    user_id: string;
-    text: string;
-    is_internal?: boolean;
-  }): Promise<CommentDetail | null> {
-    try {
-      const { data: result, error } = await supabase
-        .from(this.tableName)
-        .insert({
-          incident_id: data.incident_id,
-          user_id: data.user_id,
-          text: data.text,
-          is_internal: data.is_internal || false,
-          created_at: new Date().toISOString(),
-        })
-        .select('id, incident_id, user_id, text, is_internal, created_at, profiles(full_name, role)')
-        .single();
-
-      if (error) return null;
-
-      const row = result as CommentRow;
-      return {
-        id: row.id,
-        incident_id: row.incident_id,
-        user_id: row.user_id,
-        text: row.text,
-        is_internal: row.is_internal,
-        created_at: row.created_at,
-        user_name: row.profiles?.full_name || 'مستخدم',
-        user_role: row.profiles?.role,
-      };
-    } catch {
-      return null;
+  /**
+   * إضافة تعليق (migration 0342).
+   *
+   * ★★★ `addComment` القديمة لم تمرّر `tenant_id` والسياسة تشترطه.
+   *   مُقاس بجلسة RLS: `new row violates row-level security policy
+   *   for table "incident_comments"` ⇒ **إضافة أي تعليق مستحيلة**.
+   * ★ ولا تستقبل `user_id` — تشتقّه القاعدة من الجلسة.
+   */
+  async add(incidentId: string, text: string, isInternal = false): Promise<string> {
+    const { data, error } = await supabase.rpc('add_incident_comment', {
+      p_incident_id: incidentId,
+      p_text: text,
+      p_internal: isInternal,
+    });
+    if (error) {
+      logger.error('add_incident_comment فشل: ' + error.message, {
+        component: 'IncidentCommentService', action: 'add',
+      });
+      throw new Error(incidentErrorMessage(error.message));
     }
-  }
-
-  /** حذف تعليق */
-  async deleteComment(commentId: string): Promise<boolean> {
-    try {
-      const { error } = await supabase.from(this.tableName).delete().eq('id', commentId);
-      return !error;
-    } catch { return false; }
-  }
-
-  /** تحديث تعليق */
-  async updateComment(commentId: string, text: string): Promise<boolean> {
-    try {
-      const { error } = await supabase
-        .from(this.tableName)
-        .update({ text, updated_at: new Date().toISOString() })
-        .eq('id', commentId);
-      return !error;
-    } catch { return false; }
+    return String(data ?? '');
   }
 }
 

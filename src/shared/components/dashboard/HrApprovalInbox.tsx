@@ -17,6 +17,21 @@ import { leaveService, permissionRequestService } from '../../../services/sdk';
 import Card, { CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
 
+/** حقول الإجازة المستعملة في العرض — بديل `as any` */
+interface LeaveDetail {
+  leave_type: string;
+  date_from: string;
+  date_to: string;
+  working_days_count: number | null;
+}
+
+/** حقول الإذن المستعملة في العرض */
+interface PermissionDetail {
+  permission_type: string;
+  date: string;
+  expected_out_time: string;
+}
+
 type PendingItem = HrApprovalRequest & { my_step: HrApprovalStep; detail?: string; employee_label?: string };
 
 export default function HrApprovalInbox() {
@@ -39,10 +54,10 @@ export default function HrApprovalInbox() {
           let detail = '';
           try {
             if (p.request_type === 'leave') {
-              const lv = await leaveService.findById(p.related_id) as any;
-              if (lv) detail = `${lv.leave_type} — من ${lv.date_from} إلى ${lv.date_to} (${lv.working_days_count} يوم)`;
+              const lv = (await leaveService.findById(p.related_id)) as LeaveDetail | null;
+              if (lv) detail = `${lv.leave_type} — من ${lv.date_from} إلى ${lv.date_to} (${lv.working_days_count ?? '—'} يوم)`;
             } else {
-              const pr = await permissionRequestService.findById(p.related_id) as any;
+              const pr = (await permissionRequestService.findById(p.related_id)) as PermissionDetail | null;
               if (pr) detail = `${pr.permission_type} — ${pr.date} (${pr.expected_out_time})`;
             }
           } catch { /* تجاهل */ }
@@ -62,19 +77,15 @@ export default function HrApprovalInbox() {
   const decide = async (item: PendingItem, decision: 'approved' | 'rejected', comments?: string) => {
     setProcessingId(item.id);
     try {
+      // ★ القاعدة تُزامن leaves/permissions_request عبر sync_hr_source_status
+      //   (محفّز على جدول الخطوات — migration 0323).
+      //
+      //   قبل 0323 كانت هذه الدالة تكتب 'موافق عليه' من المتصفح، وهي سلسلة
+      //   لا تقرؤها أي شاشة موظف: LeaveRequestPage تقارن بـ'موافق'. النتيجة
+      //   كانت إجازة مُعتمَدة تظهر للموظف «قيد المراجعة» إلى الأبد.
+      //   المزامنة من المتصفح خاطئة أصلاً: إغلاق التبويب بين النداءين
+      //   يترك الطلب مُعتمَداً ومصدره معلَّقاً.
       const finalStatus = await hrApprovalService.decide(item.id, decision, comments);
-
-      // مزامنة حالة الطلب الأصلي عند اكتمال السلسلة
-      if (finalStatus === 'approved' || finalStatus === 'rejected') {
-        const newStatus = finalStatus === 'approved' ? 'موافق عليه' : 'مرفوض';
-        try {
-          if (item.request_type === 'leave') {
-            await leaveService.update(item.related_id, { status: newStatus } as any);
-          } else {
-            await permissionRequestService.update(item.related_id, { status: newStatus } as any);
-          }
-        } catch { /* تجاهل — السلسلة هي المرجع */ }
-      }
 
       addToast(
         decision === 'approved'

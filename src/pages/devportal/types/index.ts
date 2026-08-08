@@ -120,6 +120,8 @@ export type DevPortalPage =
   | 'public-site'
   | 'visitor-leads'
   | 'permissions'
+  | 'subscription-conflicts'
+  | 'enforcement-console'
   | 'audit-log' 
   | 'settings';
 
@@ -134,6 +136,8 @@ export const PAGE_META: Record<DevPortalPage, { title: string; description: stri
   'public-site': { title: 'إدارة الموقع العام',    description: 'إدارة صفحات الفوتر وCTA وتدفق التسجيل العام' },
   'visitor-leads': { title: 'طلبات الزوار',        description: 'إدارة طلبات التسجيل والخطط والخدمات والتقييمات من صفحة الهبوط' },
   permissions:   { title: 'نظام الصلاحيات',        description: 'إدارة صلاحيات الأدوار والمستخدمين في المنصة' },
+  'enforcement-console': { title: 'إقفال الاشتراك', description: 'تشغيل حراسة الوحدات على مستوى قاعدة البيانات — شركةً شركة' },
+  'subscription-conflicts': { title: 'تعارضات الاشتراك', description: 'كشف آلي لتلابس أنواع الاشتراك والوحدات غير المُفعَّلة' },
   'audit-log':   { title: 'سجل العمليات',          description: 'مراقبة جميع عمليات المنصة وسجل التدقيق' },
   settings:      { title: 'إعدادات المنصة',        description: 'تكوين إعدادات منصة Kyvzon العامة' },
 };

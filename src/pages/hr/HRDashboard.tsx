@@ -6,11 +6,12 @@ import {
   Bell, Shield, BarChart2
 } from 'lucide-react';
 import { useUIStore } from '../../core/stores';
-import { employeeService } from '../../services/sdk/EmployeeService';
-import { departmentService } from '../../services/sdk/DepartmentService';
 import { incidentService } from '../../services/sdk/IncidentService';
-import { wellnessEntryService } from '../../services/sdk/WellnessService';
 import { reviewService } from '../../services/sdk/ReviewService';
+import { hrDashboardService } from '../../services/sdk/HrDashboardService';
+import type {
+  HrDepartmentStat, HrMonthlyPoint, HrWellnessPoint,
+} from '../../services/sdk/HrDashboardService';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Badge from '../../shared/components/ui/Badge';
 import Button from '../../shared/components/ui/Button';
@@ -68,8 +69,80 @@ function KPICard({ label, value, icon: Icon, color, bg, trend, trendUp, suffix =
   );
 }
 
+// ════════════════════════════════════════════════════════════════
+//  أنواع بيانات اللوحة
+//
+//  ★ المرحلة 1: كانت ثماني مصفوفات معلَنة `[] as any[]` — أكبر تجمّع
+//    لـ`as any` في البوابتين. كل بنية أدناه مُستخرَجة من الكود الذي
+//    يبنيها ومن الحقول التي تقرؤها الواجهة فعلاً، لا من تخمين.
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * نقطة في الرسم الشهري.
+ *
+ * ★★★ 0345: كانت تُبنى في المتصفح بـ`getMonth()` وحده — يُهمل السنة،
+ *   فبلاغ مارس 2024 يُحتسب ضمن مارس 2026. صارت تُحسب في القاعدة
+ *   بحدود زمنية حقيقية، و`label` يُشتقّ من (سنة، شهر) معاً.
+ */
+interface MonthlyTrendPoint extends Omit<HrMonthlyPoint, 'month'> {
+  /** تسمية العرض — تشمل السنة حين يعبر النطاق حدّها */
+  month: string;
+  monthNum: number;
+}
+
+/** فئة بلاغات مع نسبتها */
+interface CategorySlice {
+  category: string; count: number; percentage: number;
+}
+
+/** مستوى خطورة مع لونه */
+interface SeveritySlice {
+  severity: string; count: number; color: string;
+}
+
+/**
+ * إحصاءات قسم.
+ *
+ * ★★★ 0345: كانت تُجمَّع في المتصفح بعمودين غير موجودين
+ *   (`w.mood_score` ⇒ NaN) ومعرّف من جدول آخر (`reported_by` هو
+ *   `profiles.id` لا `employees.id` ⇒ صفر بلاغات لكل قسم).
+ *   الوسيطان `wellnessTotal/Count` لم يعودا لازمين — القاعدة تُعيد
+ *   المتوسط جاهزاً محسوباً على **الموظفين** لا الإدخالات.
+ */
+interface DepartmentStat extends HrDepartmentStat {
+  fullMark: number;
+}
+
+/**
+ * نقطة في اتجاه الصحة النفسية (7 أيام).
+ *
+ * ★★ `score` قد يكون `null` = «لا بيانات». الصفحة كانت تكتب صفراً
+ *   فتُظهر عطلة نهاية الأسبوع كانهيار نفسي في الرسم.
+ */
+interface WellnessPoint extends HrWellnessPoint { day: string; }
+
+/** بلاغ حديث مُثرًى بمُبلِّغه */
+interface RecentIncident {
+  id: string;
+  title?: string;
+  status?: string;
+  severity?: string;
+  created_at?: string;
+  reported_by?: string;
+  reporter?: { full_name?: string; full_name_ar?: string } | undefined;
+}
+
+/** مراجعة عميل حديثة */
+interface RecentReview {
+  customer_name?: string;
+  product_name?: string;
+  review_text?: string;
+  rating: number;
+}
+
 export default function HRDashboard() {
   const navigate = useNavigate();
+  const { addToast } = useUIStore();
   const [loading,   setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview'|'problems'|'wellness'>('overview');
@@ -78,162 +151,143 @@ export default function HRDashboard() {
     totalEmployees:    0,
     activeEmployees:   0,
     wellnessScore:     0,
-    satisfactionRate:  85,
+    /** ★ عدد الإدخالات خلف المتوسط — رقمٌ بلا سياق يُضلّل */
+    wellnessSamples:   0,
     resolvedThisMonth: 0,
     pending:           0,
     inProgress:        0,
-    critical:          0,
-    escalated:         0,
-    monthlyTrend:      [] as any[],
-    categoryBreakdown: [] as any[],
-    departmentStats:   [] as any[],
-    severityBreakdown: [] as any[],
-    wellnessTrend:     [] as any[],
-    recentIncidents:   [] as any[],
-    topDepartments:    [] as any[],
-        recentReviews:     [] as any[],
+    /** ★★ الحرجة **المفتوحة** لا كل الحرجة (مؤشّر إنذار لا عدّاد) */
+    criticalOpen:      0,
+    /**
+     * ★★★ بديل `escalated`: قيد CHECK على incidents.status يسمح بـ
+     *   pending·in_progress·resolved·closed فقط، فبطاقة «مُصعَّدة»
+     *   كانت تعرض صفراً إلى الأبد. «غير مُسنَدة» حالة حقيقية.
+     */
+    unassigned:        0,
+    monthlyTrend:      [] as MonthlyTrendPoint[],
+    categoryBreakdown: [] as CategorySlice[],
+    departmentStats:   [] as DepartmentStat[],
+    severityBreakdown: [] as SeveritySlice[],
+    wellnessTrend:     [] as WellnessPoint[],
+    recentIncidents:   [] as RecentIncident[],
+    topDepartments:    [] as DepartmentStat[],
+    recentReviews:     [] as RecentReview[],
   });
 
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      let profiles: any[] = [];
-      let incidents: any[] = [];
-      let wellness: any[] = [];
-      let reviews: any[] = [];
-      
-      try {
-        const empsData = await employeeService.findAll({ filters: { is_active: true } });
-        const deptsData = await departmentService.findAll();
-        const deptMap = new Map((deptsData || []).map((d: { id: string; name_ar: string }) => [d.id, d.name_ar]));
-        profiles = (empsData || []).map((e: any) => ({
-          ...e,
-          full_name: e.full_name_ar || e.full_name || '',
-          department: deptMap.get(e.department_id || '') || '',
-        }));
-      } catch (e) {}
-      
-      try {
-        incidents = await incidentService.findAll() || [];
-      } catch (e) {}
-      
-      try {
-        wellness = await wellnessEntryService.findAllEntries() || [];
-      } catch (e) {}
-      
-      try {
-        reviews = await reviewService.findLatest(5) || [];
-      } catch (e) {}
+      /**
+       * ★★★ 0345: كانت اللوحة تجلب **كل** موظفي الشركة وكل بلاغاتها
+       *   وكل إدخالات العافية إلى المتصفح ثم تُجمّعها هناك — بأعمدة
+       *   خاطئة أنتجت أصفاراً وNaN. الآن أربعة استدعاءات محسوبة في
+       *   القاعدة، والأعمدة مُتحقَّق منها عند تطبيق المايجريشن.
+       */
+      const [sum, depts, monthly, wellness, incs, reviews] = await Promise.all([
+        hrDashboardService.summary(),
+        hrDashboardService.departments(20),
+        hrDashboardService.monthlyTrend(6),
+        hrDashboardService.wellnessTrend(7),
+        // البلاغات الحديثة للعرض فقط — بحدّ صريح لا جلب كامل
+        // ★★★★ عطلٌ بلّغ عنه المستخدم (2026-08-08):
+        //   TypeError: incList.forEach is not a function
+        //   `hrInbox()` تُعيد صفحةً `{ rows, total }` لا مصفوفة، والفحصُ
+        //   الشرطيّ `incidentService.hrInbox ? …` كان يفحص **وجود الدالة**
+        //   لا شكلَ ناتجها، فمرّ الكائنُ إلى `incList.forEach` فانفجرت
+        //   اللوحة كاملةً. نستخرج `rows` صراحةً.
+        incidentService.hrInbox({ limit: 5 }).then((p) => p.rows),
+        reviewService.findLatest(5).catch(() => []),
+      ]);
 
-      const emps = profiles || [];
-      const incs = incidents || [];
-      const well = wellness  || [];
+      // ── الاتجاه الشهري: التسمية من (سنة، شهر) معاً ──
+      const spansYears = monthly.some((x) => x.year !== monthly[0]?.year);
+      const monthlyTrend: MonthlyTrendPoint[] = monthly.map((m) => ({
+        year: m.year,
+        monthNum: m.month,
+        problems: m.problems,
+        resolved: m.resolved,
+        critical: m.critical,
+        // ★ نُظهر السنة حين يعبر النطاق حدّها — «يناير» مرّتين في رسم
+        //   واحد بلا تمييز يُربك القارئ.
+        month: spansYears
+          ? `${MONTHS[m.month - 1]} ${String(m.year).slice(2)}`
+          : MONTHS[m.month - 1],
+      }));
 
-      const currentMonth = new Date().getMonth();
+      // ── الأقسام ──
+      const departmentStats: DepartmentStat[] = depts.map((d) => ({
+        ...d, fullMark: 100,
+      }));
 
-      // ── إحصاءات أساسية ──
-      const pending    = incs.filter(i => i.status === 'pending').length;
-      const inProgress = incs.filter(i => i.status === 'in_progress').length;
-      const critical   = incs.filter(i => i.severity === 'critical').length;
-      const escalated  = incs.filter(i => i.status === 'escalated').length;
-      const resolvedThisMonth = incs.filter(i =>
-        (i.status === 'resolved' || i.status === 'closed') &&
-        i.updated_at && new Date(i.updated_at).getMonth() === currentMonth
-      ).length;
+      // ── اتجاه العافية ──
+      const wellnessTrend: WellnessPoint[] = wellness.map((w) => ({
+        ...w,
+        day: format(new Date(w.date), 'EEE', { locale: ar }),
+      }));
 
-      // ── الاتجاه الشهري (6 أشهر) ──
-      const monthlyTrend = Array.from({ length: 6 }, (_, i) => {
-        const m = (currentMonth - 5 + i + 12) % 12;
-        const monthIncs = incs.filter(inc => new Date(inc.created_at).getMonth() === m);
-        return {
-          month:    MONTHS[m],
-          problems: monthIncs.length,
-          resolved: monthIncs.filter(i => i.status === 'resolved' || i.status === 'closed').length,
-          critical: monthIncs.filter(i => i.severity === 'critical').length,
-        };
-      });
-
-      // ── التوزيع بالفئات ──
-      const catMap: Record<string, number> = {};
-      incs.forEach(i => { const c = i.category || 'other'; catMap[c] = (catMap[c] || 0) + 1; });
+      // ── التوزيع بالفئات وبالخطورة (من البلاغات المعروضة) ──
+      // ★ `incs` مصفوفةٌ الآن يقيناً — لكنّ الحارس يبقى: أيُّ تغييرٍ
+      //   لاحقٍ في شكل الناتج يُعطي قائمةً فارغةً لا انهياراً.
+      const incList: RecentIncident[] = Array.isArray(incs)
+        ? (incs as RecentIncident[])
+        : [];
       const catLabels: Record<string, string> = {
         technical: 'تقني', hr: 'موارد بشرية', management: 'إدارة',
         workplace: 'بيئة عمل', salary: 'رواتب', safety: 'سلامة', other: 'أخرى',
       };
-      const categoryBreakdown = Object.entries(catMap).map(([cat, count]) => ({
-        category: catLabels[cat] || cat,
-        count,
-        percentage: Math.round((count / (incs.length || 1)) * 100),
-      })).sort((a, b) => b.count - a.count);
+      const catMap: Record<string, number> = {};
+      incList.forEach((i) => {
+        const c = (i as { category?: string }).category || 'other';
+        catMap[c] = (catMap[c] || 0) + 1;
+      });
+      const categoryBreakdown: CategorySlice[] = Object.entries(catMap)
+        .map(([cat, count]) => ({
+          category: catLabels[cat] || cat,
+          count,
+          percentage: Math.round((count / (incList.length || 1)) * 100),
+        }))
+        .sort((a, b) => b.count - a.count);
 
-      // ── توزيع الخطورة ──
       const sevMap = { critical: 0, high: 0, medium: 0, low: 0 };
-      incs.forEach(i => { if (sevMap[i.severity as keyof typeof sevMap] !== undefined) sevMap[i.severity as keyof typeof sevMap]++; });
-      const severityBreakdown = [
-        { severity: 'حرج',     count: sevMap.critical, color: '#ef4444' },
-        { severity: 'عالٍ',    count: sevMap.high,     color: '#f97316' },
-        { severity: 'متوسط',   count: sevMap.medium,   color: '#f59e0b' },
-        { severity: 'منخفض',   count: sevMap.low,      color: '#10b981' },
+      incList.forEach((i) => {
+        const sv = i.severity as keyof typeof sevMap | undefined;
+        if (sv && sevMap[sv] !== undefined) sevMap[sv]++;
+      });
+      const severityBreakdown: SeveritySlice[] = [
+        { severity: 'حرج',   count: sevMap.critical, color: '#ef4444' },
+        { severity: 'عالٍ',  count: sevMap.high,     color: '#f97316' },
+        { severity: 'متوسط', count: sevMap.medium,   color: '#f59e0b' },
+        { severity: 'منخفض', count: sevMap.low,      color: '#10b981' },
       ];
 
-      // ── إحصاءات الأقسام ──
-      const deptMap: Record<string, any> = {};
-      emps.forEach(p => {
-        const d = p.department || 'عام';
-        if (!deptMap[d]) deptMap[d] = { name: d, employeeCount: 0, problemCount: 0, wellnessTotal: 0, wellnessCount: 0 };
-        deptMap[d].employeeCount++;
-      });
-      incs.forEach(i => {
-        const reporter = emps.find(e => e.id === i.reported_by);
-        const dept = reporter?.department || 'عام';
-        if (deptMap[dept]) deptMap[dept].problemCount++;
-      });
-      well.forEach(w => {
-        const emp = emps.find(p => p.id === (w.employee_id || w.user_id));
-        const d = emp?.department || 'عام';
-        if (deptMap[d]) { deptMap[d].wellnessTotal += w.mood_score; deptMap[d].wellnessCount++; }
-      });
-      const departmentStats = Object.values(deptMap).map(d => ({
-        ...d,
-        wellnessAvg: d.wellnessCount > 0 ? Math.round(d.wellnessTotal / d.wellnessCount) : 75,
-        fullMark: 100,
-      }));
-
-      // ── اتجاه الصحة النفسية (7 أيام) ──
-      const wellnessTrend = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(); d.setDate(d.getDate() - (6 - i));
-        const dayEntries = well.filter(w => w.date === format(d, 'yyyy-MM-dd'));
-        return {
-          day: format(d, 'EEE', { locale: ar }),
-          score: dayEntries.length ? Math.round(dayEntries.reduce((a, b) => a + b.score, 0) / dayEntries.length) : 0,
-        };
-      });
-
-      const wellnessScore = well.length
-        ? Math.round(well.slice(0, 50).reduce((a, b) => a + b.score, 0) / Math.min(well.length, 50))
-        : 0;
-
       setData({
-        totalEmployees: emps.length,
-        activeEmployees: emps.filter(e => e.status === 'active').length,
-        wellnessScore,
-        satisfactionRate: 85,
-        resolvedThisMonth,
-        pending, inProgress, critical, escalated,
+        totalEmployees:  sum.totalEmployees,
+        // ★★★ is_active لا status — كان صفراً دائماً
+        activeEmployees: sum.activeEmployees,
+        // ★★★ wellness_entries.score لا mood_score — كان NaN
+        wellnessScore:   sum.wellnessScore,
+        wellnessSamples: sum.wellnessSamples,
+        resolvedThisMonth: sum.resolvedThisMonth,
+        pending:      sum.pending,
+        inProgress:   sum.inProgress,
+        criticalOpen: sum.criticalOpen,
+        // ★★★ بديل بطاقة 'escalated' التي يمنعها قيد CHECK
+        unassigned:   sum.unassigned,
         monthlyTrend,
         categoryBreakdown,
         departmentStats,
         severityBreakdown,
         wellnessTrend,
-        recentIncidents: incs.slice(0, 5).map(inc => ({
-          ...inc,
-          reporter: emps.find(e => e.id === inc.reported_by)
-        })),
-        topDepartments: departmentStats.sort((a, b) => b.wellnessAvg - a.wellnessAvg).slice(0, 5),
-            recentReviews: reviews || [],
+        recentIncidents: incList.slice(0, 5),
+        topDepartments: [...departmentStats]
+          .filter((d) => d.wellnessCount > 0)
+          .sort((a, b) => b.wellnessAvg - a.wellnessAvg)
+          .slice(0, 5),
+        recentReviews: (reviews || []) as RecentReview[],
       });
     } catch (err) {
-      console.error(err);
+      console.error('فشل تحميل لوحة الموارد:', err);
+      addToast('تعذّر تحميل لوحة الموارد البشرية', 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -285,7 +339,11 @@ export default function HRDashboard() {
               { label: 'إجمالي الموظفين',  value: data.totalEmployees,   suffix: '' },
               { label: 'الموظفون النشطون', value: data.activeEmployees,  suffix: '' },
               { label: 'صحة المؤسسة',      value: data.wellnessScore,    suffix: '%' },
-              { label: 'معدل الرضا',        value: data.satisfactionRate, suffix: '%' },
+              /* ★★★ 0345: كانت «معدل الرضا 85%» — ثابت مكتوب يدوياً
+                 يُعرض كأنه مؤشّر مُقاس، بلا أي مصدر. استُبدل بعدد
+                 العيّنات خلف متوسط العافية: رقمٌ حقيقي يمنح المتوسط
+                 سياقه (82 من 3 عيّنات ≠ 82 من 300). */
+              { label: 'عيّنات القياس',     value: data.wellnessSamples,  suffix: '' },
             ].map(({ label, value, suffix }, i) => (
               <div key={i} className="bg-white/10 rounded-xl p-3 sm:p-4 border border-white/15 backdrop-blur-sm flex-1 min-w-[120px]">
                 <p className="text-white/70 text-xs sm:text-sm font-medium mb-1">{label}</p>
@@ -337,11 +395,18 @@ export default function HRDashboard() {
         <div className="space-y-5 sm:space-y-6 animate-fade-in">
           {/* KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            <KPICard label="في الانتظار"        value={data.pending}           icon={Clock}        color="#f59e0b" bg="#fef3c7" trend="+2"  trendUp={false} />
-            <KPICard label="قيد المعالجة"        value={data.inProgress}        icon={Activity}     color="#6366f1" bg="#eef2ff" trend="-1"  trendUp={true}  />
-            <KPICard label="حُلّت هذا الشهر"     value={data.resolvedThisMonth} icon={CheckCircle}  color="#10b981" bg="#d1fae5" trend="+5"  trendUp={true}  />
-            <KPICard label="حالات حرجة"          value={data.critical}          icon={AlertCircle}  color="#ef4444" bg="#fee2e2" trend="-2"  trendUp={true}  />
-            <KPICard label="مُصعَّدة لـ HR"       value={data.escalated}         icon={TrendingUp}   color="#8b5cf6" bg="#ede9fe" />
+            {/* ★★★ 0345: الاتجاهات "+2"·"-1"·"+5"·"-2" كانت **ثوابت
+                مكتوبة يدوياً** تُعرض كأنها تغيّر مُقاس عن فترة سابقة.
+                أُزيلت: مؤشّر كاذب أسوأ من غياب المؤشّر. */}
+            <KPICard label="في الانتظار"     value={data.pending}           icon={Clock}       color="#f59e0b" bg="#fef3c7" />
+            <KPICard label="قيد المعالجة"     value={data.inProgress}        icon={Activity}    color="#6366f1" bg="#eef2ff" />
+            <KPICard label="حُلّت هذا الشهر"  value={data.resolvedThisMonth} icon={CheckCircle} color="#10b981" bg="#d1fae5" />
+            {/* ★★ الحرجة **المفتوحة**: عدّ المُغلقة ضمن إنذار يجعل
+                الرقم يرتفع أبداً ولا ينخفض مهما عولجت. */}
+            <KPICard label="حرجة مفتوحة"      value={data.criticalOpen}      icon={AlertCircle} color="#ef4444" bg="#fee2e2" />
+            {/* ★★★ كانت «مُصعَّدة لـ HR» تعدّ status==='escalated' —
+                قيمة يمنعها قيد CHECK ⇒ صفر إلى الأبد. */}
+            <KPICard label="بلا مُسنَد"        value={data.unassigned}        icon={TrendingUp}  color="#8b5cf6" bg="#ede9fe" />
           </div>
 
           {/* الرسوم البيانية */}

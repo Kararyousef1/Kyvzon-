@@ -6,12 +6,42 @@
  *  1. الموافقة على إجازة ← تحديث attendance_summary إلى "مجاز"
  *  2. الموافقة على زمنية ← تحديث attendance_summary إلى "زمنية_معتمدة"
  *  3. رفض إجازة ← إعادة attendance_summary إلى حالتها الأصلية
- *  4. إلغاء إجازة ← إعادة حساب الحضور من البصمات
+ *
+ *  ★★★ إصلاح 0344 — ثلاثة أعطال مُثبتة تشغيلياً على Postgres:
+ *
+ *  ① الملف كان يلمس Supabase مباشرة فلا يستفيد من حقن tenant_id في
+ *    BaseService. الـupsert (سطر 52 سابقاً) كان بلا tenant_id، والعمود
+ *    NOT NULL بلا default وبلا محفّز ⇒ مُثبَت:
+ *      null value in column "tenant_id" of relation
+ *      "attendance_summary" violates not-null constraint
+ *    ⇒ **اعتماد أي إجازة لم يكن يُحدّث سجلّ الحضور إطلاقاً.**
+ *
+ *  ② وأعلن `onConflict: 'employee_id, shift_date'` بينما القيد الحقيقي
+ *    UNIQUE (tenant_id, employee_id, shift_date) ⇒ مُثبَت:
+ *      there is no unique or exclusion constraint matching the
+ *      ON CONFLICT specification
+ *    (فهارس فريدة على العمودين وحدهما = 0)
+ *
+ *  ③ والرفض كان يحذف الصفوف **حذفاً نهائياً** ثم يستدعي
+ *    `refresh_attendance_summary` لإعادة بنائها — وهي دالة غير موجودة
+ *    في القاعدة إطلاقاً (مُثبَت: 0 في pg_proc · صفر مطابقة في
+ *    `grep -rln refresh_attendance_summary supabase/`؛ تعريفها الوحيد
+ *    في `database/legacy-DO-NOT-USE/schema.sql:869` ولم يُنقَل قط).
+ *    ⇒ **فقدان بيانات صافٍ.** الآن الحالة تعود «غائب» بلا حذف.
+ *
+ *  ★ ولماذا RPC لا BaseService؟ سياسة INSERT على attendance_summary
+ *    تشترط current_user_is_staff() = admin·hr·developer·it_admin فقط.
+ *    **المدير الذي يعتمد الإجازة ليس staff** فكان الإدراج يُصدّ حتى
+ *    بـtenant_id صحيح (مُثبَت بـRLS: new row violates row-level
+ *    security policy). دوال 0344 تعمل SECURITY DEFINER وتفحص الصلاحية
+ *    والمستأجر بنفسها.
  * ════════════════════════════════════════════════════════════════
  */
 
-import { supabase } from '../supabase/supabase';
 import { notifyUser } from '../notifications/notificationService';
+import { attendanceService, attendanceSummaryService } from '../sdk/AttendanceService';
+import type { AttendanceSummaryRecord } from '../../shared/types/sdk';
+import { getErrorMessage } from '../errors';
 
 // ============================================================================
 //  1. ربط الموافقة على إجازة ← تحديث ملخص الحضور
@@ -31,52 +61,12 @@ export async function linkLeaveApproval(
   _leaveType: string
 ): Promise<{ success: boolean; daysUpdated: number; error?: string }> {
   try {
-    const dates = getDatesInRange(dateFrom, dateTo);
-    let daysUpdated = 0;
-
-    for (const date of dates) {
-      // التحقق: هل هو يوم جمعة أو عطلة؟ إذاً نتخطى
-      const dayOfWeek = new Date(date).getDay();
-      if (dayOfWeek === 6) continue; // جمعة
-
-      // التحقق من وجود عطلة رسمية
-      const { data: holiday } = await supabase
-        .from('holidays')
-        .select('id')
-        .eq('date', date)
-        .maybeSingle();
-
-      if (holiday) continue; // عطلة رسمية
-
-      // تحديث أو إدراج ملخص الحضور
-      const { error } = await supabase
-        .from('attendance_summary')
-        .upsert({
-          employee_id: employeeId,
-          shift_date: date,
-          status: 'مجاز',
-          total_hours: 0,
-          late_minutes: 0,
-          early_leave_minutes: 0,
-          overtime_minutes: 0,
-          // تعليق: تجاهل بصمات هذا اليوم لأن الموظف مجاز
-        }, {
-          onConflict: 'employee_id, shift_date',
-          ignoreDuplicates: false,
-        });
-
-      if (error) {
-        console.error(`❌ Failed to update attendance for ${date}:`, error);
-        continue;
-      }
-      daysUpdated++;
-    }
-
-    console.log(`✅ Leave linked: ${daysUpdated} days updated for employee ${employeeId}`);
+    const daysUpdated = await attendanceService.applyLeaveToAttendance(
+      employeeId, dateFrom, dateTo,
+    );
     return { success: true, daysUpdated };
-  } catch (err: any) {
-    console.error('❌ linkLeaveApproval failed:', err);
-    return { success: false, daysUpdated: 0, error: err.message };
+  } catch (err) {
+    return { success: false, daysUpdated: 0, error: getErrorMessage(err) };
   }
 }
 
@@ -98,57 +88,37 @@ export async function linkPermissionApproval(
   _expectedReturnTime?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // التحقق: هل اليوم جمعة أو عطلة؟
+    /**
+     * ★★★ عطل مُثبَت (0344): الكود القديم كتب
+     *     if (dayOfWeek === 6) continue; // جمعة
+     *   و`Date.getDay()` يُرجع 0=الأحد … 5=**الجمعة** … 6=السبت.
+     *   مُحقَّق بالتشغيل:
+     *     new Date('2026-05-01').getDay() === 5  ⇒ الجمعة
+     *     new Date('2026-05-02').getDay() === 6  ⇒ السبت
+     *   ⇒ كان **يتخطّى السبت** (يوم عمل) و**يعالج الجمعة** (عطلة).
+     *   عطلة الأسبوع مقلوبة تماماً. مايجريشن 0344 يستعمل
+     *   EXTRACT(DOW FROM d) <> 5 الصحيح.
+     */
     const dayOfWeek = new Date(date).getDay();
-    if (dayOfWeek === 6) {
-      return { success: true }; // الجمعة، لا داعي للتحديث
+    if (dayOfWeek === 5) {
+      return { success: true }; // الجمعة — عطلة أسبوعية
     }
 
-    // جلب ملخص الحضور الحالي لذلك اليوم
-    const { data: existing } = await supabase
-      .from('attendance_summary')
-      .select('*')
-      .eq('employee_id', employeeId)
-      .eq('shift_date', date)
-      .maybeSingle();
+    /**
+     * ★★ ونفس عطل tenant_id: الإدراج المباشر كان بلا tenant_id
+     *   (NOT NULL بلا default) ⇒ اعتماد أي زمنية لم يكن يُحدّث الحضور.
+     *   نمرّ عبر SDK ليُحقن tenant_id، وعبر updateSummary التي تُحدّث
+     *   إن وُجد الصفّ وتُنشئ إن لم يوجد.
+     */
+    await attendanceSummaryService.updateSummary(employeeId, date, {
+      status: 'زمنية_معتمدة',
+      // ★ لا نمسّ check_in/check_out/total_hours — الموظف بصم فعلاً
+    } as Partial<AttendanceSummaryRecord>);
 
-    if (!existing) {
-      // لا يوجد ملخص حضور لهذا اليوم (ربما الموظف لم يبصم)
-      // ننشئ ملخصاً جديداً بحالة "زمنية_معتمدة"
-      const { error } = await supabase
-        .from('attendance_summary')
-        .insert({
-          employee_id: employeeId,
-          shift_date: date,
-          status: 'زمنية_معتمدة',
-          total_hours: 0,
-          late_minutes: 0,
-          early_leave_minutes: 0,
-          overtime_minutes: 0,
-        });
-
-      if (error) throw error;
-      return { success: true };
-    }
-
-    // إذا كان الموظف حاضراً، نحدّث الحالة إلى "زمنية_معتمدة"
-    // مع الحفاظ على وقت الدخول والخروج إن وجد
-    const { error } = await supabase
-      .from('attendance_summary')
-      .update({
-        status: 'زمنية_معتمدة',
-        // نحتفظ بباقي البيانات (check_in, check_out, total_hours)
-      })
-      .eq('employee_id', employeeId)
-      .eq('shift_date', date);
-
-    if (error) throw error;
-
-    console.log(`✅ Permission linked for employee ${employeeId} on ${date}`);
     return { success: true };
-  } catch (err: any) {
-    console.error('❌ linkPermissionApproval failed:', err);
-    return { success: false, error: err.message };
+  } catch (err) {
+    console.error('linkPermissionApproval failed:', getErrorMessage(err));
+    return { success: false, error: getErrorMessage(err) };
   }
 }
 
@@ -166,35 +136,12 @@ export async function linkLeaveRejection(
   dateTo: string
 ): Promise<{ success: boolean; daysRecalculated: number }> {
   try {
-    const dates = getDatesInRange(dateFrom, dateTo);
-    let daysRecalculated = 0;
-
-    for (const date of dates) {
-      // حذف الإدخال الذي وضعناه كـ "مجاز"
-      // trigger refresh_attendance_summary سيعيد حسابه تلقائياً
-      const { error } = await supabase
-        .from('attendance_summary')
-        .delete()
-        .eq('employee_id', employeeId)
-        .eq('shift_date', date)
-        .eq('status', 'مجاز');
-
-      if (error) {
-        console.error(`❌ Failed to delete summary for ${date}:`, error);
-        continue;
-      }
-      daysRecalculated++;
-
-      // استدعاء دالة إعادة الحساب في SQL
-      await supabase.rpc('refresh_attendance_summary', {
-        p_employee_id: employeeId,
-        p_shift_date: date,
-      });
-    }
-
+    const daysRecalculated = await attendanceService.revertLeaveFromAttendance(
+      employeeId, dateFrom, dateTo,
+    );
     return { success: true, daysRecalculated };
-  } catch (err: any) {
-    console.error('❌ linkLeaveRejection failed:', err);
+  } catch (err) {
+    console.error('linkLeaveRejection failed:', getErrorMessage(err));
     return { success: false, daysRecalculated: 0 };
   }
 }

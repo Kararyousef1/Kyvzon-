@@ -22,6 +22,8 @@ export interface LogisticsDriverRecord {
   id: string;
   tenant_id: string;
   employee_id?: string;
+  /** حساب دخول السائق (0291). NULL = لا تطبيق سائق لهذا السجل. */
+  user_id?: string | null;
   driver_name_ar: string;
   license_number: string;
   license_class: string;

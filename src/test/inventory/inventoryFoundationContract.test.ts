@@ -18,7 +18,12 @@ describe('Inventory/Warehouse foundation contract', () => {
     expect(read('src/router/constants.ts')).toContain("inventory: '/app/inventory'");
     expect(read('src/pages/admin/AdminEmployeesPage.tsx')).toContain("inventory: 'inventory'");
     expect(read('supabase/functions/_shared/adminAuth.ts')).toContain("'inventory'");
-    expect(read('supabase/functions/admin-create-user/index.ts')).toContain("'inventory'");
+    // تصحيح 2026-08-04: كان admin-create-user يحمل نسخة مكررة من TARGET_ROLES
+    // انحرفت عن المصدر (نقصتها أدوار بوابة الحركة). حُذفت النسخة واعتُمد
+    // الاستيراد من _shared/adminAuth.ts، فصار التحقق الصحيح هو وجود
+    // الاستيراد لا وجود السلسلة النصية 'inventory' مكررة.
+    expect(read('supabase/functions/admin-create-user/index.ts'))
+      .toMatch(/import\s*\{[^}]*\bTARGET_ROLES\b[^}]*\}\s*from\s*'\.\.\/_shared\/adminAuth\.ts'/);
     expect(read('src/services/sdk/TenantModuleCatalog.ts')).toContain("key: 'inventory'");
     expect(read('src/router/moduleMap.ts')).toContain("moduleKey: 'inventory'");
   });

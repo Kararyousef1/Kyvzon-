@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle2, Clock3, Eye, Loader2, Plus, Receipt, Search, X, XCircle } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { employeeService, expenseRequestService } from '../../services/sdk';
+import { financialRequestService } from '../../services/sdk/FinancialRequestService';
 import { getErrorMessage } from '../../services/errors';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -121,7 +122,7 @@ export default function MyExpensesPage() {
 
     setSubmitting(true);
     try {
-      await expenseRequestService.createRequest({
+      const created = await expenseRequestService.createRequest({
         employee_id: employeeId,
         title: form.title.trim(),
         description: form.description.trim(),
@@ -130,7 +131,16 @@ export default function MyExpensesPage() {
         expense_date: form.expense_date,
         receipt_url: form.receipt_url.trim() || undefined,
         status: 'pending',
-      } as any);
+      } as unknown as Parameters<typeof expenseRequestService.createExpense>[0]);
+
+      // ★ سلسلة الاعتماد (migration 0325): مشرف → مدير بحسب المبلغ.
+      //   قبلها كان موظف الموارد البشرية يعتمد أي مبلغ منفرداً بلا
+      //   مشرف ولا مدير ولا حدّ مالي.
+      if (created?.id) {
+        await financialRequestService.createApproval(
+          'expense', created.id, employeeId, Number(form.amount),
+        );
+      }
 
       addToast?.('تم إرسال طلب النفقة', 'success');
       setShowCreate(false);
@@ -315,9 +325,9 @@ export default function MyExpensesPage() {
           <DetailRow label="تاريخ النفقة" value={selectedExpense.expense_date ? format(new Date(selectedExpense.expense_date), 'd MMM yyyy', { locale: ar }) : '—'} />
           <DetailRow label="الحالة" value={EXPENSE_STATUS_LABELS[normalizeStatus(selectedExpense.status)] || selectedExpense.status} />
           <DetailRow label="الوصف" value={selectedExpense.description || '—'} />
-          {(selectedExpense as any).rejection_reason && <DetailRow label="سبب الرفض" value={(selectedExpense as any).rejection_reason} />}
-          {(selectedExpense as any).receipt_url && (
-            <a href={(selectedExpense as any).receipt_url} target="_blank" rel="noreferrer" className="block text-center text-sm font-bold text-indigo-600 bg-indigo-50 rounded-xl py-2">فتح الإيصال</a>
+          {selectedExpense.rejection_reason && <DetailRow label="سبب الرفض" value={selectedExpense.rejection_reason} />}
+          {selectedExpense.receipt_url && (
+            <a href={selectedExpense.receipt_url} target="_blank" rel="noreferrer" className="block text-center text-sm font-bold text-indigo-600 bg-indigo-50 rounded-xl py-2">فتح الإيصال</a>
           )}
           <ExpenseTimeline status={normalizeStatus(selectedExpense.status)} />
         </Modal>

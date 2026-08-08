@@ -35,5 +35,8 @@
     "strictPropertyInitialization": false,
     "noUncheckedIndexedAccess": false
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts"],
+  // ★ 0341: الشاشات المؤرشفة تبقى للمراجعة (لا حذف نهائي) لكنها
+  //   خارج البناء والفحص — تشير إلى توقيعات SDK قديمة عمداً.
+  "exclude": ["src/pages/_archived"]
 }

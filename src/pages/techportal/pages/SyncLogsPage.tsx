@@ -218,16 +218,28 @@ export default function SyncLogsPage() {
       const raw = await syncLogService.findRecentLogs(500);
       const cutoff = getRangeCutoff(range);
 
-      const mapped: SyncLog[] = (raw as any[]).map(r => ({
+      // ★ الحقول هي ما تقرؤه أسطر التحويل أدناه حرفياً — استخرجها tsc
+      //   حين رفض النوع الناقص (sync_time · created_at بديلان لـsynced_at).
+      type RawSyncRow = {
+        id: string; device_id?: string | null; source?: string | null;
+        status?: string | null; records_synced?: number | null;
+        error_message?: string | null; synced_at?: string | null;
+        sync_time?: string | null; created_at?: string | null;
+        details?: Record<string, unknown> | null;
+      };
+      const mapped: SyncLog[] = (raw as unknown as RawSyncRow[]).map(r => ({
         id: r.id,
-        device_id: r.device_id,
+        // ★ SyncLog يستعمل `string | undefined` بينما القاعدة تعيد null.
+        //   التطبيع صريح هنا — tsc رفض تمرير null ضمناً.
+        device_id: r.device_id ?? undefined,
         device_name: r.device_id || r.source || 'غير محدد',
         source: r.source || '',
-        status: (['success', 'failed', 'partial'].includes(r.status) ? r.status : 'failed') as SyncLog['status'],
+        status: (['success', 'failed', 'partial'].includes(r.status ?? '')
+          ? r.status : 'failed') as SyncLog['status'],
         records_synced: Number(r.records_synced || 0),
-        error_message: r.error_message,
+        error_message: r.error_message ?? undefined,
         synced_at: r.sync_time || r.created_at || '',
-        details: r.details,
+        details: r.details ?? undefined,
       }));
 
       const filtered = mapped.filter(l => {

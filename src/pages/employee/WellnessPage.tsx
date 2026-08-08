@@ -169,7 +169,11 @@ export default function WellnessPage() {
     if (!user?.id) return;
     setSubmitting(true);
     try {
-      const score = calculateWellnessScore({ stress, energy, mood_score: mood as any });
+      // ★ المرحلة 1: mood رقم 1–5؛ الدالة تتوقّع الاتحاد الضيّق
+      const score = calculateWellnessScore({
+        stress, energy,
+        mood_score: mood as unknown as Parameters<typeof calculateWellnessScore>[0]['mood_score'],
+      });
       const today = todayISO();
 
       await wellnessEntryService.saveEntry(user.id, {

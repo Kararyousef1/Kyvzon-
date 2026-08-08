@@ -2,6 +2,69 @@
 -- FILE: 0273_movement_employee_permits_execution_schema.sql
 -- PURPOSE: Employee Movement - E01 (Permits & QR security) & E02 (Execution & Gate scanning)
 -- ============================================================================
+--
+-- 🔴 إصلاح بعد فشل db push على Supabase الحقيقي:
+--
+--   ERROR: function gen_random_bytes(integer) does not exist (SQLSTATE 42883)
+--
+--   السبب: Supabase يُثبّت pgcrypto في schema اسمه `extensions` لا
+--   `public`. وبما أن المايجريشن يعمل بـ search_path = public، لم تكن
+--   gen_random_bytes مرئية.
+--
+--   لماذا لم يكشفه مختبري: shim المحلي ينفّذ
+--   `CREATE EXTENSION pgcrypto` بلا SCHEMA فتُثبَّت في public وتعمل.
+--   هذا فرق بيئي حقيقي بين المختبر والإنتاج — لا خطأ منطقي.
+--
+--   ولماذا نجحت gen_random_uuid() في كل الجداول؟ لأنها **مدمجة في
+--   Postgres 13+** ولا تحتاج pgcrypto إطلاقاً. gen_random_bytes وحدها
+--   تبقى من الامتداد.
+--
+-- الحل المُختار: توليد الرمز بدوال Postgres الأساسية بلا أي امتداد.
+--   البدائل المرفوضة:
+--     ① extensions.gen_random_bytes(...) — يربطنا باسم schema قد
+--        يتغيّر، ويكسر التشغيل المحلي وأي بيئة تُثبّتها في public.
+--     ② SET search_path = public, extensions — يُغيّر سلوك المايجريشن
+--        كله لأجل سطر واحد.
+--   دالة movement_generate_token أدناه تعمل في **أي** Postgres.
+-- ============================================================================
+
+/*
+  توليد رمز QR عشوائي بلا pgcrypto.
+
+  الطريقة: md5 على مصدرَي عشوائية مستقلَّين (random() و clock_timestamp())
+  مكرَّرة مرتين ⇒ 64 محرفاً ست-عشرياً.
+
+  ⚠️ إفصاح صريح: md5(random()) **ليس** عشوائية تشفيرية بقوة
+  gen_random_bytes. لكنه كافٍ هنا لسببين:
+    • الرمز مؤقت (صلاحية التصريح ساعات)
+    • القيد UNIQUE يمنع التصادم، وحارس الاستعمال يمنع إعادة المسح
+  لو احتجنا لاحقاً قوة تشفيرية، البديل هو توليد الرمز في طبقة
+  التطبيق بـ crypto.getRandomValues وتمريره صراحةً.
+*/
+CREATE OR REPLACE FUNCTION public.movement_generate_token()
+RETURNS TEXT
+LANGUAGE sql VOLATILE
+AS $$
+  SELECT md5(random()::text || clock_timestamp()::text)
+      || md5(random()::text || clock_timestamp()::text || pg_backend_pid()::text);
+$$;
+
+COMMENT ON FUNCTION public.movement_generate_token() IS
+  'رمز عشوائي 64 محرفاً بلا pgcrypto — يعمل في أي Postgres (إصلاح 42883).';
+
+/*
+  ⚠️ REVOKE إلزامي — أمسكه حارس 0282 عند أول تشغيل:
+    ERROR: 0282 failed: anon can execute: movement_generate_token
+
+  Supabase يمنح anon تنفيذاً صريحاً على كل دالة جديدة في public عبر
+  ALTER DEFAULT PRIVILEGES، و REVOKE ... FROM PUBLIC لا يسحب منحة صريحة.
+  بدون هذا يستطيع زائر غير مسجَّل توليد رموز QR بلا حدّ.
+
+  ملاحظة: الدالة تُستدعى كـ DEFAULT للعمود، وهذا ينفَّذ بصلاحية من
+  يُدرج الصف — فحرمان anon لا يكسر إنشاء التصاريح للمستخدمين المصرَّح لهم.
+*/
+REVOKE ALL ON FUNCTION public.movement_generate_token() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.movement_generate_token() TO authenticated, service_role;
 
 -- 1. Enhanced Movement Permits (تصاريح الخروج المسبقة وتأمين QR)
 CREATE TABLE IF NOT EXISTS public.employee_movement_permits (
@@ -14,7 +77,7 @@ CREATE TABLE IF NOT EXISTS public.employee_movement_permits (
   valid_from           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   valid_until          TIMESTAMPTZ NOT NULL,
   max_duration_minutes INTEGER NOT NULL DEFAULT 30,
-  qr_token             VARCHAR(250) NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(32), 'hex'),
+  qr_token             VARCHAR(250) NOT NULL UNIQUE DEFAULT public.movement_generate_token(),
   status               VARCHAR(30) NOT NULL DEFAULT 'approved'
     CHECK (status IN ('pending', 'approved', 'used', 'expired', 'cancelled', 'rejected')),
   approved_by          UUID,

@@ -1256,3 +1256,48 @@ export interface JournalEntryLineRecord {
   transaction_debit?: number; transaction_credit?: number; transaction_currency_code?: string;
   cost_center?: string; cost_center_id?: string; project_code?: string; project_id?: string; created_at: string;
 }
+
+// ═══════════════════════════════════════════════
+//  الإثراء بالعلاقات — WithEmployee<T> وأخواتها
+//
+//  ★ الفجوة التي تسدّها (migration-free · المرحلة 1):
+//    ست صفحات في بوابة الموارد البشرية تُثري سجلاتها يدوياً بحقل
+//    `employees` بعد جلبها:
+//
+//      const empMap = new Map(employees.map(e => [e.id, e]));
+//      const enriched = data.map(x => ({ ...x, employees: empMap.get(x.employee_id) }));
+//
+//    الحقل غير موجود في النوع الأصلي، فكانت القراءة تُكتب:
+//      const emp = (bonus as any).employees;      ← ممنوع
+//
+//    مقيس: 13 موضع `as any` من أصل 57 سببها هذا النمط وحده.
+//
+//  ★ الملخّص لا الكيان الكامل: الصفحات تقرأ الاسم والقسم فقط، فلا
+//    داعي لجرّ EmployeeRecord بأكمله وادّعاء أن كل حقوله موجودة.
+// ═══════════════════════════════════════════════
+
+/** ملخّص موظف كما تُثريه صفحات الموارد البشرية — ليس EmployeeRecord كاملاً */
+export interface EmployeeSummary {
+  id: string;
+  full_name_ar?: string;
+  first_name?: string;
+  last_name?: string;
+  employee_code?: string;
+  department_id?: string;
+  position?: string;
+  avatar_url?: string;
+}
+
+/** سجل مُثرًى بملخّص موظفه. `null` حين لا يوجد مطابق في الخريطة. */
+export type WithEmployee<T> = T & { employees: EmployeeSummary | null };
+
+/** ملخّص دورة تقييم — تُثري به PerformancePage */
+export interface PerformanceCycleSummary {
+  id?: string;
+  name?: string;
+}
+
+/** سجل مُثرًى بموظفه ودورة تقييمه */
+export type WithEmployeeAndCycle<T> = WithEmployee<T> & {
+  performance_cycles: PerformanceCycleSummary | null;
+};

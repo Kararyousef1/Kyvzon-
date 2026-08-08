@@ -6,6 +6,7 @@ import Badge from '../../shared/components/ui/Badge';
 import { useUIStore, useAuthStore } from '../../core/stores';
 import { surveyResponseService } from '../../services/sdk';
 import { isLocalUser } from '../../services/utils';
+import { useEmployeeId } from '../../shared/hooks/useEmployeeId';
 
 const surveys = [
   {
@@ -33,6 +34,9 @@ const surveys = [
 ];
 
 export default function SurveyPage() {
+  // ★ 0335: employees.id لا profiles.id — أربع صفحات مرّرت الخطأ
+  //   فعرضت قوائم فارغة دائماً.
+  const { employeeId, linkMissing } = useEmployeeId();
   const { user } = useAuthStore();
   const { addToast } = useUIStore();
   const [activeSurvey, setActiveSurvey] = useState<string | null>(null);
@@ -55,9 +59,16 @@ export default function SurveyPage() {
         return;
       }
       
-      const responses = await surveyResponseService.findAll({ filters: { employee_id: user.id } });
+      // ★★ إصلاح 0335: كان `user.id` — وهو profiles.id بينما العمود
+      //   employee_id يشير إلى employees.id. النتيجة: قائمة فارغة
+      //   دائماً، فتظهر كل الاستبيانات «غير مكتملة».
+      const responses = employeeId
+        ? await surveyResponseService.findAll({ filters: { employee_id: employeeId } })
+        : [];
       if (responses) {
-        setCompleted(new Set((responses as any[]).map((d: any) => d.survey_id)));
+        // ★ المرحلة 1: نوع بنيوي — survey_id وحده هو المقروء
+        type ResponseRow = { survey_id: string };
+        setCompleted(new Set(((responses ?? []) as unknown as ResponseRow[]).map((d) => d.survey_id)));
       }
       setLoading(false);
     };

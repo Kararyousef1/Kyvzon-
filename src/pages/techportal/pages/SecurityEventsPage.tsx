@@ -306,7 +306,7 @@ export default function SecurityEventsPage() {
             <Shield size={20} className="text-red-400" />
             الأحداث الأمنية
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">مراقبة التهديدات والأنشطة الأمنية للمنصة</p>
+          <p className="text-xs text-slate-500 mt-0.5">مراقبة التهديدات والأنشطة الأمنية في شركتك</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={exportCSV} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700 text-slate-400 hover:text-white text-sm font-medium transition-all">

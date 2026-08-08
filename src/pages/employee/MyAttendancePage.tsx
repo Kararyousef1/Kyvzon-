@@ -21,7 +21,8 @@ import {
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { employeeService } from '../../services/sdk/EmployeeService';
-import { attendanceService, attendanceSummaryService } from '../../services/sdk/AttendanceService';
+import { attendanceService } from '../../services/sdk/AttendanceService';
+import type { MyAttendanceCorrection } from '../../services/sdk/AttendanceService';
 import { hrCaseService } from '../../services/sdk';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -77,23 +78,71 @@ interface MonthStats {
   present: number;
   late: number;
   absent: number;
+  /** ★ 0344: مجاز + عطلة + إجازة_انتظار — كانت تسقط من كل خانة */
+  leave: number;
   totalHours: number;
   avgHours: number;
   weeklyStreak: number;
+  longestStreak: number;
+  /** ★★ 0344: أيام بحالة خارج المفردات الثماني — تُعرض لا تُبتلع */
+  unknown: number;
 }
 
 // ════════════════════════════════════════════════════
 // ثوابت
 // ════════════════════════════════════════════════════
 
-/** أسماء حالات الحضور المتوقّعة من قاعدة البيانات */
+/**
+ * حالات الحضور **الثماني** — المصدر: determineAttendanceStatus في
+ * src/utils/shiftCalculations.ts:261 (وهي نفسها AttendanceStatus في
+ * shiftTypes.ts وSTATUS_LABELS في shiftReports.ts).
+ *
+ * ★★ كانت خمساً فقط: 'زمنية_معتمدة' و'زمنية_انتظار' و'إجازة_انتظار'
+ *   غائبة ⇒ أيامها تظهر في التقويم بلون «لا سجلّ» الرمادي رغم وجود
+ *   سجلّ لها. مايجريشن 0344 وحّد المفردات في القاعدة أيضاً.
+ */
 const ATTENDANCE_STATUS = {
   ON_TIME: 'حضور_بوقت',
   LATE: 'متأخر',
+  PERM_OK: 'زمنية_معتمدة',
+  PERM_WAIT: 'زمنية_انتظار',
   ABSENT: 'غائب',
   LEAVE: 'مجاز',
+  LEAVE_WAIT: 'إجازة_انتظار',
   HOLIDAY: 'عطلة',
 } as const;
+
+/**
+ * حالات قضايا الموارد البشرية — القيم من CHECK المُحقَّق على
+ * hr_cases.status: open · in_review · waiting_employee · resolved · closed
+ */
+const CASE_STATUS_LABEL: Record<string, string> = {
+  open: 'قيد الانتظار',
+  in_review: 'قيد المراجعة',
+  waiting_employee: 'بانتظار ردّك',
+  resolved: 'تم الحلّ',
+  closed: 'مغلق',
+};
+
+const CASE_STATUS_STYLE: Record<string, string> = {
+  open: 'bg-amber-100 text-amber-700',
+  in_review: 'bg-sky-100 text-sky-700',
+  waiting_employee: 'bg-orange-100 text-orange-700',
+  resolved: 'bg-emerald-100 text-emerald-700',
+  closed: 'bg-slate-200 text-slate-600',
+};
+
+/** لون خلفية اليوم في التقويم لكل حالة */
+const STATUS_BG: Record<string, string> = {
+  'حضور_بوقت': 'bg-emerald-100',
+  'متأخر': 'bg-amber-100',
+  'زمنية_معتمدة': 'bg-sky-100',
+  'زمنية_انتظار': 'bg-yellow-100',
+  'غائب': 'bg-red-100',
+  'مجاز': 'bg-purple-100',
+  'إجازة_انتظار': 'bg-fuchsia-100',
+  'عطلة': 'bg-slate-100',
+};
 
 /** أنواع البصمة (دخول/خروج) — يدعم عدة صيغ */
 const CHECK_IN_TYPES = ['check-in', 'check_in', 'الدخول'];
@@ -129,9 +178,10 @@ export default function MyAttendancePage() {
     reason: '',
   });
   const [stats, setStats] = useState<MonthStats>({
-    total: 0, present: 0, late: 0, absent: 0,
-    totalHours: 0, avgHours: 0, weeklyStreak: 0,
+    total: 0, present: 0, late: 0, absent: 0, leave: 0,
+    totalHours: 0, avgHours: 0, weeklyStreak: 0, longestStreak: 0, unknown: 0,
   });
+  const [corrections, setCorrections] = useState<MyAttendanceCorrection[]>([]);
 
   // ── الحصول على معرف الموظف ────────────────────────────────────
   useEffect(() => {
@@ -176,36 +226,53 @@ export default function MyAttendancePage() {
       const endDate = format(new Date(currentYear, currentMonth + 1, 0), 'yyyy-MM-dd');
       const today = format(new Date(), 'yyyy-MM-dd');
 
-      const [logsData, summaryData] = await Promise.all([
+      // ★★★ إصلاح 0337: كان الاستعلامان بلا ترشيح نطاق رغم حساب
+      //   startDate/endDate أعلاه — فجُلب **كل تاريخ الموظف** وعُرض
+      //   كأنه الشهر المختار، وأزرار التنقّل لا تغيّر شيئاً.
+      //   مُثبَت على Postgres: 23 سجلاً بدل 3 · 175 ساعة بدل 15.
+      const [logsData, summaryData, statsRow, streakRow, correctionRows] = await Promise.all([
         attendanceService.findAll({
           filters: { employee_id: employeeId },
           orderBy: 'punch_time',
           ascending: false,
+          limit: 200,
         }),
-        attendanceSummaryService.findAll({
-          filters: { employee_id: employeeId },
-          orderBy: 'shift_date',
-          ascending: false,
-        }),
+        attendanceService.myMonth(currentYear, currentMonth + 1),
+        attendanceService.myMonthStats(currentYear, currentMonth + 1),
+        attendanceService.myStreak(),
+        // ★★ 0344: الصفحة كانت تُنشئ hr_case ثم لا تعرضه أبداً —
+        //   الموظف يرى «تم الإرسال» ولا يعرف مصير طلبه بعدها.
+        attendanceService.myCorrections(20),
       ]);
+      setCorrections(correctionRows);
 
       const logsList = (logsData || []) as AttendanceLogRecord[];
-      const summaryList = (summaryData || []) as AttendanceSummaryRecord[];
+      // ★ 0337: myMonth تُرجع الشهر المُرشَّح — نُطابقه مع شكل الحالة
+      const summaryList: AttendanceSummaryRecord[] = summaryData.map((d) => ({
+        shift_date: d.shiftDate,
+        shift_type: d.shiftType,
+        check_in: d.checkIn ?? undefined,
+        check_out: d.checkOut ?? undefined,
+        status: d.status,
+        total_hours: d.totalHours,
+        late_minutes: d.lateMinutes,
+      })) as unknown as AttendanceSummaryRecord[];
 
       setLogs(logsData);
-      setSummary(summaryData as any);
+      setSummary(summaryList);
 
       // ── حالة اليوم ────────────────────────────────────────────
-      const todaySummary = summaryData.find((s) => s.shift_date === today);
+      // ★ 0337: myMonth تُرجع camelCase — الأسماء تغيّرت لا الدلالة
+      const todaySummary = summaryData.find((d) => d.shiftDate === today);
       if (todaySummary) {
         setTodayStatus({
           checked: true,
-          checkIn: todaySummary.check_in,
-          checkOut: todaySummary.check_out,
-          shiftType: todaySummary.shift_type as any,
+          checkIn: todaySummary.checkIn ?? undefined,
+          checkOut: todaySummary.checkOut ?? undefined,
+          shiftType: todaySummary.shiftType as ShiftType | undefined,
           status: todaySummary.status,
-          totalHours: todaySummary.total_hours,
-          lateMinutes: todaySummary.late_minutes,
+          totalHours: todaySummary.totalHours,
+          lateMinutes: todaySummary.lateMinutes,
         });
       } else {
         const todayLog = logsData.filter((l) => l.shift_date === today);
@@ -241,22 +308,31 @@ export default function MyAttendancePage() {
         }
       }
 
-      // ── إحصائيات ──────────────────────────────────────────────
-      const present = summaryData.filter(
-        (s) => s.status === ATTENDANCE_STATUS.ON_TIME || s.status === ATTENDANCE_STATUS.LATE
-      ).length;
-      const late = summaryData.filter((s) => s.status === ATTENDANCE_STATUS.LATE).length;
-      const absent = summaryData.filter((s) => s.status === ATTENDANCE_STATUS.ABSENT).length;
-      const totalHours = summaryData.reduce((sum, s) => sum + (s.total_hours || 0), 0);
-
+      // ── إحصائيات — من القاعدة (0337) ──────────────────────────
+      //
+      //   ★★ المتوسط يُحسب على **أيام الحضور** لا كل الأيام: القسمة
+      //     على أيام تشمل الغياب تُظهر متوسطاً أقلّ من الحقيقة
+      //     (5 ساعات بدل 7.5 في الإثبات).
+      //
+      //   ★★★ weeklyStreak كان `Math.min(عدد غير الغائب, 7)` — عدٌّ لا
+      //     تتابع. من حضر يوماً وغاب يوماً شهراً كاملاً كان يحصل على 7
+      //     بينما أطول تتابع لديه 1. صار تتابعاً حقيقياً محسوباً في
+      //     القاعدة، والأيام بلا سجلّ (عطلة الأسبوع) لا تكسره.
+      //   ★★★ 0344: مفردات 0337 كانت **مختلقة** ('في الوقت'·'حاضر'·
+      //     'إجازة') ولا تطابق ما تكتبه المنصّة فعلاً. مُثبَت على
+      //     Postgres: موظف حضر 4 أيام كان يرى «حضور: 1» و«إجازة: 0»
+      //     ومتوسطاً 7.00 بدل 7.25.
       setStats({
-        total: summaryData.length,
-        present,
-        late,
-        absent,
-        totalHours,
-        avgHours: summaryData.length > 0 ? totalHours / summaryData.length : 0,
-        weeklyStreak: Math.min(summaryData.filter((s) => s.status !== ATTENDANCE_STATUS.ABSENT).length, 7),
+        total: statsRow.total,
+        present: statsRow.present,
+        late: statsRow.late,
+        absent: statsRow.absent,
+        leave: statsRow.leave,
+        totalHours: statsRow.totalHours,
+        avgHours: statsRow.avgHours,
+        weeklyStreak: streakRow.current,
+        longestStreak: streakRow.longest,
+        unknown: statsRow.unknown,
       });
     } catch (err) {
       console.error('Error fetching attendance:', getErrorMessage(err));
@@ -293,6 +369,9 @@ export default function MyAttendancePage() {
       addToast('تم إرسال طلب تصحيح الحضور إلى الموارد البشرية', 'success');
       setShowCorrectionModal(false);
       setCorrectionForm({ date: format(new Date(), 'yyyy-MM-dd'), type: 'missing_punch', expected_time: '', reason: '' });
+      // ★ 0344: نُحدّث السجلّ فوراً — الطلب يظهر في القائمة بدل أن
+      //   يختفي بلا أثر كما كان.
+      setCorrections(await attendanceService.myCorrections(20));
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
     } finally {
@@ -412,8 +491,44 @@ export default function MyAttendancePage() {
             <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
               <p className="text-xs font-bold text-emerald-600">متوسط الساعات</p>
               <p className="text-2xl font-extrabold text-emerald-700 mt-1">{stats.avgHours.toFixed(1)}</p>
-              <p className="text-xs text-emerald-500">ساعة/يوم</p>
+              <p className="text-xs text-emerald-500">على أيام الحضور</p>
             </div>
+          </div>
+
+          {/* ★★★ 0344: بطاقات كانت غائبة تماماً.
+              'مجاز' و'عطلة' و'إجازة_انتظار' لم تكن تُحتسب في أي خانة —
+              لا حضوراً ولا غياباً ولا إجازةً: تتبخّر من الشاشة. */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100">
+              <p className="text-xs font-bold text-purple-600">إجازات وعطل</p>
+              <p className="text-2xl font-extrabold text-purple-700 mt-1">{stats.leave}</p>
+              <p className="text-xs text-purple-500">يوم هذا الشهر</p>
+            </div>
+            <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-100">
+              <p className="text-xs font-bold text-indigo-600">إجمالي الساعات</p>
+              <p className="text-2xl font-extrabold text-indigo-700 mt-1">{stats.totalHours.toFixed(1)}</p>
+              <p className="text-xs text-indigo-500">ساعة</p>
+            </div>
+            <div className="bg-teal-50 rounded-2xl p-4 border border-teal-100">
+              <p className="text-xs font-bold text-teal-600">تتابع الحضور</p>
+              <p className="text-2xl font-extrabold text-teal-700 mt-1">{stats.weeklyStreak}</p>
+              <p className="text-xs text-teal-500">أطول تتابع: {stats.longestStreak} يوم</p>
+            </div>
+            {stats.unknown > 0 ? (
+              <div className="bg-orange-50 rounded-2xl p-4 border border-orange-200">
+                <p className="text-xs font-bold text-orange-600 flex items-center gap-1">
+                  <AlertTriangle size={12} /> أيام بحالة غير معروفة
+                </p>
+                <p className="text-2xl font-extrabold text-orange-700 mt-1">{stats.unknown}</p>
+                <p className="text-xs text-orange-500">راجع الموارد البشرية</p>
+              </div>
+            ) : (
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <p className="text-xs font-bold text-slate-500">دقائق التأخير</p>
+                <p className="text-2xl font-extrabold text-slate-700 mt-1">{stats.late > 0 ? stats.late : 0}</p>
+                <p className="text-xs text-slate-400">مرات تأخير</p>
+              </div>
+            )}
           </div>
 
           {/* Monthly Calendar */}
@@ -448,15 +563,16 @@ export default function MyAttendancePage() {
                       const dateStr = format(new Date(currentYear, currentMonth, d), 'yyyy-MM-dd');
                       const daySummary = summary.find((s) => s.shift_date === dateStr);
                       const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
-                      let bg = 'bg-slate-50';
-
-                      if (daySummary?.status) {
-                        if (daySummary.status === ATTENDANCE_STATUS.ON_TIME) bg = 'bg-emerald-100';
-                        else if (daySummary.status === ATTENDANCE_STATUS.LATE) bg = 'bg-amber-100';
-                        else if (daySummary.status === ATTENDANCE_STATUS.ABSENT) bg = 'bg-red-100';
-                        else if (daySummary.status === ATTENDANCE_STATUS.LEAVE) bg = 'bg-purple-100';
-                        else if (daySummary.status === ATTENDANCE_STATUS.HOLIDAY) bg = 'bg-slate-100';
-                      }
+                      // ★ خريطة واحدة للحالات الثماني. المنطق القديم
+                      //   غطّى خمساً، فظهرت أيام «زمنية_معتمدة» و
+                      //   «زمنية_انتظار» و«إجازة_انتظار» بلون «لا سجلّ».
+                      //   والحالة المجهولة تُميَّز بإطار متقطّع لا تُخفى.
+                      const known = daySummary?.status
+                        ? STATUS_BG[daySummary.status]
+                        : undefined;
+                      const bg = known ?? (daySummary?.status
+                        ? 'bg-slate-200 border border-dashed border-slate-400'
+                        : 'bg-slate-50');
 
                       days.push(
                         <div key={d} className={`${bg} rounded-lg p-1.5 ${isToday ? 'ring-2 ring-indigo-400' : ''}`}>
@@ -501,6 +617,57 @@ export default function MyAttendancePage() {
                       </div>
                     </div>
                     <span className="text-xs text-slate-500 font-mono">{format(new Date(log.punch_time), 'dd MMM - HH:mm', { locale: ar })}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+          {/* ★★★ 0344: سجلّ طلبات التصحيح.
+              الصفحة كانت تُنشئ hr_case بـcase_type='attendance_correction'
+              ثم **لا تعرضه أبداً**: الموظف يضغط «أرسل»، يرى رسالة نجاح،
+              ولا يعرف بعدها شيئاً — لا رقم طلب ولا حالة ولا ردّ. */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-700 flex items-center gap-2">
+                    <CalendarX size={16} /> طلبات تصحيح الحضور
+                  </span>
+                  <span className="text-xs text-slate-500">{corrections.length} طلب</span>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <div className="px-4 pb-4 space-y-2">
+              {corrections.length === 0 ? (
+                <div className="text-center py-6 text-slate-400">
+                  <CalendarX size={28} className="mx-auto mb-2 opacity-40" />
+                  <p className="font-medium text-sm">لم ترسل أي طلب تصحيح</p>
+                </div>
+              ) : (
+                corrections.map((c) => (
+                  <div key={c.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-700">{c.subject}</p>
+                        <p className="text-xs text-slate-500 mt-0.5 whitespace-pre-line">{c.description}</p>
+                      </div>
+                      <span className={`text-[11px] font-bold px-2 py-1 rounded-full shrink-0 ${
+                        CASE_STATUS_STYLE[c.status] ?? 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {CASE_STATUS_LABEL[c.status] ?? c.status}
+                      </span>
+                    </div>
+                    {c.resolution ? (
+                      <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-2 py-1.5 mt-2">
+                        <span className="font-bold">ردّ الموارد البشرية: </span>{c.resolution}
+                      </p>
+                    ) : null}
+                    <p className="text-[11px] text-slate-400 mt-2">
+                      أُرسل {format(new Date(c.createdAt), 'dd MMM yyyy - HH:mm', { locale: ar })}
+                      {c.resolvedAt
+                        ? ` · حُسم ${format(new Date(c.resolvedAt), 'dd MMM yyyy', { locale: ar })}`
+                        : ''}
+                    </p>
                   </div>
                 ))
               )}

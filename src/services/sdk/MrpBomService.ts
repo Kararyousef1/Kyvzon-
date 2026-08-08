@@ -1,5 +1,6 @@
 import { BaseService } from './BaseService';
 import { supabase } from '../supabase/supabase';
+import { logger } from '../utils/logger';
 
 export interface MrpBomHeaderRecord { id:string; tenant_id:string; bom_code:string; item_id:string; bom_type:string; structure_type:string; status:string; created_at:string; }
 export interface MrpBomVersionRecord { id:string; tenant_id:string; bom_id:string; version_no:string; status:string; effective_from?:string|null; created_at:string; }
@@ -13,7 +14,31 @@ export interface MrpBomExportRequestRecord { id:string; tenant_id:string; reques
 
 type Row=Record<string,unknown>;
 export class MrpBomHeaderService extends BaseService<MrpBomHeaderRecord>{constructor(){super('mrp_bom_headers')} async createBom(input:Row):Promise<string>{const{data,error}=await supabase.rpc('create_mrp_bom',{p_bom_code:input.bom_code||null,p_item_id:input.item_id,p_bom_type:input.bom_type||'MBOM',p_structure_type:input.structure_type||'multi_level',p_name_ar:input.name_ar||null,p_version_no:input.version_no||'1.0'}); if(error) throw new Error(error.message); return data as string;}}
-export class MrpBomVersionService extends BaseService<MrpBomVersionRecord>{constructor(){super('mrp_bom_versions')} async approve(id:string,effectiveFrom?:string):Promise<void>{const{error}=await supabase.rpc('approve_mrp_bom_version',{p_bom_version_id:id,p_effective_from:effectiveFrom||null}); if(error) throw new Error(error.message);} async duplicate(id:string,newVersion:string,reason:string):Promise<string>{const{data,error}=await supabase.rpc('duplicate_mrp_bom_version',{p_bom_version_id:id,p_new_version_no:newVersion,p_reason:reason}); if(error) throw new Error(error.message); return data as string;}}
+export class MrpBomVersionService extends BaseService<MrpBomVersionRecord>{
+  constructor(){super('mrp_bom_versions')}
+
+  /**
+   * تقديم نسخة BOM للاعتماد.
+   *
+   * لماذا دالة جديدة؟ approve() تنقل النسخة مباشرة إلى 'effective' بلا
+   * مرور بسلسلة موافقة — فجدول mrp_bom_approvals كان يبقى فارغاً أبداً
+   * ولا يظهر شيء في مركز موافقات المدير.
+   *
+   * هذه تُنشئ الطلب (0306) وتنقل الحالة إلى 'in_review'، فيراه المدير
+   * ويبتّ فيه عبر المحرك الموحّد. الجسر آمن للتكرار.
+   */
+  async submitForApproval(id:string,approverRole='production_manager'):Promise<string>{
+    const{data,error}=await supabase.rpc('create_mrp_bom_approval',{p_bom_version_id:id,p_approver_role:approverRole});
+    if(error) throw new Error(error.message);
+    // الحالة تتبع الطلب — فشلها لا يُلغي الطلب المُنشأ
+    const{error:statusError}=await supabase.from('mrp_bom_versions').update({status:'in_review'}).eq('id',id);
+    if(statusError) logger.warn('تعذّر نقل نسخة BOM إلى in_review — الطلب أُنشئ',{id,error:statusError.message});
+    return data as string;
+  }
+
+  async approve(id:string,effectiveFrom?:string):Promise<void>{const{error}=await supabase.rpc('approve_mrp_bom_version',{p_bom_version_id:id,p_effective_from:effectiveFrom||null}); if(error) throw new Error(error.message);}
+  async duplicate(id:string,newVersion:string,reason:string):Promise<string>{const{data,error}=await supabase.rpc('duplicate_mrp_bom_version',{p_bom_version_id:id,p_new_version_no:newVersion,p_reason:reason}); if(error) throw new Error(error.message); return data as string;}
+}
 export class MrpBomLineService extends BaseService<MrpBomLineRecord>{constructor(){super('mrp_bom_lines')} async addLine(input:Row):Promise<string>{const{data,error}=await supabase.rpc('add_mrp_bom_line',{p_bom_version_id:input.bom_version_id,p_parent_line_id:input.parent_line_id||null,p_line_no:Number(input.line_no||10),p_component_item_id:input.component_item_id,p_quantity_per:Number(input.quantity_per||1),p_uom:input.uom||'PCS',p_scrap_percent:Number(input.scrap_percent||0),p_material_type:input.material_type||'raw',p_supply_type:input.supply_type||'buy',p_lead_time_days:Number(input.lead_time_days||0),p_safety_stock:Number(input.safety_stock||0),p_minimum_order_qty:Number(input.minimum_order_qty||0),p_order_multiple:Number(input.order_multiple||1),p_operation_sequence_no:input.operation_sequence_no?Number(input.operation_sequence_no):null,p_is_phantom:Boolean(input.is_phantom),p_notes:input.notes||null}); if(error) throw new Error(error.message); return data as string;} async addSubstitute(input:Row):Promise<string>{const{data,error}=await supabase.rpc('add_mrp_bom_line_substitute',{p_bom_line_id:input.bom_line_id,p_substitute_item_id:input.substitute_item_id,p_priority:Number(input.priority||1),p_conversion_factor:Number(input.conversion_factor||1),p_notes:input.notes||null}); if(error) throw new Error(error.message); return data as string;} async addSupplier(input:Row):Promise<string>{const{data,error}=await supabase.rpc('add_mrp_bom_line_supplier',{p_bom_line_id:input.bom_line_id,p_supplier_id:input.supplier_id||null,p_supplier_part_number:input.supplier_part_number||null,p_lead_time_days:input.lead_time_days?Number(input.lead_time_days):null,p_unit_price:input.unit_price?Number(input.unit_price):null,p_currency_code:input.currency_code||'SAR',p_is_preferred:Boolean(input.is_preferred)}); if(error) throw new Error(error.message); return data as string;}}
 export class MrpEcrService extends BaseService<MrpEcrRecord>{constructor(){super('mrp_engineering_change_requests')} async createEcr(reason:string,change:string,source='manual'):Promise<string>{const{data,error}=await supabase.rpc('create_mrp_ecr',{p_reason:reason,p_proposed_change:change,p_request_source:source}); if(error) throw new Error(error.message); return data as string;} async close(id:string,status:string,reason:string):Promise<void>{const{error}=await supabase.rpc('close_mrp_ecr',{p_ecr_id:id,p_status:status,p_reason:reason}); if(error) throw new Error(error.message);}}
 export class MrpEcoService extends BaseService<MrpEcoRecord>{constructor(){super('mrp_engineering_change_orders')} async createEco(input:Row):Promise<string>{const{data,error}=await supabase.rpc('create_mrp_eco',{p_ecr_id:input.ecr_id||null,p_bom_version_id:input.bom_version_id||null,p_effectivity_date:input.effectivity_date||null,p_impact_summary:input.impact_summary||null,p_implementation_plan:input.implementation_plan||null}); if(error) throw new Error(error.message); return data as string;} async implement(id:string):Promise<void>{const{error}=await supabase.rpc('implement_mrp_eco',{p_eco_id:id}); if(error) throw new Error(error.message);}}

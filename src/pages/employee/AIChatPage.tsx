@@ -68,7 +68,8 @@ export default function AIChatPage() {
       try {
         // المسار الآمن: يمر عبر BaseService + RLS (staff فقط). للموظفين يفشل بهدوء ويستخدم الافتراضي.
         const aiSettings = await settingsService.findAiSettings().catch(() => null) as { activeModel?: string } | null;
-        const modelId = (aiSettings as any)?.activeModel as string | undefined;
+        // ★ المرحلة 1: نوع بنيوي — activeModel وحده هو المقروء
+    const modelId = (aiSettings as { activeModel?: string } | null | undefined)?.activeModel;
         if (modelId && AI_MODELS[modelId]) {
           setActiveModel(modelId);
           setCurrentModelName(AI_MODELS[modelId].name);

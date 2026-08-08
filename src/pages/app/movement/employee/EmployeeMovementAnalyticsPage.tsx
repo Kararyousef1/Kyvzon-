@@ -8,6 +8,8 @@ import type { EmployeeViolationRecord } from '../../../../shared/types/employee-
 import Card from '../../../../shared/components/ui/Card';
 import Button from '../../../../shared/components/ui/Button';
 import { getErrorMessage } from '../../../../services/errors';
+import { MovementUnitNav } from '../shared/MovementUnitNav';
+import { exportToCsv } from '../../../../utils/dataExport';
 
 export default function EmployeeMovementAnalyticsPage() {
   const { user } = useAuthStore();
@@ -39,19 +41,26 @@ export default function EmployeeMovementAnalyticsPage() {
   const complianceRate = totalMovements > 0 ? Math.round((returnedMovements / totalMovements) * 100) : 100;
   const totalViolations = violations.length;
 
+  /*
+    🔴 كان هنا تصدير CSV يدوي — انتهاك لبوابة «التصدير عبر dataExport
+    فقط»، وثغرة **حقن صيغ CSV** حقيقية: وجهة اسمها `=cmd|...` تُنفَّذ
+    كمعادلة عند فتح الملف في Excel. الاقتباس اليدوي بـ `"` لا يحمي منها.
+
+    exportToCsv يمرّ بـ sanitizeCell الذي يسبق الخلايا الخطرة بفاصلة
+    عليا، ويقتبس وفق RFC 4180، ويضيف BOM لعرض العربية سليمةً.
+  */
   const handleExport = () => {
     try {
-      const csvContent = [
-        ['معرّف الحركة', 'الوجهة', 'وقت الخروج', 'الحالة'].join(','),
-        ...movements.map(m => [m.id, `"${m.destination_name}"`, m.departure_at, m.status].join(','))
-      ].join('\n');
-
-      const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `employee-movement-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
+      exportToCsv(
+        `employee-movement-analytics-${new Date().toISOString().slice(0, 10)}`,
+        [
+          { header: 'معرّف الحركة', value: (m: EmployeeMovementLogRecord) => m.id },
+          { header: 'الوجهة',       value: (m: EmployeeMovementLogRecord) => m.destination_name },
+          { header: 'وقت الخروج',   value: (m: EmployeeMovementLogRecord) => m.departure_at },
+          { header: 'الحالة',       value: (m: EmployeeMovementLogRecord) => m.status },
+        ],
+        movements,
+      );
       addToast('تم تصدير تقرير التحليلات بنجاح', 'success');
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
@@ -60,6 +69,7 @@ export default function EmployeeMovementAnalyticsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in" dir="rtl">
+      <MovementUnitNav unit="employee_analytics" />
       <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white flex items-center justify-between flex-wrap gap-4">
         <div>
           <p className="text-white/70 text-sm font-semibold">Employee Movement • E06</p>

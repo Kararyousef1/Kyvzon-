@@ -8,11 +8,34 @@ import {
 } from 'lucide-react';
 import Card from '../../shared/components/ui/Card';
 import { useAuthStore } from '../../core/stores';
-import { courseProgressService, courseService, employeeGoalService, employeeService, employeeSkillService } from '../../services/sdk';
+import { courseService, employeeGoalService, employeeService, employeeSkillService } from '../../services/sdk';
+import {
+  myTrainingService,
+  type MyCourseProgress,
+} from '../../services/sdk/MyTrainingService';
 import { getErrorMessage } from '../../services/errors';
 
 // ── Types ──
 type CourseStatus = 'completed' | 'in_progress' | 'not_started' | 'locked';
+
+/** صفّ خام من `courses` — بالأعمدة الموجودة فعلاً في المخطط. */
+interface CourseRow {
+  id: string;
+  title?: string;
+  title_en?: string;
+  description?: string;
+  description_en?: string;
+  category?: string;
+  duration?: string;
+  level?: string;
+  points?: number;
+  mandatory?: boolean;
+  instructor?: string;
+  status?: string;
+  tags?: string[];
+  objectives?: string[];
+  thumbnail?: string;
+}
 type CourseLevel  = 'مبتدئ' | 'متوسط' | 'متقدم' | 'خبير';
 type Language = 'ar' | 'en';
 
@@ -91,14 +114,34 @@ export default function TrainingPage() {
 
   // Fetch courses through SDK + enrich with employee progress/goals/skills
   useEffect(() => {
-    const normalizeCourse = (raw: any, progressByCourse: Map<string, any>): Course => {
+    /**
+     * ★★★ إصلاح 0353 — عطلان مُثبتان تشغيلياً:
+     *
+     *   ① `progress?.progress_percent ?? raw.progress ?? 0`
+     *      كلا العمودين **معدوم**: `course_progress.progress_percent`
+     *      غير موجود (الموجود `progress`)، و`courses.progress` غير
+     *      موجود أصلاً ⇒ السلسلة تسقط إلى 0 دائماً.
+     *
+     *   ② `progress?.status === 'completed'`
+     *      و`course_progress.status` **غير موجود** (الموجود
+     *      `completed BOOLEAN`). و`raw.status` هو `courses.status`
+     *      = 'active' — حالة الدورة لا حالة الموظف فيها.
+     *
+     *   الأثر المُقاس (موظف أتمّ الدورة: progress=100 · completed=true):
+     *     progressPercent ⇒ 0 · status ⇒ 'not_started'
+     *   ⇒ **من أتمّ الدورة يظهر «لم يبدأ» بشريط 0%**.
+     */
+    const normalizeCourse = (
+      raw: CourseRow,
+      progressByCourse: Map<string, MyCourseProgress>,
+    ): Course => {
       const progress = progressByCourse.get(raw.id);
-      const progressPercent = Number(progress?.progress_percent ?? raw.progress ?? 0);
-      const status: CourseStatus = progress?.status === 'completed' || raw.status === 'completed'
+      const progressPercent = Number(progress?.progress ?? 0);
+      const status: CourseStatus = progress?.completed
         ? 'completed'
         : progressPercent > 0
           ? 'in_progress'
-          : raw.status === 'locked'
+          : raw.status === 'archived' || raw.status === 'inactive'
             ? 'locked'
             : 'not_started';
       return {
@@ -108,17 +151,22 @@ export default function TrainingPage() {
         description: raw.description || 'لا يوجد وصف متاح لهذه الدورة حالياً.',
         descriptionEn: raw.description_en,
         category: raw.category || 'roles',
-        duration: raw.duration || `${raw.duration_minutes || 0} دقيقة`,
+        duration: raw.duration || 'غير محددة',
         level: (raw.level as CourseLevel) || 'متوسط',
         progress: progressPercent,
         status,
-        modules: Number(raw.modules_count || raw.modules || 0),
-        points: Number(raw.points || (status === 'completed' ? 10 : 0)),
-        tags: Array.isArray(raw.tags) ? raw.tags : [raw.category, raw.title].filter(Boolean),
-        mandatory: Boolean(raw.is_mandatory ?? raw.mandatory),
+        // ★ `modules_count` و`modules` معدومان — العدد من `objectives`
+        modules: Array.isArray(raw.objectives) ? raw.objectives.length : 0,
+        points: Number(raw.points ?? 0),
+        tags: Array.isArray(raw.tags) && raw.tags.length > 0
+          ? raw.tags
+          : [raw.category, raw.title].filter((t): t is string => Boolean(t)),
+        // ★ `is_mandatory` معدوم — العمود `mandatory`
+        mandatory: Boolean(raw.mandatory),
         instructor: raw.instructor || 'إدارة التدريب',
         objectives: Array.isArray(raw.objectives) ? raw.objectives : [],
-        moduleList: Array.isArray(raw.moduleList) ? raw.moduleList : [],
+        // ★ لا عمود `moduleList` في `courses` — قائمة الوحدات غير مُخزَّنة
+        moduleList: [],
         thumbnail: raw.thumbnail,
       };
     };
@@ -133,13 +181,16 @@ export default function TrainingPage() {
         ]);
         const employeeId = employees[0]?.id;
         const [progressRows, skillRows, goalRows] = employeeId ? await Promise.all([
-          courseProgressService.findByEmployee(employeeId).catch(() => []),
+          myTrainingService.myProgress(employeeId).catch(() => [] as MyCourseProgress[]),
           employeeSkillService.findByEmployee(employeeId).catch(() => []),
           employeeGoalService.findByEmployee(employeeId).catch(() => []),
-        ]) : [[], [], []];
+        ]) : [[] as MyCourseProgress[], [], []];
 
-        const progressByCourse = new Map<string, any>((progressRows || []).map((p: any) => [String(p.course_id), p] as [string, any]));
-        const normalized = (courseRows || []).map((course: any) => normalizeCourse(course, progressByCourse));
+        const progressByCourse = new Map<string, MyCourseProgress>(
+          (progressRows as MyCourseProgress[]).map((p) => [p.courseId, p]),
+        );
+        const normalized = ((courseRows || []) as unknown as CourseRow[])
+          .map((course) => normalizeCourse(course, progressByCourse));
         setCourses(normalized);
 
         const skillNames = (skillRows || []).map((s: any) => String(s.skill_name || '').toLowerCase()).filter(Boolean);

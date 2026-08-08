@@ -150,13 +150,23 @@ export default function AttendanceAnalytics() {
       const weekStart  = new Date(now); weekStart.setDate(now.getDate() - 7);
       const monthStart = new Date(now); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
 
-      const [todayCount, weekCount, monthCount, todayLogs, dailyStats] = await Promise.allSettled([
-        attendanceService.countPunchesSince(todayStart.toISOString()),
-        attendanceService.countPunchesSince(weekStart.toISOString()),
-        attendanceService.countPunchesSince(monthStart.toISOString()),
-        attendanceService.findLogsByEmployee('', { fromDate: todayStart.toISOString(), limit: 1000 }),
-        attendanceSummaryService.getDailyStats(todayStart.toISOString().slice(0, 10)),
-      ]);
+      // ★★ إصلاح 0333: السطر التالي كان
+      //     attendanceService.findLogsByEmployee('', { limit: 1000 })
+      //   أي معرّف موظف **فارغ** ليعني «كل الموظفين». النتيجة في
+      //   المتصفح كانت 400 بنصّ:
+      //     invalid input syntax for type uuid: ""
+      //   ولو نجح لجلب ألف صفّ كامل ليُجمّعها المتصفح. استُبدل بدالتَي
+      //   قاعدة تُجمّعان بنطاق المستأجر.
+      const [todayCount, weekCount, monthCount, hourly, shiftSplit, week7, dailyStats] =
+        await Promise.allSettled([
+          attendanceService.countPunchesSince(todayStart.toISOString()),
+          attendanceService.countPunchesSince(weekStart.toISOString()),
+          attendanceService.countPunchesSince(monthStart.toISOString()),
+          attendanceService.todayByHour(),
+          attendanceService.todayShiftSplit(),
+          attendanceService.last7Days(),
+          attendanceSummaryService.getDailyStats(todayStart.toISOString().slice(0, 10)),
+        ]);
 
       const today = todayCount.status === 'fulfilled' ? Number(todayCount.value) : 0;
       const week  = weekCount.status  === 'fulfilled' ? Number(weekCount.value)  : 0;
@@ -166,38 +176,58 @@ export default function AttendanceAnalytics() {
       setPunchesWeek(week);
       setPunchesMonth(month);
 
-      // Build hourly distribution from today's logs
-      const logs = todayLogs.status === 'fulfilled' ? todayLogs.value as any[] : [];
+      // ── التوزيع الساعي — محسوب في القاعدة على 24 ساعة ───────────
       const hours = buildHours();
-      logs.forEach(l => {
-        const h = new Date(l.punch_time).getHours();
-        if (h >= 0 && h < 24) hours[h].count++;
-      });
+      if (hourly.status === 'fulfilled') {
+        for (const b of hourly.value) {
+          if (b.hour >= 0 && b.hour < 24) hours[b.hour].count = b.total;
+        }
+      }
       setHourBuckets(hours);
 
-      // Shift stats (morning 6-12, afternoon 12-18, evening 18-24)
-      const morning   = logs.filter(l => { const h = new Date(l.punch_time).getHours(); return h >= 6 && h < 12; }).length;
-      const afternoon = logs.filter(l => { const h = new Date(l.punch_time).getHours(); return h >= 12 && h < 18; }).length;
-      const evening   = logs.filter(l => { const h = new Date(l.punch_time).getHours(); return h >= 18 || h < 6; }).length;
+      // ── توزيع الورديات — محسوب في القاعدة ───────────────────────
+      const splitRows = shiftSplit.status === 'fulfilled' ? shiftSplit.value : [];
+      const byShift = new Map(splitRows.map((r) => [r.shift, r]));
+      const morning   = byShift.get('morning')?.count   ?? 0;
+      const afternoon = byShift.get('afternoon')?.count ?? 0;
+      const evening   = byShift.get('evening')?.count   ?? 0;
       const total     = morning + afternoon + evening || 1;
 
       setShiftStats([
-        { label: 'الصباح (6–12)',    icon: Sun,    color: 'text-amber-400',    count: morning,   pct: Math.round((morning   / total) * 100) },
-        { label: 'الظهيرة (12–18)',  icon: Sunset, color: 'text-orange-400',  count: afternoon, pct: Math.round((afternoon / total) * 100) },
-        { label: 'المساء (18–6)',    icon: Moon,   color: 'text-blue-400',    count: evening,   pct: Math.round((evening   / total) * 100) },
+        { label: byShift.get('morning')?.label   ?? 'الصباح (6–12)',   icon: Sun,    color: 'text-amber-400',  count: morning,   pct: Math.round((morning   / total) * 100) },
+        { label: byShift.get('afternoon')?.label ?? 'الظهيرة (12–18)', icon: Sunset, color: 'text-orange-400', count: afternoon, pct: Math.round((afternoon / total) * 100) },
+        { label: byShift.get('evening')?.label   ?? 'المساء (18–6)',   icon: Moon,   color: 'text-blue-400',   count: evening,   pct: Math.round((evening   / total) * 100) },
       ]);
 
       // Daily summary
       const ds = dailyStats.status === 'fulfilled' ? dailyStats.value : { present: 0, late: 0, absent: 0, total: 0 };
-      setSummaryStats(ds as any);
+      setSummaryStats(ds as unknown as Parameters<typeof setSummaryStats>[0]);
 
       // Build 7-day buckets (approximate with week data)
+      // ★ إزالة محاكاة (2026-08-05): كان يوزّع إجمالي الأسبوع على سبعة
+      //   أيام بـ Math.random() ثم يشتقّ «المتأخرين» بضرب 0.1 و«الغائبين»
+      //   بـ 0.05 — أرقام مُختلَقة تُعرض كرسم بياني حقيقي.
+      //
+      //   نستعمل التوزيع الفعلي إن توفّر، وإلا نترك الرسم فارغاً بدل
+      //   تلوينه بأرقام لا أصل لها.
+      //   ★ 0333: العدّ صار في القاعدة عبر attendance_last_7_days().
+      //   النسخة السابقة عدّت من مصفوفة `logs` التي جاءت من
+      //   findLogsByEmployee('') — وهي تسقط دائماً، فبقي الرسم أصفاراً.
       const days = last7Days();
-      const avgPerDay = Math.floor(week / 7);
-      days.forEach((d, i) => {
-        d.present = Math.max(0, avgPerDay + Math.floor(Math.random() * 10) - 5);
-        d.late    = Math.floor(d.present * 0.1);
-        d.absent  = Math.floor(d.present * 0.05);
+      const byDay = new Map<string, number>();
+      if (week7.status === 'fulfilled') {
+        for (const r of week7.value) {
+          byDay.set(String(r.day).slice(0, 10), r.present);
+        }
+      }
+      type DayBucket = { date?: string; iso?: string; present: number; late: number; absent: number };
+      (days as DayBucket[]).forEach((d) => {
+        const key = d.date ?? d.iso ?? null;
+        d.present = key ? (byDay.get(String(key).slice(0, 10)) ?? 0) : 0;
+        // لا نشتقّ «المتأخرين» و«الغائبين» بنسب مُختلَقة — يحتاجان
+        // مقارنة بجدول الورديات وهي غير متاحة هنا.
+        d.late = 0;
+        d.absent = 0;
       });
       setWeekBuckets(days);
       setLastRefresh(new Date());

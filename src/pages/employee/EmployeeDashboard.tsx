@@ -22,6 +22,7 @@ import {
   Heart, Award, Activity, Calendar,
   FileText, Zap, Flame, BookOpen, Brain,
   BarChart3, Target, Wallet, Receipt, CreditCard,
+  AlertCircle,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { incidentService } from '../../services/sdk/IncidentService';
@@ -44,6 +45,8 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { getErrorMessage } from '../../services/errors';
 import { useNavigate } from 'react-router-dom';
+import { useEmployeeId } from '../../shared/hooks/useEmployeeId';
+import { employeeDashboardService } from '../../services/sdk';
 
 // ════════════════════════════════════════════════════
 // أنواع البيانات
@@ -78,6 +81,13 @@ interface AttendanceRecord {
   id?: string;
   shift_date: string;
   status?: string;
+}
+
+/** ★ المرحلة 1: سجل الصحة النفسية — score أو mood_score حسب المصدر */
+interface WellnessEntryLite {
+  date?: string;
+  score?: number;
+  mood_score?: number;
 }
 
 interface TrendDataPoint {
@@ -121,6 +131,9 @@ const calculateStreakFromAttendance = (records: AttendanceRecord[]): number => {
 // ════════════════════════════════════════════════════
 
 export default function EmployeeDashboard() {
+  // ★★ 0335: اللوحة كانت تمرّر user.id (profiles.id) حيث يُنتظر
+  //   employees.id — فعرضت أصفاراً بينما البيانات موجودة كلّها.
+  const { employeeId, linkMissing } = useEmployeeId();
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -151,34 +164,51 @@ export default function EmployeeDashboard() {
   const fetchDashboardData = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const [problems, wellness, attendance, payrollRows, expenses, loans, goals] = await Promise.all([
-        incidentService.findByEmployee(user.id) as unknown as Problem[],
-        wellnessEntryService.findByUser(user.id, 30) as unknown as WellnessEntry[],
-        attendanceSummaryService.findAll({
-          filters: { employee_id: user.id },
-          orderBy: 'shift_date',
-          ascending: false,
-          limit: 30,
-        }) as unknown as AttendanceRecord[],
-        payrollRecordService.findAll({ filters: { employee_id: user.id }, orderBy: 'created_at', ascending: false, limit: 3 }) as Promise<any[]>,
-        expenseRequestService.findByEmployee(user.id) as Promise<any[]>,
-        employeeLoanService.findByEmployee(user.id) as Promise<any[]>,
-        employeeGoalService.findByEmployee(user.id) as Promise<any[]>,
-      ]);
+      // ★★ إصلاح 0335 — كان هنا سبعة استعلامات كلّها بـ`user.id`:
+      //     attendanceSummaryService.findAll({ filters: { employee_id: user.id } })
+      //     expenseRequestService.findByEmployee(user.id)
+      //     employeeLoanService.findByEmployee(user.id)  … إلخ
+      //   لكن `user.id` هو profiles.id بينما العمود employee_id يشير
+      //   إلى employees.id. الإثبات على Postgres بموظف ببيانات كاملة:
+      //     بـuser.id      → wellness=0 attendance=0 goals=0 balance=0
+      //     بـemployees.id → wellness=1 attendance=1 goals=1 balance=1
+      //   ⇒ اللوحة عرضت أصفاراً بينما بيانات الموظف كلّها موجودة.
+      //
+      //   الإجماليات صارت صفّاً واحداً محسوباً في القاعدة، وما تبقّى
+      //   من قوائم تفصيلية يستعمل المعرّف المُحلّ.
+      if (!employeeId) { setLoading(false); return; }
+
+      const [summaryRow, problems, wellness, attendance, payrollRows, expenses, loans] =
+        await Promise.all([
+          employeeDashboardService.summary(),
+          incidentService.findByEmployee(employeeId) as unknown as Problem[],
+          wellnessEntryService.findByUser(employeeId, 30) as unknown as WellnessEntry[],
+          attendanceSummaryService.findAll({
+            filters: { employee_id: employeeId },
+            orderBy: 'shift_date',
+            ascending: false,
+            limit: 30,
+          }) as unknown as AttendanceRecord[],
+          payrollRecordService.findAll({ filters: { employee_id: employeeId }, orderBy: 'created_at', ascending: false, limit: 3 }),
+          expenseRequestService.findByEmployee(employeeId),
+          employeeLoanService.findByEmployee(employeeId),
+        ]);
 
       const problemsList = problems || [];
-      const wellnessList = wellness || [];
+      const wellnessList = (wellness ?? []) as unknown as WellnessEntryLite[];
       const attendanceList = attendance || [];
 
       setRecentProblems(problemsList.slice(0, 5));
 
+      // ★ الإجماليات من القاعدة (0335) لا من عدّ المصفوفات في المتصفح.
+      //   `streak` يبقى محلّياً — يحتاج تسلسل الأيام لا مجرّد عدّ.
       setStats({
-        totalProblems: problemsList.length,
-        resolvedProblems: problemsList.filter((p: Problem) => p.status === 'resolved' || p.status === 'closed').length,
-        pendingProblems: problemsList.filter((p: Problem) => p.status === 'pending').length,
-        wellnessScore: wellnessList.length > 0 ? (wellnessList[0] as any).score || (wellnessList[0] as any).mood_score || 0 : 0,
+        totalProblems: summaryRow.totalProblems,
+        resolvedProblems: summaryRow.resolvedProblems,
+        pendingProblems: summaryRow.pendingProblems,
+        wellnessScore: summaryRow.wellnessScore,
         streak: calculateStreakFromAttendance(attendanceList),
-        attendanceRate: attendanceList.length > 0 ? Math.round((attendanceList.filter((a) => (a as any).status !== 'غائب').length / attendanceList.length) * 100) : 0,
+        attendanceRate: summaryRow.attendanceRate,
       });
 
       const latestPayroll = (payrollRows || [])[0] || {};
@@ -195,20 +225,22 @@ export default function EmployeeDashboard() {
         currency: latestPayroll.currency || 'IQD',
       });
 
-      const activeGoals = (goals || []).filter((goal: any) => goal.status === 'active');
+      // ★ 0335: من القاعدة — الأهداف النشطة وحدها، والمكتمل لا يُحتسب
+      //   في المتوسط (لو حُسب لرفعه زوراً إلى ≈73 بدل 60).
       setDevelopmentSummary({
-        activeGoals: activeGoals.length,
-        averageGoalProgress: activeGoals.length
-          ? Math.round(activeGoals.reduce((sum: number, goal: any) => sum + Number(goal.progress_percent || 0), 0) / activeGoals.length)
-          : 0,
+        activeGoals: summaryRow.activeGoals,
+        averageGoalProgress: summaryRow.avgGoalProgress,
       });
 
       const trend: TrendDataPoint[] = Array.from({ length: 7 }, (_, i) => {
         const date = format(subDays(new Date(), 6 - i), 'yyyy-MM-dd');
         return {
           date: format(subDays(new Date(), 6 - i), 'E', { locale: ar }),
-          problems: problemsList.filter((p: Problem) => (p as any).created_at?.startsWith(date)).length,
-          wellness: (wellnessList as any[]).find((w: any) => w.date === date)?.score || (wellnessList as any[]).find((w: any) => w.date === date)?.mood_score || 0,
+          problems: problemsList.filter((p: Problem) => p.created_at?.startsWith(date)).length,
+          wellness: (() => {
+            const w = wellnessList.find((x) => x.date === date);
+            return w?.score ?? w?.mood_score ?? 0;
+          })(),
         };
       });
       setProblemTrend(trend);
@@ -256,6 +288,34 @@ export default function EmployeeDashboard() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
+      </div>
+    );
+  }
+
+  /**
+   * ★★ 0335: حالة «حساب بلا سجلّ موظف».
+   *
+   *   قبل هذا الإصلاح كان الموظف في هذه الحالة يرى **لوحة أصفار
+   *   كاملة** بلا أي تفسير — يظنّ أن بياناته ضاعت. وهي حالة مختلفة
+   *   تماماً عن «لا بيانات بعد»: تلك تُحلّ بالوقت، وهذه تحتاج تدخّل
+   *   الموارد البشرية لربط الحساب.
+   */
+  if (linkMissing) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mb-4">
+          <AlertCircle className="text-amber-500" size={28} />
+        </div>
+        <h2 className="text-lg font-black text-slate-800 mb-2">
+          حسابك غير مرتبط بسجلّ موظف
+        </h2>
+        <p className="text-sm text-slate-500 max-w-md leading-relaxed">
+          لديك حساب على النظام، لكن لا يوجد سجلّ موظف مرتبط به — لذلك لا
+          يمكن عرض حضورك أو إجازاتك أو رواتبك.
+        </p>
+        <p className="text-sm text-slate-500 mt-2">
+          راجع قسم الموارد البشرية لإتمام الربط.
+        </p>
       </div>
     );
   }

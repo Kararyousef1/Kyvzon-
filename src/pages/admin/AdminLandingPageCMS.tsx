@@ -67,6 +67,8 @@ export default function AdminLandingPageCMS() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  // ★ تأكيد التراجع — بديل confirm() المحظور
+  const [confirmReset, setConfirmReset] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
@@ -129,10 +131,16 @@ export default function AdminLandingPageCMS() {
     }
   };
 
+  /**
+   * التراجع عن التغييرات — تأكيد داخل الصفحة لا confirm().
+   *
+   * ★ confirm() محظور بسياسة المنصة: يوقف خيط الواجهة، لا يُنسَّق مع
+   *   بقية التصميم، ولا يدعم RTL بشكل موثوق عبر المتصفحات.
+   */
   const reset = () => {
-    if (!confirm('هل تريد التراجع عن التغييرات غير المحفوظة؟')) return;
     load();
     setHasChanges(false);
+    setConfirmReset(false);
   };
 
   const tabs = useMemo(() => [
@@ -152,6 +160,26 @@ export default function AdminLandingPageCMS() {
     <div className="min-h-screen bg-slate-50" dir="rtl">
       {toast && <ToastBox message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
+      {/* ★ تأكيد التراجع — Modal لا confirm() (سياسة المنصة) */}
+      {confirmReset && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-800">التراجع عن التغييرات</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              ستُفقد كل التعديلات غير المحفوظة وتعود الصفحة لآخر نسخة محفوظة.
+            </p>
+            <div className="flex gap-2 justify-end pt-1">
+              <button onClick={() => setConfirmReset(false)} className="px-5 py-2.5 bg-white border rounded-xl font-bold text-sm">
+                إبقاء التعديلات
+              </button>
+              <button onClick={reset} className="px-5 py-2.5 bg-rose-600 text-white rounded-xl font-bold text-sm">
+                تراجع
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-slate-200 shadow-sm">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-3.5">
           <div className="flex items-center justify-between gap-4">
@@ -167,7 +195,7 @@ export default function AdminLandingPageCMS() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {hasChanges && <button onClick={reset} className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-600"><RotateCcw size={14} /> تراجع</button>}
+              {hasChanges && <button onClick={() => setConfirmReset(true)} className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-600"><RotateCcw size={14} /> تراجع</button>}
               <a href="/" target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold"><Eye size={16} /> معاينة حية</a>
               <button onClick={save} disabled={saving || !hasChanges} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed" style={!saving && hasChanges ? { background: `linear-gradient(135deg, ${themeColor}, ${themeColor}cc)` } : {}}>
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}

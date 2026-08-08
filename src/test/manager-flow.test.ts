@@ -52,9 +52,23 @@ vi.mock('../services/supabase/supabase', () => ({
       lte: vi.fn().mockReturnThis(),
       in: vi.fn().mockReturnThis(),
       order: vi.fn().mockReturnThis(),
+      // ★ 0344: findAll داخل updateSummary يستدعي .limit() — كان ناقصاً
+      //   في الموك فظهر «query.limit is not a function».
+      limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      range: vi.fn().mockResolvedValue({ data: [], error: null }),
       single: vi.fn().mockResolvedValue({ data: null, error: null }),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      // ★ 0344: BaseService.create يسلسل .insert().select().single()
+      //   والموك كان يُرجع Promise من insert مباشرة ⇒
+      //   «insert(...).select is not a function».
+      insert: vi.fn(() => ({
+        select: vi.fn(() => ({
+          single: vi.fn().mockResolvedValue({
+            data: { id: 'as-mock-1' }, error: null,
+          }),
+        })),
+        then: (r: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(r),
+      })),
       upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
       update: vi.fn().mockResolvedValue({ data: null, error: null }),
       delete: vi.fn(() => {
@@ -684,8 +698,51 @@ describe('📋 9. ربط الإجازات (LeaveLink Mocked)', () => {
     expect(result.success).toBe(true);
   });
 
-  it('linkPermissionApproval: نجاح عند الموافقة على زمنية', async () => {
+  /**
+   * ★★★ تصحيح 0344 — هذا الاختبار كان يمرّ **بسبب العطل نفسه**.
+   *
+   *   `linkPermissionApproval` كان يلمس Supabase مباشرة، والموك يُرجع
+   *   `{ data: null, error: null }` لأي إدراج ⇒ success=true دائماً.
+   *   لكن في القاعدة الحقيقية كان الإدراج يفشل بلا استثناء:
+   *     null value in column "tenant_id" of relation
+   *     "attendance_summary" violates not-null constraint
+   *   (مُثبَت على Postgres محلي). أي أن «النجاح» كان وهماً.
+   *
+   *   بعد التوجيه عبر SDK صار `requireTenantId()` يرمي حين لا سياق —
+   *   وهو **السلوك الصحيح**: أفضل من كتابة صفٍّ يتيم أو ابتلاع الفشل.
+   *   نختبر الحالتين صراحةً.
+   */
+  it('★★★ linkPermissionApproval: يفشل صراحةً بلا سياق مستأجر', async () => {
+    localStorage.removeItem('tenant_id');
     const result = await linkPermissionApproval('emp-002', '2026-06-15', '10:00', '12:00');
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Tenant ID');
+  });
+
+  it('★★ وينجح حين يوجد سياق مستأجر', async () => {
+    localStorage.setItem('tenant_id', '00000000-0000-0000-0000-0000000000aa');
+    try {
+      const result = await linkPermissionApproval('emp-002', '2026-06-15', '10:00', '12:00');
+      expect(result.success).toBe(true);
+    } finally {
+      localStorage.removeItem('tenant_id');
+    }
+  });
+
+  /**
+   * ★★ والجمعة: getDay()===5. الكود القديم كتب ===6 ظانّاً أنها الجمعة
+   *   وهو **السبت** — يوم عمل. مُحقَّق: new Date('2026-05-01').getDay()===5
+   */
+  it('★★★ الجمعة تُتخطّى ولا تحتاج سياقاً (2026-05-01)', async () => {
+    localStorage.removeItem('tenant_id');
+    const result = await linkPermissionApproval('emp-002', '2026-05-01', '10:00', '12:00');
     expect(result.success).toBe(true);
+  });
+
+  it('★★★ والسبت لا يُتخطّى — يوم عمل (2026-05-02)', async () => {
+    localStorage.removeItem('tenant_id');
+    const result = await linkPermissionApproval('emp-002', '2026-05-02', '10:00', '12:00');
+    // لو كان السبت مُتخطّى (العطل القديم) لعاد success=true بلا سياق
+    expect(result.success).toBe(false);
   });
 });

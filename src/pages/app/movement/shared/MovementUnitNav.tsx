@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Compass,
   FileText,
+  History,
   Fuel,
   MapPin,
   Navigation,
@@ -101,6 +102,7 @@ const units: Record<MovementUnitKey, { title: string; subtitle: string; items: I
     { title: 'الأساس ولوحة القيادة', subtitle: 'L00 • برج المراقبة', to: '/app/movement/logistics/dashboard', icon: Zap },
     { title: 'الأسطول والمركبات', subtitle: 'L01 • الجاهزية', to: '/app/movement/logistics/fleet', icon: Truck },
     { title: 'السائقون والامتثال', subtitle: 'L02 • HOS والسلامة', to: '/app/movement/logistics/drivers', icon: Users },
+    { title: 'امتثال السلامة', subtitle: 'L13 • HOS و DVIR', to: '/app/movement/logistics/safety', icon: ShieldAlert },
     { title: 'الصيانة والإصلاح', subtitle: 'L03 • جداول الصيانة', to: '/app/movement/logistics/maintenance', icon: Wrench },
     { title: 'الوقود والطاقة', subtitle: 'L04 • الاستهلاك', to: '/app/movement/logistics/fuel', icon: Fuel },
     { title: 'أوامر النقل والشحنات', subtitle: 'L05 • الحمولة', to: '/app/movement/logistics/orders', icon: Package },
@@ -110,6 +112,7 @@ const units: Record<MovementUnitKey, { title: string; subtitle: string; items: I
     { title: 'التسليم وإثباته', subtitle: 'L09 • EPOD', to: '/app/movement/logistics/epod', icon: FileText },
     { title: 'الناقلون والتعاقد', subtitle: 'L10 • 3PL', to: '/app/movement/logistics/carriers', icon: Users },
     { title: 'التكاليف والتحليلات', subtitle: 'L11 • الأرباح', to: '/app/movement/logistics/costs', icon: BarChart3 },
+    { title: 'إعادة تشغيل المسار', subtitle: 'L12 • تحقيق الحوادث', to: '/app/movement/logistics/track-replay', icon: History },
   ]},
   logistics_foundation: { title: 'الأساس ولوحة القيادة', subtitle: 'L00 • إعدادات البنية والتحكم', items: [
     { title: 'لوحة القيادة', subtitle: 'برج المراقبة', to: '/app/movement/logistics/dashboard', icon: Zap },
@@ -120,6 +123,7 @@ const units: Record<MovementUnitKey, { title: string; subtitle: string; items: I
   ]},
   logistics_drivers: { title: 'السائقون والامتثال', subtitle: 'L02 • الرخص وساعات القيادة HOS', items: [
     { title: 'السائقون', subtitle: 'الامتثال', to: '/app/movement/logistics/drivers', icon: Users },
+    { title: 'امتثال السلامة', subtitle: 'HOS و DVIR', to: '/app/movement/logistics/safety', icon: ShieldAlert },
   ]},
   logistics_maintenance: { title: 'الصيانة والإصلاح', subtitle: 'L03 • الصيانة الوقائية والطارئة', items: [
     { title: 'الصيانة', subtitle: 'سجلات الإصلاح', to: '/app/movement/logistics/maintenance', icon: Wrench },
@@ -138,6 +142,7 @@ const units: Record<MovementUnitKey, { title: string; subtitle: string; items: I
   ]},
   logistics_tracking: { title: 'التتبع والرؤية الحية', subtitle: 'L08 • إشارات GPS والخريطة الحية', items: [
     { title: 'التتبع الحي', subtitle: 'الرؤية', to: '/app/movement/logistics/tracking', icon: Radio },
+    { title: 'إعادة تشغيل المسار', subtitle: 'تحقيق الحوادث', to: '/app/movement/logistics/track-replay', icon: History },
   ]},
   logistics_epod: { title: 'التسليم وإثباته الإلكتروني', subtitle: 'L09 • EPOD والتوقيعات الرقمية', items: [
     { title: 'إثبات التسليم', subtitle: 'EPOD', to: '/app/movement/logistics/epod', icon: FileText },

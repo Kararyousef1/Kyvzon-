@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, FileText, Plus } from 'lucide-react';
 import { useUIStore } from '../../../../core/stores';
 import { logisticsEpodService } from '../../../../services/sdk/LogisticsEpodFuelService';
 import type { LogisticsEpodRecord } from '../../../../shared/types/logistics-epod-fuel';
 import Card from '../../../../shared/components/ui/Card';
+import { MovementUnitNav } from '../shared/MovementUnitNav';
 import Button from '../../../../shared/components/ui/Button';
 import { getErrorMessage } from '../../../../services/errors';
 
 export default function LogisticsEpodPage() {
   const { addToast } = useUIStore();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [epods, setEpods] = useState<LogisticsEpodRecord[]>([]);
 
@@ -28,13 +31,14 @@ export default function LogisticsEpodPage() {
 
   return (
     <div className="space-y-6 animate-fade-in" dir="rtl">
+      <MovementUnitNav unit="logistics_epod" />
       <div className="bg-gradient-to-br from-indigo-700 to-slate-900 rounded-2xl p-6 text-white flex items-center justify-between flex-wrap gap-4">
         <div>
           <p className="text-white/70 text-sm font-semibold">Logistics Control • L09</p>
           <h2 className="text-2xl font-extrabold mt-1 flex items-center gap-2"><FileText /> التسليم وإثباته الإلكتروني (EPOD)</h2>
           <p className="text-white/75 mt-2 text-sm">إدارة توقيعات المستلمين، صور إثبات التسليم، والملاحظات الميدانية.</p>
         </div>
-        <Button onClick={() => addToast('إثبات تسليم جديد قيد التطوير', 'info')} className="!bg-white !text-indigo-900 hover:!bg-indigo-50 !border-none" icon={<Plus size={16} />} iconPosition="left">إثبات تسليم</Button>
+        <Button onClick={() => navigate('/app/movement/logistics/dispatch')} className="!bg-white !text-indigo-900 hover:!bg-indigo-50 !border-none" icon={<Plus size={16} />} iconPosition="left">تسجيل من لوحة الإرسال</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

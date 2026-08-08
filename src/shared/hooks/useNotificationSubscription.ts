@@ -22,6 +22,7 @@ import {
   markAllAsReadOnServer,
   deleteNotificationOnServer,
   deleteAllNotificationsOnServer,
+  fetchUnreadCountFromServer,
   type RealtimeNotificationEvent,
 } from '../../services/notifications/notificationService';
 import type { AppNotification } from '../../core/constants/notificationTypes';
@@ -64,6 +65,8 @@ export function useNotificationSubscription(
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // العدّاد الحقيقي من القاعدة؛ null = تعذّر جلبه ⇒ نسقط للحساب المحلي
+  const [serverUnread, setServerUnread] = useState<number | null>(null);
 
   // يمنع تحديث state بعد unmount
   const mountedRef = useRef(true);
@@ -78,8 +81,14 @@ export function useNotificationSubscription(
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchNotificationsFromServer(userId, limit);
-      if (mountedRef.current) setNotifications(data);
+      const [data, unread] = await Promise.all([
+        fetchNotificationsFromServer(userId, limit),
+        fetchUnreadCountFromServer(),
+      ]);
+      if (mountedRef.current) {
+        setNotifications(data);
+        setServerUnread(unread);
+      }
     } catch {
       if (mountedRef.current) setError('تعذّر تحميل الإشعارات');
     } finally {
@@ -209,9 +218,17 @@ export function useNotificationSubscription(
   }, [userId]);
 
   // ─── المشتقات ──────────────────────────────────────────────
-  const unreadCount = useMemo(
+  // الحساب المحلي يقتصر على الصفحة المحمَّلة (limit) ولا يعرف expires_at،
+  // فنُفضّل عدّاد القاعدة. لكن Realtime يصل قبل إعادة الجلب، فنأخذ الأكبر
+  // بين الاثنين حتى لا تتأخر الشارة عن إشعار وصل للتوّ.
+  const localUnread = useMemo(
     () => notifications.filter((n) => !n.read).length,
     [notifications]
+  );
+
+  const unreadCount = useMemo(
+    () => (serverUnread === null ? localUnread : Math.max(serverUnread, localUnread)),
+    [serverUnread, localUnread]
   );
 
   return {

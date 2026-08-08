@@ -468,6 +468,28 @@ export async function notifySupervisors(
 //  دوال إدارة الإشعارات (CRUD)
 // ════════════════════════════════════════════════════════════════
 
+/**
+ * العدد الحقيقي للإشعارات غير المقروءة — من القاعدة لا من الصفحة المحمَّلة.
+ *
+ * ★ قبل 0323 كان الجرس يعرض `notifications.filter(n => !n.read).length`
+ *   محسوباً على أول 20 صفاً فقط (limit الافتراضي للقائمة المنسدلة).
+ *   موظف عنده 60 إشعاراً غير مقروء كان يرى «20». والإشعارات المنتهية
+ *   (expires_at في الماضي) كانت تُحسب أيضاً.
+ *
+ *   الدالة `my_unread_notification_count` تُطبّق الشرطين في القاعدة.
+ */
+export async function fetchUnreadCountFromServer(): Promise<number | null> {
+  try {
+    const { data, error } = await supabase.rpc('my_unread_notification_count');
+    if (error) throw error;
+    return typeof data === 'number' ? data : null;
+  } catch (err) {
+    console.error('❌ fetchUnreadCountFromServer فشل:', err);
+    // null ≠ 0 — لا نُخفي الشارة لمجرد فشل الشبكة؛ المُنادي يسقط للحساب المحلي
+    return null;
+  }
+}
+
 /** جلب إشعارات المستخدم من Supabase مع تحويل مركزي */
 export async function fetchNotificationsFromServer(
   userId: string,

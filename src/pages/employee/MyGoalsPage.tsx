@@ -7,6 +7,7 @@ import { useAuthStore, useUIStore } from '../../core/stores';
 import { employeeGoalService, employeeSkillService } from '../../services/sdk';
 import type { EmployeeGoalRecord, EmployeeSkillLevel, EmployeeSkillRecord } from '../../shared/types/sdk';
 import { getErrorMessage } from '../../services/errors';
+import { useEmployeeId } from '../../shared/hooks/useEmployeeId';
 
 const goalCategoryLabels: Record<EmployeeGoalRecord['category'], string> = {
   performance: 'الأداء',
@@ -42,6 +43,9 @@ function statusLabel(status: EmployeeGoalRecord['status']) {
 }
 
 export default function MyGoalsPage() {
+  // ★ 0335: employees.id لا profiles.id — أربع صفحات مرّرت الخطأ
+  //   فعرضت قوائم فارغة دائماً.
+  const { employeeId, linkMissing } = useEmployeeId();
   const { user } = useAuthStore();
   const { addToast } = useUIStore();
   const [loading, setLoading] = useState(true);
@@ -67,10 +71,14 @@ export default function MyGoalsPage() {
   const loadData = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
+    // ★ 0335: بلا سجلّ موظف لا معنى للجلب — والواجهة تعرض
+    //   رسالة «حسابك غير مرتبط بسجلّ موظف» عبر linkMissing.
+    if (!employeeId) { setLoading(false); return; }
     try {
       const [goalRows, skillRows] = await Promise.all([
-        employeeGoalService.findByEmployee(user.id),
-        employeeSkillService.findByEmployee(user.id),
+        // ★★ إصلاح 0335: employees.id لا profiles.id
+        employeeGoalService.findByEmployee(employeeId),
+        employeeSkillService.findByEmployee(employeeId),
       ]);
       setGoals(goalRows || []);
       setSkills(skillRows || []);
@@ -99,10 +107,17 @@ export default function MyGoalsPage() {
       addToast('يرجى إدخال عنوان الهدف', 'warning');
       return;
     }
+    // ★★ 0335: لا نُمرّر سلسلة فارغة — هذا بالضبط العطل الذي
+    //   أصلحه 0333: `employee_id=eq.` يردّه Postgres بـ400
+    //   «invalid input syntax for type uuid». رسالة صريحة أوضح.
+    if (!employeeId) {
+      addToast('حسابك غير مرتبط بسجلّ موظف — راجع الموارد البشرية', 'error');
+      return;
+    }
     setSavingGoal(true);
     try {
       await employeeGoalService.createGoal({
-        employee_id: user.id,
+        employee_id: employeeId,
         title: goalForm.title.trim(),
         description: goalForm.description.trim() || undefined,
         category: goalForm.category,
@@ -130,10 +145,17 @@ export default function MyGoalsPage() {
       addToast('يرجى إدخال اسم المهارة', 'warning');
       return;
     }
+    // ★★ 0335: لا نُمرّر سلسلة فارغة — هذا بالضبط العطل الذي
+    //   أصلحه 0333: `employee_id=eq.` يردّه Postgres بـ400
+    //   «invalid input syntax for type uuid». رسالة صريحة أوضح.
+    if (!employeeId) {
+      addToast('حسابك غير مرتبط بسجلّ موظف — راجع الموارد البشرية', 'error');
+      return;
+    }
     setSavingSkill(true);
     try {
       await employeeSkillService.upsertSkill({
-        employee_id: user.id,
+        employee_id: employeeId,
         skill_name: skillForm.skill_name.trim(),
         category: skillForm.category.trim() || undefined,
         level: skillForm.level,

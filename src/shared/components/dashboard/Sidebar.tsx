@@ -16,17 +16,22 @@
 
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useMovementRoles } from '../../hooks/useMovementRoles';
+import { usePortalUnits } from '../../hooks/usePortalUnits';
+import type { PortalUnitKey } from '../../constants/portalUnits';
 import {
   LayoutDashboard, Heart, ClipboardList, BookOpen,
   Bot, MessageSquare, User, Clock, Bell, LogOut, Building2,
   ChevronRight, CheckCircle2, Star, Users, BarChart2, Award,
   FileBarChart, Settings, ShieldCheck, Globe, Database,
   Terminal, AlertOctagon, Layers, BarChart3, Radio,
-  ArrowRightLeft, TrendingUp, Fingerprint, ScrollText, HeartPulse,
+  ArrowRightLeft, TrendingUp, Fingerprint, ScrollText, Bug, Plug, HeartPulse,
   FolderKanban, CalendarClock, Megaphone, ClipboardCheck,
   Receipt, CreditCard, DollarSign, ShieldAlert, FileText,
   Briefcase, UserPlus, Plus, Cpu, Target, RefreshCw, Server, Shield,
   ShoppingCart, Package, Map, Lightbulb, Truck, Factory, Boxes, Route,
+  History,
+  Download,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../../core/stores';
 import { VIEW_TO_PATH } from '../../../router/legacyRedirect';
@@ -36,6 +41,7 @@ import {
   hasPermission,
   PermissionKey,
 } from '../../../core/constants/permissions';
+import { driverAppService } from '../../../services/sdk/DriverAppService';
 import { incidentService } from '../../../services/sdk/IncidentService';
 import { notificationService } from '../../../services/sdk/NotificationService';
 import { getUserDisplayName } from '../../../utils/userUtils';
@@ -66,7 +72,73 @@ interface NavSection {
   items: NavItem[];
 }
 
-function splitInventorySection(section: NavSection): NavSection[] {
+/**
+ * أدوار بوابة الحركة الفعلية للمستخدم — تُمرَّر من useMovementRoles.
+ * null = ما زالت قيد التحميل (لا نعرض شيئاً بعد لتفادي الوميض).
+ */
+type MovementAccess = {
+  roles: readonly ('employee_movement' | 'logistics')[];
+  activeRole: 'employee_movement' | 'logistics' | null;
+  loaded: boolean;
+  /**
+   * سائق نشط في الأسطول (logistics_drivers.user_id).
+   * مستقل تماماً عن أدوار البوابة: السائق غالباً دوره 'employee'،
+   * ولا يجوز منحه دور logistics (مدير الأسطول) ليرى رحلاته.
+   */
+  isDriver: boolean;
+};
+
+/** الصفحات التي يراها السائق ولو لم يكن له أي دور بوابة */
+const DRIVER_ONLY_IDS = ['movement-driver-trips'];
+
+/**
+ * صفحات وحدات بوابتَي المدير والمشرف (0302/0303).
+ *
+ * الوصول إليها لا يُحسم بالدور بل بإسناد الوحدة — فالمدير الذي لم
+ * تُسنَد له وحدة الحركة يجب ألا يراها. عرضها بلا إسناد يُكرّر عطلاً
+ * سبق إصلاحه: شريط يَعِد بصفحات يمنعها الحارس.
+ */
+const UNIT_PAGE_UNIT_KEY: Record<string, string> = {
+  'manager-unit-movement-approvals': 'movement',
+  'manager-unit-movement-team': 'movement',
+  'supervisor-unit-movement-shift': 'movement',
+  'manager-unit-hr-approvals': 'hr',
+  'manager-unit-finance-approvals': 'finance',
+  'manager-unit-procurement-approvals': 'procurement',
+  'manager-unit-inventory-approvals': 'inventory',
+  'manager-unit-mrp-approvals': 'mrp',
+  'manager-unit-contracts-approvals': 'contracts',
+  'manager-unit-crm-approvals': 'crm',
+  'manager-unit-health-safety-approvals': 'health_safety',
+  'supervisor-unit-hr-approvals': 'hr',
+  'supervisor-unit-inventory-approvals': 'inventory',
+  'supervisor-unit-mrp-approvals': 'mrp',
+  'supervisor-unit-health-safety-approvals': 'health_safety',
+};
+
+/** أي دور أساس يفحصه كل صفحة وحدة (المدير يشمل المشرف في has_portal_unit) */
+const UNIT_PAGE_BASE_ROLE: Record<string, 'manager' | 'supervisor'> = {
+  'manager-unit-movement-approvals': 'manager',
+  'manager-unit-movement-team': 'manager',
+  'supervisor-unit-movement-shift': 'supervisor',
+  'manager-unit-hr-approvals': 'manager',
+  'manager-unit-finance-approvals': 'manager',
+  'manager-unit-procurement-approvals': 'manager',
+  'manager-unit-inventory-approvals': 'manager',
+  'manager-unit-mrp-approvals': 'manager',
+  'manager-unit-contracts-approvals': 'manager',
+  'manager-unit-crm-approvals': 'manager',
+  'manager-unit-health-safety-approvals': 'manager',
+  'supervisor-unit-hr-approvals': 'supervisor',
+  'supervisor-unit-inventory-approvals': 'supervisor',
+  'supervisor-unit-mrp-approvals': 'supervisor',
+  'supervisor-unit-health-safety-approvals': 'supervisor',
+};
+
+function splitInventorySection(
+  section: NavSection,
+  movement: MovementAccess,
+): NavSection[] {
   if (section.key === 'inventory-main') {
     const mainIds = [
       'inventory-dashboard',
@@ -99,6 +171,67 @@ function splitInventorySection(section: NavSection): NavSection[] {
       'mrp-analytics',
     ];
     return [{ ...section, items: section.items.filter((item) => mainIds.includes(item.id)) }];
+  }
+  if (section.key === 'movement-main') {
+    // بوابة الحركة دوران منفصلان — يُعرض وحدات الدور النشط فقط.
+    //
+    // ⚠️ تصحيح 2026-08-04 (عطل مُشاهَد في المتصفح):
+    //   كان هذا الفرع يقرأ localStorage مباشرة، وحين لا يجد قيمة محفوظة
+    //   يعرض الدورين معاً بتعليق «الأدوار تتكفّل بالفلترة». لكن الفلترة
+    //   العليا تعتمد على profiles.role وهو movement_manager — فتمر كل
+    //   العناصر. النتيجة: الشريط يعرض 22 صفحة بينما RequireMovementRole
+    //   يمنعها كلها، لأنه يقرأ movement_role_assignments لا profiles.role.
+    //   مصدران مختلفان للحقيقة ⇒ تناقض مرئي للمستخدم.
+    //
+    //   الآن نمرّر أدوار الحركة الحقيقية (نفس مصدر الحارس) فيتطابق
+    //   المعروض مع المسموح.
+    const EMP_IDS = [
+      'movement-emp-foundation', 'movement-emp-permits', 'movement-emp-execution',
+      'movement-emp-visits', 'movement-emp-missions', 'movement-emp-compliance',
+      'movement-emp-analytics',
+    ];
+    const LOG_IDS = [
+      'movement-log-dashboard', 'movement-log-fleet', 'movement-log-drivers',
+      'movement-log-maintenance', 'movement-log-fuel', 'movement-log-orders',
+      'movement-log-routes', 'movement-log-dispatch', 'movement-log-tracking',
+      'movement-log-track-replay', 'movement-driver-trips', 'movement-log-safety',
+      'movement-log-epod', 'movement-log-carriers', 'movement-log-costs',
+    ];
+    // ما زالت الأدوار قيد التحميل — لا نعرض القسم بعد (يتفادى وميض
+    // عناصر ثم اختفاءها).
+    if (!movement.loaded) return [];
+
+    // السائق بلا دور بوابة يرى صفحته وحدها.
+    // (دوره في profiles غالباً 'employee'، ولا يجوز منحه logistics
+    //  لمجرد رؤية رحلاته — تصعيد امتياز.)
+    if (movement.roles.length === 0) {
+      if (!movement.isDriver) return [];
+      const driverItems = section.items.filter((item) =>
+        DRIVER_ONLY_IDS.includes(item.id),
+      );
+      return driverItems.length > 0
+        ? [{ ...section, label: 'تطبيق السائق', items: driverItems }]
+        : [];
+    }
+
+    // الدور النشط يحدّد المعروض؛ من يملك الدورين بلا اختيار محفوظ يرى
+    // الاثنين (وهذا صحيح لأنه يملكهما فعلاً).
+    const active = movement.activeRole;
+    const allowed =
+      active === 'employee_movement' ? EMP_IDS
+      : active === 'logistics'       ? LOG_IDS
+      : [
+          ...(movement.roles.includes('employee_movement') ? EMP_IDS : []),
+          ...(movement.roles.includes('logistics') ? LOG_IDS : []),
+        ];
+
+    // السائق الذي له أيضاً دور بوابة يرى صفحته مع وحداته
+    const withDriver = movement.isDriver
+      ? [...allowed, ...DRIVER_ONLY_IDS]
+      : allowed;
+
+    const items = section.items.filter((item) => withDriver.includes(item.id));
+    return items.length > 0 ? [{ ...section, items }] : [];
   }
   if (section.key === 'procurement-main') {
     // الشريط الجانبي يعرض الوحدات الرئيسية فقط.
@@ -195,12 +328,29 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'supervisor-shift', label: 'إدارة الوردية', icon: CalendarClock, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-shift' },
       { id: 'supervisor-tasks', label: 'مهام الفريق', icon: ClipboardList, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-tasks' },
       { id: 'supervisor-checklists', label: 'قوائم الفحص', icon: ClipboardCheck, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-checklists' },
+      { id: 'supervisor-unit-movement-shift', label: 'وحدة الحركة — حركة الوردية', icon: ArrowRightLeft, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-unit-movement-shift' },
+      { id: 'supervisor-unit-hr-approvals', label: 'وحدة الموارد البشرية — المتابعة', icon: ClipboardCheck, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-unit-hr-approvals' },
+      { id: 'supervisor-unit-inventory-approvals', label: 'وحدة المخزون — المتابعة', icon: ClipboardCheck, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-unit-inventory-approvals' },
+      { id: 'supervisor-unit-mrp-approvals', label: 'وحدة التصنيع — المتابعة', icon: ClipboardCheck, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-unit-mrp-approvals' },
+      { id: 'supervisor-unit-health-safety-approvals', label: 'وحدة الصحة والسلامة — المتابعة', icon: ClipboardCheck, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-unit-health-safety-approvals' },
       { id: 'supervisor-breaks', label: 'تصاريح الاستراحة', icon: ArrowRightLeft, roles: ['supervisor', 'manager'], section: 'supervisor', permKey: 'supervisor-breaks' },
       { id: 'manager-dashboard', label: 'لوحة المدير', icon: LayoutDashboard, roles: ['manager'], section: 'supervisor', permKey: 'manager-dashboard' },
       { id: 'manager-approvals', label: 'مركز الموافقات', icon: ClipboardCheck, roles: ['manager'], section: 'supervisor', permKey: 'manager-approvals' },
       { id: 'manager-performance', label: 'أداء الفريق', icon: TrendingUp, roles: ['manager'], section: 'supervisor', permKey: 'manager-performance' },
       { id: 'manager-workload', label: 'عبء العمل', icon: BarChart3, roles: ['manager'], section: 'supervisor', permKey: 'manager-workload' },
       { id: 'manager-attendance', label: 'حضور الفريق', icon: Users, roles: ['manager'], section: 'supervisor', permKey: 'manager-attendance' },
+      // وحدات بوابة المدير (0302/0303) — تُفلتر بإسناد الوحدة في
+      // splitInventorySection، لا بالدور وحده.
+      { id: 'manager-unit-movement-approvals', label: 'وحدة الحركة — اعتماد التصاريح', icon: ClipboardCheck, roles: ['manager'], section: 'supervisor', permKey: 'manager-unit-movement-approvals' },
+      { id: 'manager-unit-movement-team', label: 'وحدة الحركة — حركة الفريق', icon: ArrowRightLeft, roles: ['manager'], section: 'supervisor', permKey: 'manager-unit-movement-team' },
+      { id: 'manager-unit-hr-approvals', label: 'وحدة الموارد البشرية — الاعتماد', icon: ClipboardCheck, roles: ['manager'], section: 'supervisor', permKey: 'manager-unit-hr-approvals' },
+      { id: 'manager-unit-finance-approvals', label: 'وحدة المالية — الاعتماد', icon: ClipboardCheck, roles: ['manager'], section: 'supervisor', permKey: 'manager-unit-finance-approvals' },
+      { id: 'manager-unit-procurement-approvals', label: 'وحدة المشتريات — الاعتماد', icon: ClipboardCheck, roles: ['manager'], section: 'supervisor', permKey: 'manager-unit-procurement-approvals' },
+      { id: 'manager-unit-inventory-approvals', label: 'وحدة المخزون — الاعتماد', icon: ClipboardCheck, roles: ['manager'], section: 'supervisor', permKey: 'manager-unit-inventory-approvals' },
+      { id: 'manager-unit-mrp-approvals', label: 'وحدة التصنيع — الاعتماد', icon: ClipboardCheck, roles: ['manager'], section: 'supervisor', permKey: 'manager-unit-mrp-approvals' },
+      { id: 'manager-unit-contracts-approvals', label: 'وحدة العقود — الاعتماد', icon: ClipboardCheck, roles: ['manager'], section: 'supervisor', permKey: 'manager-unit-contracts-approvals' },
+      { id: 'manager-unit-crm-approvals', label: 'وحدة المبيعات — الاعتماد', icon: ClipboardCheck, roles: ['manager'], section: 'supervisor', permKey: 'manager-unit-crm-approvals' },
+      { id: 'manager-unit-health-safety-approvals', label: 'وحدة الصحة والسلامة — الاعتماد', icon: ClipboardCheck, roles: ['manager'], section: 'supervisor', permKey: 'manager-unit-health-safety-approvals' },
     ],
   },
 
@@ -287,6 +437,8 @@ const NAV_SECTIONS: NavSection[] = [
   {
     key: 'admin-reports', label: 'التقارير', roles: ['admin'],
     items: [
+      { id: 'admin-approval-rules', label: 'قواعد الاعتماد', icon: ShieldCheck, roles: ['admin'], section: 'admin-reports', permKey: 'admin-approval-rules' },
+      { id: 'admin-mrp-roles', label: 'أدوار التصنيع الدقيقة', icon: Factory, roles: ['admin'], section: 'admin-reports', permKey: 'admin-mrp-roles' },
       { id: 'admin-reports', label: 'تقارير النظام', icon: FileBarChart, roles: ['admin'], section: 'admin-reports', permKey: 'reports' },
       { id: 'hr-training-reports', label: 'تقارير التدريب', icon: BookOpen, roles: ['admin'], section: 'admin-reports', permKey: 'training-reports' },
       { id: 'admin-sops-reports', label: 'تقارير SOP', icon: ScrollText, roles: ['admin'], section: 'admin-reports', permKey: 'sops-reports' },
@@ -322,6 +474,10 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'attendance-analytics', label: 'تحليلات الحضور التقنية', icon: BarChart3, roles: ['it_admin', 'tech'], section: 'tech-main' },
       { id: 'system-health', label: 'صحة النظام', icon: Server, roles: ['it_admin', 'tech'], section: 'tech-main' },
       { id: 'security-events', label: 'الأحداث الأمنية', icon: Shield, roles: ['it_admin', 'tech'], section: 'tech-main' },
+      { id: 'tech-audit-trail', label: 'سجل التدقيق الموحّد', icon: ScrollText, roles: ['it_admin', 'tech'], section: 'tech-main' },
+      { id: 'tech-error-logs', label: 'الأخطاء والمهام', icon: Bug, roles: ['it_admin', 'tech'], section: 'tech-main' },
+      { id: 'tech-integrations', label: 'التكاملات والصادرات', icon: Plug, roles: ['it_admin', 'tech'], section: 'tech-main' },
+      { id: 'tech-data-exports', label: 'الصادرات والناقلون', icon: Download, roles: ['it_admin', 'tech'], section: 'tech-main' },
       { id: 'tech-settings', label: 'الإعدادات التقنية', icon: Settings, roles: ['it_admin', 'tech'], section: 'tech-main' },
     ],
   },
@@ -553,6 +709,39 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'notifications', label: 'التبليغات', icon: Megaphone, roles: ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'it_admin', 'finance'], section: 'notifications', permKey: 'notifications' },
     ],
   },
+  // ── بوابة الحركة واللوجستيات ────────────────────────────────────
+  // دوران منفصلان: حركة الموظفين (E00–E06) واللوجستيات (L00–L11).
+  // الفلترة حسب الدور النشط تتم في splitInventorySection أدناه.
+  {
+    key: 'movement-main', label: 'بوابة الحركة واللوجستيات',
+    roles: ['employee_movement', 'logistics', 'movement_manager', 'admin', 'developer', 'hr'],
+    items: [
+      // الدور «أ» — حركة الموظفين
+      { id: 'movement-emp-foundation', label: 'الأساس والسياسات', icon: Settings, roles: ['employee_movement', 'movement_manager', 'admin', 'hr'], section: 'movement-main', permKey: 'movement-emp-foundation' },
+      { id: 'movement-emp-permits', label: 'تصاريح الخروج', icon: ClipboardList, roles: ['employee_movement', 'movement_manager', 'admin', 'hr'], section: 'movement-main', permKey: 'movement-emp-permits' },
+      { id: 'movement-emp-execution', label: 'تنفيذ البوابة', icon: ArrowRightLeft, roles: ['employee_movement', 'movement_manager', 'admin', 'hr'], section: 'movement-main', permKey: 'movement-emp-execution' },
+      { id: 'movement-emp-visits', label: 'الزيارات الميدانية', icon: Briefcase, roles: ['employee_movement', 'movement_manager', 'admin', 'hr'], section: 'movement-main', permKey: 'movement-emp-visits' },
+      { id: 'movement-emp-missions', label: 'المهام والانتدابات', icon: Clock, roles: ['employee_movement', 'movement_manager', 'admin', 'hr'], section: 'movement-main', permKey: 'movement-emp-missions' },
+      { id: 'movement-emp-compliance', label: 'الامتثال والمخالفات', icon: ShieldAlert, roles: ['employee_movement', 'movement_manager', 'admin', 'hr'], section: 'movement-main', permKey: 'movement-emp-compliance' },
+      { id: 'movement-emp-analytics', label: 'تحليلات الحركة', icon: BarChart2, roles: ['employee_movement', 'movement_manager', 'admin', 'hr'], section: 'movement-main', permKey: 'movement-emp-analytics' },
+      // الدور «ب» — الحركة واللوجستيات
+      { id: 'movement-log-dashboard', label: 'برج المراقبة', icon: LayoutDashboard, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-dashboard' },
+      { id: 'movement-log-fleet', label: 'الأسطول والمركبات', icon: Truck, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-fleet' },
+      { id: 'movement-log-drivers', label: 'السائقون والامتثال', icon: Users, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-drivers' },
+      { id: 'movement-log-maintenance', label: 'الصيانة والإصلاح', icon: Settings, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-maintenance' },
+      { id: 'movement-log-fuel', label: 'الوقود والطاقة', icon: Truck, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-fuel' },
+      { id: 'movement-log-orders', label: 'أوامر النقل والشحنات', icon: Package, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-orders' },
+      { id: 'movement-log-routes', label: 'تخطيط المسارات', icon: Route, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-routes' },
+      { id: 'movement-log-dispatch', label: 'الإرسال والتنفيذ', icon: Radio, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-dispatch' },
+      { id: 'movement-log-tracking', label: 'التتبع الحي', icon: Radio, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-tracking' },
+      { id: 'movement-log-track-replay', label: 'إعادة تشغيل المسار', icon: History, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-track-replay' },
+      { id: 'movement-log-safety', label: 'امتثال السلامة HOS/DVIR', icon: ShieldAlert, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-safety' },
+      { id: 'movement-driver-trips', label: 'تطبيق السائق — رحلاتي', icon: Truck, roles: ['employee', 'logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-driver-trips' },
+      { id: 'movement-log-epod', label: 'التسليم وإثباته', icon: FileText, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-epod' },
+      { id: 'movement-log-carriers', label: 'الناقلون والتعاقد', icon: Users, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-carriers' },
+      { id: 'movement-log-costs', label: 'التكاليف والتحليلات', icon: BarChart2, roles: ['logistics', 'movement_manager', 'admin'], section: 'movement-main', permKey: 'movement-log-costs' },
+    ],
+  },
 ];
 
 // ════════════════════════════════════════════════════════════════
@@ -609,12 +798,15 @@ const ITEM_MODULE_MAP: Record<string, string> = {
   'manager-approvals': 'manager',
   'manager-performance': 'manager',
   'manager-workload': 'manager',
+  'manager-unit-movement-approvals': 'manager',
+  'manager-unit-movement-team': 'manager',
   'manager-attendance': 'manager',
 
   'supervisor-dashboard': 'supervisor',
   'supervisor-shift': 'supervisor',
   'supervisor-tasks': 'supervisor',
   'supervisor-checklists': 'supervisor',
+  'supervisor-unit-movement-shift': 'supervisor',
   'supervisor-breaks': 'supervisor',
 
   'hr-dashboard': 'hr',
@@ -669,11 +861,38 @@ const ITEM_MODULE_MAP: Record<string, string> = {
   'attendance-analytics': 'tech_portal',
   'system-health': 'tech_portal',
   'security-events': 'tech_portal',
+  'tech-audit-trail': 'tech_portal',
+  'tech-error-logs': 'tech_portal',
+  'tech-integrations': 'tech_portal',
+  'tech-data-exports': 'tech_portal',
   'tech-settings': 'tech_portal',
   'tawathul-portal': 'tawathul',
   'tawathul-admin': 'tawathul',
   'admin-ai-insights': 'ai',
   'employee-ai-chat': 'ai',
+
+  'movement-emp-foundation': 'movement',
+  'movement-emp-permits': 'movement',
+  'movement-emp-execution': 'movement',
+  'movement-emp-visits': 'movement',
+  'movement-emp-missions': 'movement',
+  'movement-emp-compliance': 'movement',
+  'movement-emp-analytics': 'movement',
+  'movement-log-dashboard': 'movement',
+  'movement-log-fleet': 'movement',
+  'movement-log-drivers': 'movement',
+  'movement-log-maintenance': 'movement',
+  'movement-log-fuel': 'movement',
+  'movement-log-orders': 'movement',
+  'movement-log-routes': 'movement',
+  'movement-log-dispatch': 'movement',
+  'movement-log-tracking': 'movement',
+  'movement-log-track-replay': 'movement',
+  'movement-log-safety': 'movement',
+  'movement-driver-trips': 'movement',
+  'movement-log-epod': 'movement',
+  'movement-log-carriers': 'movement',
+  'movement-log-costs': 'movement',
 
   'procurement-dashboard': 'procurement',
   'procurement-pr': 'procurement',
@@ -954,6 +1173,9 @@ const ROLE_CONFIG: Record<UserRole, { label: string; portalName: string; gradien
   procurement: { label: 'مشتريات',      portalName: 'بوابة المشتريات', gradient: 'from-amber-600 to-orange-700', bg: 'from-amber-50 to-orange-50', text: 'text-amber-600' },
   inventory:   { label: 'مخزون',        portalName: 'بوابة المخزون والمستودعات', gradient: 'from-indigo-600 to-blue-700', bg: 'from-indigo-50 to-blue-50', text: 'text-indigo-600' },
   manufacturing:{ label: 'تصنيع',      portalName: 'بوابة التصنيع MRP', gradient: 'from-orange-600 to-red-700', bg: 'from-orange-50 to-red-50', text: 'text-orange-600' },
+  employee_movement: { label: 'حركة الموظفين', portalName: 'بوابة الحركة', gradient: 'from-sky-600 to-cyan-700', bg: 'from-sky-50 to-cyan-50', text: 'text-sky-600' },
+  logistics:         { label: 'لوجستيات',      portalName: 'بوابة الحركة واللوجستيات', gradient: 'from-teal-600 to-emerald-700', bg: 'from-teal-50 to-emerald-50', text: 'text-teal-600' },
+  movement_manager:  { label: 'مدير الحركة',   portalName: 'بوابة الحركة واللوجستيات', gradient: 'from-cyan-600 to-blue-700', bg: 'from-cyan-50 to-blue-50', text: 'text-cyan-600' },
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -978,6 +1200,38 @@ export default function Sidebar() {
     refetchOnFocus: false,
   });
   const { isEnabled: isModuleEnabled } = useTenantModules();
+
+  // أدوار بوابة الحركة — نفس مصدر RequireMovementRole
+  // (movement_role_assignments) حتى لا يعرض الشريط صفحات يمنعها الحارس.
+  const {
+    roles: movementRoles,
+    activeRole: movementActiveRole,
+    loaded: movementLoaded,
+  } = useMovementRoles();
+
+  // وحدات بوابتَي المدير والمشرف (0302) — نفس مصدر RequirePortalUnit.
+  const { hasUnit: hasPortalUnit, loaded: portalUnitsLoaded } = usePortalUnits();
+
+  // السائق يُعرَّف بسجل في logistics_drivers لا بدور بوابة (0301).
+  const [isFleetDriver, setIsFleetDriver] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    if (!user?.id) {
+      setIsFleetDriver(false);
+      return;
+    }
+    void driverAppService
+      .isDriver()
+      .then((result) => {
+        if (!cancelled) setIsFleetDriver(result);
+      })
+      .catch(() => {
+        if (!cancelled) setIsFleetDriver(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const role = (user?.role as UserRole) || 'employee';
   const config = ROLE_CONFIG[role];
@@ -1030,6 +1284,15 @@ export default function Sidebar() {
   const hasCustomPages = Array.isArray(user.custom_permissions?.allowed_pages);
 
   const canView = (item: NavItem): boolean => {
+    // 0) صفحات وحدات المدير/المشرف: الوصول بإسناد الوحدة لا بالدور.
+    //    نُخفيها حتى تكتمل قراءة الوحدات، فلا تومض ثم تختفي.
+    const unitKey = UNIT_PAGE_UNIT_KEY[item.id];
+    if (unitKey) {
+      if (!portalUnitsLoaded) return false;
+      const unitBase = UNIT_PAGE_BASE_ROLE[item.id] ?? 'manager';
+      if (!hasPortalUnit(unitBase, unitKey as PortalUnitKey)) return false;
+    }
+
     // 1) فحص تفعيل الموديل للشركة ككل
     const moduleKey = ITEM_MODULE_MAP[item.id];
     if (moduleKey && !isModuleEnabled(moduleKey)) return false;
@@ -1066,7 +1329,13 @@ export default function Sidebar() {
   };
 
   const visibleSections = NAV_SECTIONS
-    .filter((section) => hasCustomPages || section.roles.includes(role))
+    .filter((section) =>
+      hasCustomPages
+      || section.roles.includes(role)
+      // السائق يمر لقسم الحركة ولو كان دوره 'employee' — تصفيته
+      // الدقيقة تجري في splitInventorySection.
+      || (section.key === 'movement-main' && isFleetDriver),
+    )
     .map((section) => ({
       ...section,
       items: section.items.filter(canView).map((item) => {
@@ -1077,7 +1346,14 @@ export default function Sidebar() {
       }),
     }))
     .filter((section) => section.items.length > 0)
-    .flatMap(splitInventorySection);
+    .flatMap((section) =>
+      splitInventorySection(section, {
+        roles: movementRoles,
+        activeRole: movementActiveRole,
+        loaded: movementLoaded,
+        isDriver: isFleetDriver,
+      }),
+    );
 
   // ─── فحص العنصر النشط ────────────────────────────────────────
   const isActive = (itemId: string): boolean => {

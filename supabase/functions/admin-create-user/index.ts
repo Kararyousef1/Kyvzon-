@@ -1,24 +1,13 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { audit, isUuid, PLATFORM_ROLES } from '../_shared/adminAuth.ts';
+import { audit, CALLER_ROLES, isUuid, PLATFORM_ROLES, TARGET_ROLES } from '../_shared/adminAuth.ts';
 import { checkRateLimit, rateLimitHeaders, RATE_LIMITS } from '../_shared/rateLimit.ts';
 
-const TARGET_ROLES = new Set([
-  'employee',
-  'supervisor',
-  'manager',
-  'hr',
-  'gatekeeper',
-  'admin',
-  'finance',
-  'tech',
-  'marketing',
-  'sales',
-  'procurement',
-  'inventory',
-  'manufacturing',
-]);
-const CALLER_ROLES = new Set(['admin', 'developer', 'it_admin']);
+// ملاحظة (2026-08-04): كان هذا الملف يحمل نسخة محلية مكررة من TARGET_ROLES
+// و CALLER_ROLES. انحرفت النسختان: الأدوار الثلاثة لبوابة الحركة
+// (employee_movement / logistics / movement_manager) أُضيفت للقاعدة في 0288
+// ولم تُضَف هنا، فاستحال إنشاء موظف بها. حُذفت النسخة المحلية واعتُمد
+// المصدر الواحد في _shared/adminAuth.ts لمنع تكرار الانحراف.
 
 // ─── Email validation (RFC 5322 simplified, no double-escape) ───────────────
 function isValidEmail(email: string): boolean {

@@ -211,7 +211,10 @@ export function normalizeRole(role: string | undefined | null): UserRole {
 
   const normalizedRole = roleMap[role.toLowerCase()] || (role.toLowerCase() as UserRole);
 
-  const validRoles: UserRole[] = ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'tech', 'finance', 'it_admin', 'marketing', 'sales', 'procurement', 'inventory', 'manufacturing'];
+  // ملاحظة: يجب أن تطابق UserRole في src/shared/types/index.ts وقيد
+  // profiles_role_check (مايجريشن 0288). أي دور ناقص هنا يُطبَّع صامتاً
+  // إلى 'employee' فيفقد المستخدم بوابته دون أي رسالة خطأ.
+  const validRoles: UserRole[] = ['employee', 'hr', 'admin', 'gatekeeper', 'developer', 'supervisor', 'manager', 'tech', 'finance', 'it_admin', 'marketing', 'sales', 'procurement', 'inventory', 'manufacturing', 'employee_movement', 'logistics', 'movement_manager'];
 
   return validRoles.includes(normalizedRole) ? normalizedRole : 'employee';
 }
@@ -307,6 +310,9 @@ export function getUserRoleBadge(role: UserRole): string {
     procurement: 'مشتريات',
     inventory: 'مخزون ومستودعات',
     manufacturing: 'تصنيع MRP',
+    employee_movement: 'حركة الموظفين',
+    logistics: 'لوجستيات',
+    movement_manager: 'مدير الحركة واللوجستيات',
   };
   return roleBadges[role] || 'موظف';
 }

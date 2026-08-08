@@ -92,6 +92,18 @@ const NAV_ITEMS: NavItem[] = [
     description: 'إدارة أدوار وصلاحيات النظام',
   },
   {
+    id: 'subscription-conflicts',
+    icon: ScrollText,
+    label: 'تعارضات الاشتراك',
+    description: 'مراقبة وتدقيق النشاطات',
+  },
+  {
+    id: 'enforcement-console',
+    icon: ScrollText,
+    label: 'إقفال الاشتراك',
+    description: 'مراقبة وتدقيق النشاطات',
+  },
+  {
     id: 'audit-log',
     icon: ScrollText,
     label: 'سجل العمليات',

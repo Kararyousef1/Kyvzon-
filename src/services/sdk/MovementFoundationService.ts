@@ -1,5 +1,9 @@
 import { BaseService } from './BaseService';
-import type { MovementPolicyRecord, MovementLocationRecord } from '../../shared/types/movement-foundation';
+import type {
+  MovementPolicyRecord,
+  MovementLocationRecord,
+  LogisticsSettingRecord,
+} from '../../shared/types/movement-foundation';
 
 class MovementPolicyService extends BaseService<MovementPolicyRecord> {
   constructor() {
@@ -21,7 +25,7 @@ class MovementLocationService extends BaseService<MovementLocationRecord> {
   }
 }
 
-class LogisticsSettingsService extends BaseService<any> {
+class LogisticsSettingsService extends BaseService<LogisticsSettingRecord> {
   constructor() {
     super('logistics_settings');
   }

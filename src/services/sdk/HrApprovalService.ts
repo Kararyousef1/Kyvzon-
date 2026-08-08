@@ -121,6 +121,31 @@ class HrApprovalService {
     return (data as HrApprovalRequest) || null;
   }
 
+  /**
+   * معرّف سلسلة الاعتماد لمصدر معيّن — للبتّ من شاشة المصدر.
+   *
+   * ★ يُرشّح بـ`request_type` أيضاً: `related_id` **بلا FK** لأنه متعدد
+   *   الأشكال (leave·permission·expense·loan)، فالترشيح بالمعرّف وحده
+   *   يعتمد على تفرّد UUID عبر جداول مختلفة — افتراض لا تفرضه القاعدة.
+   *
+   * ★ نأخذ الأحدث: قد تُعاد المحاولة فتُنشأ سلسلة ثانية لنفس المصدر.
+   */
+  async findRequestIdBySource(
+    requestType: HrApprovalRequest['request_type'],
+    relatedId: string,
+  ): Promise<string | null> {
+    const { data, error } = await supabase
+      .from('hr_approval_requests')
+      .select('id')
+      .eq('related_id', relatedId)
+      .eq('request_type', requestType)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (error) return null;
+    const rows = (data ?? []) as Array<{ id: string }>;
+    return rows.length > 0 ? rows[0].id : null;
+  }
+
   roleLabel(role: HrApprovalStep['approver_role']): string {
     return ROLE_LABEL[role] ?? role;
   }

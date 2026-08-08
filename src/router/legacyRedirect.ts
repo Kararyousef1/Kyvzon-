@@ -4,6 +4,10 @@
  *
  *  الغرض: التوافق العكسي — أي مستخدم عنده bookmark لـ ?view=xxx القديم
  *  يجب أن يُوجَّه للمسار الجديد بدون كسر تجربته.
+ *
+ *  ⚠️ **مهجورة (deprecated) — قيد الإيقاف التدريجي منذ 0329.**
+ *     435 تعييناً · صفر مُنتِج داخلي · القياس عبر
+ *     `record_legacy_route_hit` و`legacy_route_summary`.
  * ═════════════════════════════════════════════════════════════════════════
  */
 
@@ -43,7 +47,10 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'manager-approvals':            '/app/manager/approvals',
   'manager-performance':          '/app/manager/performance',
   'manager-workload':             '/app/manager/workload',
-  'manager-leave-requests':       '/app/employee/leave-requests',
+  // وحدات بوابة المدير (0302/0303)
+  'manager-unit-movement-approvals': '/app/manager/units/movement/approvals',
+  'manager-unit-movement-team':      '/app/manager/units/movement/team',
+  'manager-leave-requests':       '/app/manager/leave-requests',
 
   // Supervisor
   'supervisor-dashboard':         '/app/supervisor',
@@ -51,7 +58,20 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'supervisor-shift':             '/app/supervisor/shift',
   'supervisor-tasks':             '/app/supervisor/tasks',
   'supervisor-checklists':        '/app/supervisor/checklists',
-  'supervisor-leave-requests':    '/app/employee/leave-requests',
+  'supervisor-unit-movement-shift': '/app/supervisor/units/movement/shift',
+  'manager-unit-hr-approvals': '/app/manager/units/hr/approvals',
+  'manager-unit-finance-approvals': '/app/manager/units/finance/approvals',
+  'manager-unit-procurement-approvals': '/app/manager/units/procurement/approvals',
+  'manager-unit-inventory-approvals': '/app/manager/units/inventory/approvals',
+  'manager-unit-mrp-approvals': '/app/manager/units/mrp/approvals',
+  'manager-unit-contracts-approvals': '/app/manager/units/contracts/approvals',
+  'manager-unit-crm-approvals': '/app/manager/units/crm/approvals',
+  'manager-unit-health-safety-approvals': '/app/manager/units/health_safety/approvals',
+  'supervisor-unit-hr-approvals': '/app/supervisor/units/hr/approvals',
+  'supervisor-unit-inventory-approvals': '/app/supervisor/units/inventory/approvals',
+  'supervisor-unit-mrp-approvals': '/app/supervisor/units/mrp/approvals',
+  'supervisor-unit-health-safety-approvals': '/app/supervisor/units/health_safety/approvals',
+  'supervisor-leave-requests':    '/app/supervisor/leave-requests',
 
   // HR
   'hr-dashboard':                 '/app/hr',
@@ -100,6 +120,8 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'admin-ai-config':              '/app/admin/ai-config',
   'admin-cms':                    '/app/admin/cms',
   'admin-gatekeeper-permissions': '/app/admin/gatekeeper-permissions',
+  'admin-approval-rules':          '/app/admin/approval-rules',
+  'admin-mrp-roles':               '/app/admin/mrp-roles',
   'admin-sops':                   '/app/admin/sops',
   'admin-sops-reports':           '/app/admin/sops-reports',
   'admin-attendance':             '/app/hr/attendance',
@@ -116,6 +138,13 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'attendance-analytics':         '/app/tech-portal/attendance-analytics',
   'system-health':                '/app/tech-portal/system-health',
   'security-events':              '/app/tech-portal/security-events',
+  // ★ صفحتان جديدتان (0330). ليستا «قديمتين» — الشريط الجانبي يعتمد
+  //   هذا الجدول لتحويل معرّف العنصر إلى مسار (Sidebar.tsx:1351)،
+  //   فالتسجيل هنا إلزامي لأي صفحة جديدة رغم هجران طبقة ?view=.
+  'tech-audit-trail':             '/app/tech-portal/audit-trail',
+  'tech-error-logs':              '/app/tech-portal/error-logs',
+  'tech-integrations':            '/app/tech-portal/integrations',
+  'tech-data-exports':            '/app/tech-portal/data-exports',
   'tech-settings':                '/app/tech-portal/settings',
   'tawathul-portal':              '/app/tawathul',
   'tawathul-admin':               '/app/tawathul/admin',
@@ -160,6 +189,32 @@ export const VIEW_TO_PATH: Record<string, string> = {
   'finance-system-notes':         '/app/finance/system-notes',
 
   // Procurement Portal
+  // ── بوابة الحركة واللوجستيات ──────────────────────────────────
+  // الدور «أ» — حركة الموظفين
+  'movement-emp-foundation':      '/app/movement/employee/policies',
+  'movement-emp-permits':         '/app/movement/employee/permits',
+  'movement-emp-execution':       '/app/movement/employee/execution',
+  'movement-emp-visits':          '/app/movement/employee/field-visits',
+  'movement-emp-missions':        '/app/movement/employee/missions',
+  'movement-emp-compliance':      '/app/movement/employee/compliance',
+  'movement-emp-analytics':       '/app/movement/employee/analytics',
+  // الدور «ب» — الحركة واللوجستيات
+  'movement-log-dashboard':       '/app/movement/logistics/dashboard',
+  'movement-log-fleet':           '/app/movement/logistics/fleet',
+  'movement-log-drivers':         '/app/movement/logistics/drivers',
+  'movement-log-maintenance':     '/app/movement/logistics/maintenance',
+  'movement-log-fuel':            '/app/movement/logistics/fuel',
+  'movement-log-orders':          '/app/movement/logistics/orders',
+  'movement-log-routes':          '/app/movement/logistics/routes',
+  'movement-log-dispatch':        '/app/movement/logistics/dispatch',
+  'movement-log-tracking':        '/app/movement/logistics/tracking',
+  'movement-log-track-replay':    '/app/movement/logistics/track-replay',
+  'movement-log-safety':          '/app/movement/logistics/safety',
+  'movement-driver-trips':        '/app/movement/driver/trips',
+  'movement-log-epod':            '/app/movement/logistics/epod',
+  'movement-log-carriers':        '/app/movement/logistics/carriers',
+  'movement-log-costs':           '/app/movement/logistics/costs',
+
   'procurement-dashboard':        '/app/procurement',
   'procurement-foundation':       '/app/procurement/foundation',
   'procurement-categories':       '/app/procurement/foundation/categories',
@@ -441,6 +496,23 @@ export const VIEW_TO_PATH: Record<string, string> = {
 /**
  * محاولة تحويل view قديم إلى المسار الجديد.
  * يعيد null إن كان view غير معروف.
+ */
+/**
+ * ⚠️ **طبقة مهجورة — قيد الإيقاف التدريجي (0329).**
+ *
+ * هذه الطبقة لا تخدم أي كود داخلي: فحص `grep` على `src` كامل أعاد
+ * **صفر** موضع يولّد `?view=`، وصفر دالة في القاعدة تكتبه في
+ * `action_url`. وجودها الوحيد لخدمة **روابط خارجية قديمة**:
+ * إشارات مرجعية محفوظة، وروابط في رسائل بريد قديمة، وإشعارات
+ * مُخزَّنة قبل الهجرة إلى `react-router-dom`.
+ *
+ * لا تُضِف تعييناً جديداً هنا. أي صفحة جديدة تُسجَّل في المواضع
+ * الخمسة المعتمدة (`AppRouter` · `Sidebar` · `hybridPagesCatalog` ·
+ * `AdminEmployeesPage` · `permissions.ts`) ولا تحتاج `?view=`.
+ *
+ * **متى تُحذف؟** `legacy_route_summary()` تُجيب بقياس لا بتقدير:
+ * حين تُظهر «صفر استعمال» لنافذة كافية، يُؤمَن حذف هذا الملف
+ * و`LegacyViewHandler` والمستهلكين الثلاثة.
  */
 export function legacyViewToPath(view: string | null | undefined): string | null {
   if (!view) return null;

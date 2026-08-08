@@ -228,28 +228,53 @@ export default function TechDashboard() {
       if (devs.status === 'fulfilled') setDevices(devs.value as unknown as BioDevice[]);
 
       if (logs.status === 'fulfilled') {
-        const rawLogs = logs.value as any[];
+        // ★ نوع بنيوي صريح بدل `as any[]` (قاعدة: ممنوع as any).
+        //   الحقول هي ما تقرؤه الأسطر التالية حرفياً لا أكثر.
+        type RawSyncLog = {
+          id: string; device_id?: string | null; source?: string | null;
+          status?: string | null; records_synced?: number | null;
+          error_message?: string | null; synced_at?: string | null;
+          sync_time?: string | null; created_at?: string | null;
+          details?: Record<string, unknown> | null;
+        };
+        const rawLogs = logs.value as unknown as RawSyncLog[];
         setRecentLogs(rawLogs.map(r => ({
           id: r.id,
-          device_id: r.device_id,
+          // ★ تطبيع null → undefined: SyncLog لا يقبل null (رفضه tsc)
+          device_id: r.device_id ?? undefined,
           device_name: r.device_id || r.source || 'مصدر غير محدد',
           source: r.source || '',
-          status: (['success', 'failed', 'partial'].includes(r.status) ? r.status : 'failed') as SyncLog['status'],
+          status: (['success', 'failed', 'partial'].includes(r.status ?? '')
+            ? r.status : 'failed') as SyncLog['status'],
           records_synced: Number(r.records_synced || 0),
-          error_message: r.error_message,
+          error_message: r.error_message ?? undefined,
           synced_at: r.sync_time || r.created_at || '',
-          details: r.details,
+          details: r.details ?? undefined,
         })));
       }
 
-      // Build hourly sparkline from last 12 hours
-      const punchBuckets = Array(12).fill(0);
+      // ── الرسم الساعي: توزيع حقيقي من القاعدة ──────────────────────
+      //
+      // ★ إزالة محاكاة (0327): النسخة السابقة كانت
+      //     const avg = Math.floor(logs2 / 12);
+      //     for (let i = 0; i < 12; i++)
+      //       punchBuckets[i] = avg + Math.floor(Math.random() * 3);
+      //
+      //   تأخذ الإجمالي الحقيقي، تقسمه على 12، ثم تضيف ضجيجاً عشوائياً.
+      //   مقيس على Postgres: ذروة 20 بصمة في ساعة واحدة كانت تظهر
+      //   12 عموداً بقيمة ~1 — **الذروة تختفي تماماً**، فلا يكتشف
+      //   مسؤول التقنية ازدحام البوابة ولا يعرف متى يحتاج جهازاً.
+      //
+      //   `attendance_punches_hourly` تُعيد التوزيع الفعلي بما فيه
+      //   الساعات الصفرية (حذفها يزيح الرسم).
       try {
-        const logs2 = await attendanceService.countPunchesSince(twelveHoursAgo.toISOString());
-        const avg = Math.floor((typeof logs2 === 'number' ? logs2 : 0) / 12);
-        for (let i = 0; i < 12; i++) punchBuckets[i] = avg + Math.floor(Math.random() * 3);
-      } catch { /* keep zeros */ }
-      setHourlyData(punchBuckets);
+        const buckets = await attendanceService.punchesHourly(12);
+        setHourlyData(
+          buckets.length > 0 ? buckets.map((b) => b.total) : Array(12).fill(0),
+        );
+      } catch {
+        setHourlyData(Array(12).fill(0));
+      }
       setLastRefresh(new Date());
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
@@ -272,7 +297,7 @@ export default function TechDashboard() {
           records_synced: 0,
           status: 'partial',
           details: { note: 'Fallback: Edge Function unavailable', triggered_at: new Date().toISOString() },
-        } as any);
+        } as unknown as Parameters<typeof syncLogService.create>[0]);
         addToast('تم تسجيل طلب المزامنة محلياً (Edge Function غير متاحة)', 'warning');
       }
       await loadData();

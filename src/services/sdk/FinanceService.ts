@@ -23,12 +23,40 @@ class ExpenseRequestService extends BaseService<ExpenseRequestRecord> {
     return this.create(data);
   }
 
+  /**
+   * اعتماد إداري مباشر — **يتجاوز سلسلة الاعتماد**.
+   *
+   * ⚠️ المسار الطبيعي: `financialRequestService.decide()` الذي يُحرّك
+   *    السلسلة ويُزامن الجدول في القاعدة. حارس 0324/0325 يرفض هذه
+   *    الدالة ما دامت هناك سلسلة مفتوحة (`APPROVAL_CHAIN_BYPASS`).
+   *    تبقى هنا لتصحيح سجل قديم بلا سلسلة.
+   *
+   * ★ أُصلح في 0325: كانت تكتب `status: 'موافق'` (عربي لا تقرؤه فلاتر
+   *   الواجهة) و`reviewed_at` (عمود غير موجود — العمود `approved_at`).
+   */
   async approveExpense(id: string, approvedBy: string): Promise<ExpenseRequestRecord> {
-    return this.update(id, { status: 'موافق', approved_by: approvedBy, reviewed_at: new Date().toISOString() } as unknown as Partial<ExpenseRequestRecord>);
+    return this.update(id, {
+      status: 'approved',
+      approved_by: approvedBy,
+      approved_at: new Date().toISOString(),
+    } as unknown as Partial<ExpenseRequestRecord>);
   }
 
-  async rejectExpense(id: string, approvedBy: string): Promise<ExpenseRequestRecord> {
-    return this.update(id, { status: 'مرفوض', approved_by: approvedBy, reviewed_at: new Date().toISOString() } as unknown as Partial<ExpenseRequestRecord>);
+  /**
+   * رفض إداري مباشر مع سبب.
+   *
+   * ★ أُصلح في 0325: التوقيع السابق `rejectExpense(id, approvedBy)`
+   *   كانت الصفحة تمرّر له **سبب الرفض النصّي**، فيُكتب في عمود
+   *   `approved_by UUID` ويفشل الرفض دائماً:
+   *      invalid input syntax for type uuid: "المبلغ مرتفع"
+   *   الآن السبب يذهب لعمود `rejection_reason` الصحيح.
+   */
+  async rejectExpense(id: string, reason: string, rejectedBy?: string): Promise<ExpenseRequestRecord> {
+    return this.update(id, {
+      status: 'rejected',
+      rejection_reason: reason,
+      ...(rejectedBy ? { approved_by: rejectedBy } : {}),
+    } as unknown as Partial<ExpenseRequestRecord>);
   }
 
   /** @deprecated استخدم approveExpense */
@@ -36,9 +64,9 @@ class ExpenseRequestService extends BaseService<ExpenseRequestRecord> {
     return this.approveExpense(id, approvedBy);
   }
 
-  /** @deprecated استخدم rejectExpense */
-  async rejectRequest(id: string, approvedBy: string): Promise<ExpenseRequestRecord> {
-    return this.rejectExpense(id, approvedBy);
+  /** @deprecated استخدم rejectExpense — لاحظ أن الوسيط الثاني هو **السبب** */
+  async rejectRequest(id: string, reason: string, rejectedBy?: string): Promise<ExpenseRequestRecord> {
+    return this.rejectExpense(id, reason, rejectedBy);
   }
 }
 
@@ -72,18 +100,58 @@ class EmployeeLoanService extends BaseService<EmployeeLoanRecord> {
     } as unknown as Partial<EmployeeLoanRecord>);
   }
 
-  async approveLoan(id: string, approvedBy: string): Promise<EmployeeLoanRecord> {
-    return this.update(id, { status: 'approved', approved_by: approvedBy } as unknown as Partial<EmployeeLoanRecord>);
+  /**
+   * اعتماد إداري مباشر للسلفة — يتجاوز السلسلة (انظر approveExpense).
+   *
+   * ★ أُصلح في 0325: الصفحة كانت تستدعي `approveLoan(loan.id, '')`
+   *   فتُكتب سلسلة فارغة في عمود `approved_by UUID`:
+   *      invalid input syntax for type uuid: ""
+   *   الاعتماد كان يفشل دائماً بينما تُظهر الواجهة رسالة نجاح.
+   *   الآن `approvedBy` اختياري: نمرّره فقط إن كان معرّفاً حقيقياً.
+   *
+   *   كذلك تُحسب `end_date` و`remaining_amount` — كانت الصفحة تحسب
+   *   `end` ثم تُهمله، و`remaining_amount` يبقى 0 رغم المبلغ.
+   */
+  async approveLoan(
+    id: string,
+    approvedBy?: string,
+    opts?: { startDate?: string; monthsCount?: number; amount?: number },
+  ): Promise<EmployeeLoanRecord> {
+    const patch: Record<string, unknown> = { status: 'approved' };
+    if (approvedBy && approvedBy.trim() !== '') patch.approved_by = approvedBy;
+
+    if (opts?.startDate && opts.monthsCount) {
+      const end = new Date(opts.startDate);
+      end.setMonth(end.getMonth() + opts.monthsCount);
+      patch.end_date = end.toISOString().slice(0, 10);
+    }
+    if (typeof opts?.amount === 'number') patch.remaining_amount = opts.amount;
+
+    return this.update(id, patch as unknown as Partial<EmployeeLoanRecord>);
   }
 
-  /** @deprecated استخدم approveLoan */
-  async rejectLoan(id: string, reasonOrApprovedBy: string): Promise<EmployeeLoanRecord> {
-    return this.update(id, { status: 'rejected', rejection_reason: reasonOrApprovedBy } as unknown as Partial<EmployeeLoanRecord>);
+  /** رفض السلفة مع سبب */
+  async rejectLoan(id: string, reason: string): Promise<EmployeeLoanRecord> {
+    return this.update(id, {
+      status: 'rejected',
+      rejection_reason: reason,
+    } as unknown as Partial<EmployeeLoanRecord>);
   }
 
+  /**
+   * إجمالي السلف القائمة.
+   *
+   * ★ أُصلح في 0325: كان يفلتر `status: 'موافق'` (عربي) بينما
+   *   `employee_loans` يُخزّن `'approved'` — فيعيد **صفراً دائماً**.
+   *   ويجمع `loan_amount` وهو عمود غير موجود؛ العمود `remaining_amount`
+   *   وهو المطلوب فعلاً للسلف القائمة.
+   */
   async getTotalOutstanding(): Promise<number> {
-    const loans = await this.findAll({ filters: { status: 'موافق' } });
-    return loans.reduce((sum, l) => sum + (l.loan_amount || 0), 0);
+    const loans = await this.findAll({ filters: { status: 'approved' } });
+    return loans.reduce(
+      (sum, l) => sum + Number((l as unknown as { remaining_amount?: number }).remaining_amount ?? 0),
+      0,
+    );
   }
 }
 

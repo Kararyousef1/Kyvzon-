@@ -1,559 +1,379 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  AnalyticsPage - التحليلات والإحصاءات (نسخة مُصلحة)
- * ════════════════════════════════════════════════════════════════
+ *  AnalyticsPage — التحليلات والإحصاءات (بوابة الموارد البشرية)
  *
- *  🔧 الإصلاحات المُطبّقة:
- *  ─────────────────────────────────────────────────────────────────
- *  ✅ 7 استخدام any → 0 (أنواع AnalyticsResult + DepartmentStat)
- *  ✅ advancedResults: any → AdvancedResult | null
- *  ✅ stats: any → AnalyticsStats
- *  ✅ deptMap: Record<string, any> → Record<string, DeptAccumulator>
- *  ✅ metrics/chartData/chartConfig: any → أنواع صريحة
- *  ✅ (m: any)/(dept: any) → MetricItem/DepartmentStat
- *  ✅ تنظيف جميع markdown artifacts
- *  ✅ إصلاح formatter مكسور في Tooltip
- *  ════════════════════════════════════════════════════════════════
+ *  ★★★ أُعيدت كتابتها في جولة 0349. الأعطال المُصلَحة — كلها مُثبتة
+ *  تشغيلياً على Postgres محلي قبل أي سطر كُتب هنا:
+ *
+ *  ① ربط الصحة النفسية بالأقسام كان عبر `profiles.id === w.employee_id`
+ *     و`wellness_entries.employee_id` مفتاح أجنبي على **`employees(id)`**.
+ *     مُثبَت: صفر مطابقة مقابل مطابقتين. ⇒ «متوسط الصحة» صفر لكل قسم أبداً.
+ *  ② «محلولة هذا الشهر» بـ`getMonth()` بلا سنة وعلى `updated_at`.
+ *     مُثبَت: 2 بدل 1.
+ *  ③ `satisfactionRate: 85` و`satisfactionScore: 85` ثوابت مُختلَقة.
+ *  ④ `avgResolutionTime: 2.4` ثابت مُختلَق — يُحسب الآن من `closed_at`.
+ *  ⑤ «تحليل المشاعر» و«اتجاه الصحة» كانا يرسمان **أقساماً** ويسمّيانها
+ *     يوليو…ديسمبر. صارا سلسلتين زمنيتين حقيقيتين بالشهر.
+ *  ⑥ معدل الحضور كان يحتسب `عطلة` و`مجاز` حضوراً. مُثبَت: 80% بدل 33%.
+ *  ⑦ البلاغات المفتوحة كانت تعدّ المؤرشف.
+ *  ⑧ تبويب «التحليل المتقدم بالذكاء الاصطناعي» كان `setTimeout(2500)`
+ *     ثم ثوابت مكتوبة في الملف («دقة النموذج 91%» · «p-value < 0.05» ·
+ *     «Random Forest» · «+12k سجل») تحت وسم «AI Powered».
+ *     **أُزيل بالكامل** — لا نموذج ولا بيانات تدريب ولا استدلال.
+ *     النتيجة الخاطئة أسوأ من غيابها.
+ *
+ *  ★ الصفحة لا تلمس Supabase — كل شيء عبر `hrAnalyticsService`.
+ *  ★ كل رقم معروض له مصدر في القاعدة، وما لا مصدر له يُعرض «—».
+ * ════════════════════════════════════════════════════════════════
  */
 
-import { useState, useEffect } from 'react';
-import { userService } from '../../services/sdk/UserService';
-import { incidentService } from '../../services/sdk/IncidentService';
-import { wellnessEntryService } from '../../services/sdk/WellnessService';
-import { workforceAnalyticsService } from '../../services/sdk/WorkforceAnalyticsService';
-import type { WorkforceSummary } from '../../services/sdk/WorkforceAnalyticsService';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  hrAnalyticsService,
+  EMPTY_OVERVIEW,
+  type HrAnalyticsOverview,
+  type HrDepartmentStat,
+  type HrWellnessPoint,
+  type HrIncidentPoint,
+} from '../../services/sdk/HrAnalyticsService';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Badge from '../../shared/components/ui/Badge';
+import Button from '../../shared/components/ui/Button';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  RadarChart, PolarGrid, PolarAngleAxis, Radar, AreaChart, Area,
-  ScatterChart, Scatter, ZAxis, ComposedChart, Line, Legend,
+  AreaChart, Area, Legend,
 } from 'recharts';
-import { Loader, Brain, Sparkles, Filter, Database, TrendingUp, CheckCircle } from 'lucide-react';
-import Button from '../../shared/components/ui/Button';
+import { Loader, TrendingUp, RefreshCw, Info, AlertTriangle } from 'lucide-react';
 import { getErrorMessage } from '../../services/errors';
 
 // ════════════════════════════════════════════════════
-// أنواع البيانات
+//  أدوات التاريخ — النطاق يحمل سنته دائماً (العطل ②)
 // ════════════════════════════════════════════════════
 
-interface DepartmentStat {
-  name: string;
-  employeeCount: number;
-  problemCount: number;
-  resolvedCount: number;
-  wellnessTotal: number;
-  wellnessCount: number;
-  wellnessAvg: number;
-  satisfactionScore: number;
-}
+const toISO = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
-interface AnalyticsStats {
-  totalEmployees: number;
-  wellnessScore: number;
-  satisfactionRate: number;
-  resolvedThisMonth: number;
-  avgResolutionTime: number;
-  departmentStats: DepartmentStat[];
-}
+const RANGES = [
+  { key: '30', label: 'آخر 30 يوماً', days: 30 },
+  { key: '90', label: 'آخر 90 يوماً', days: 90 },
+  { key: '365', label: 'آخر سنة', days: 365 },
+] as const;
 
-interface MetricItem {
-  label: string;
-  value: string;
-  color: string;
-}
+type RangeKey = (typeof RANGES)[number]['key'];
 
-interface ChartConfig {
-  type: 'composed' | 'scatter' | 'bar';
-  x?: string;
-  y?: string;
-  z?: string;
-  lines?: string[];
-}
+const AR_MONTHS = [
+  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+];
 
-interface AdvancedResult {
-  insights: string[];
-  chartData: Record<string, unknown>[];
-  chartConfig: ChartConfig;
-  metrics: MetricItem[];
-}
-
-interface ProfileRecord {
-  id: string;
-  department?: string | null;
-}
-
-interface IncidentRecord {
-  status: string;
-  updated_at: string;
-  reported_by: string | null;
-}
-
-interface WellnessRecord {
-  employee_id: string;
-  score: number;
-}
-
-// ════════════════════════════════════════════════════
-// بيانات حقيقية — تم إزالة Mock Data في خطة العلاج
-// الآن يتم حساب sentimentTrend و satisfactionData و wellnessTrend من بيانات Supabase الحقيقية
-// ════════════════════════════════════════════════════
-
-// سيتم حساب هذه البيانات ديناميكياً من workforceSummary و analytics
-
-
-// ════════════════════════════════════════════════════
-// المكون الرئيسي
-// ════════════════════════════════════════════════════
+/** «2026-08-01» ⇒ «أغسطس 2026» — شهر حقيقي لا اسم قسم (العطل ⑤) */
+const monthLabel = (iso: string): string => {
+  if (!iso) return '—';
+  const [y, m] = iso.split('-');
+  const idx = Number(m) - 1;
+  return `${AR_MONTHS[idx] ?? m} ${y}`;
+};
 
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'advanced'>('overview');
-  const [selectedDataSource, setSelectedDataSource] = useState('wellness');
-  const [selectedAnalysisType, setSelectedAnalysisType] = useState('predictive');
-  const [advancedLoading, setAdvancedLoading] = useState(false);
-  const [advancedResults, setAdvancedResults] = useState<AdvancedResult | null>(null);
-  const [workforceSummary, setWorkforceSummary] = useState<WorkforceSummary | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [rangeKey, setRangeKey] = useState<RangeKey>('30');
 
-  const [stats, setStats] = useState<AnalyticsStats>({
-    totalEmployees: 0,
-    wellnessScore: 0,
-    satisfactionRate: 85,
-    resolvedThisMonth: 0,
-    avgResolutionTime: 0,
-    departmentStats: [],
-  });
+  const [overview, setOverview] = useState<HrAnalyticsOverview>(EMPTY_OVERVIEW);
+  const [departments, setDepartments] = useState<HrDepartmentStat[]>([]);
+  const [wellness, setWellness] = useState<HrWellnessPoint[]>([]);
+  const [incidents, setIncidents] = useState<HrIncidentPoint[]>([]);
 
-  // بيانات حقيقية محسوبة من stats.departmentStats — بدل Mock Data السابق
-  const sentimentTrend = (() => {
-    // نحسب تحليل مشاعر مبسط من departmentStats: كل قسم له problemCount و resolved
-    if (!stats.departmentStats.length) return [];
-    return stats.departmentStats.slice(0,6).map((dept, idx) => {
-      const monthNames = ['يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-      const positive = Math.min(90, 40 + dept.employeeCount * 2 + (dept.resolvedCount || 0));
-      const negative = Math.max(5, 30 - dept.employeeCount);
-      const neutral = 100 - positive - negative;
-      return { month: monthNames[idx % 6] || dept.name, positive, negative, neutral };
-    });
-  })();
+  const range = useMemo(() => {
+    const days = RANGES.find((r) => r.key === rangeKey)?.days ?? 30;
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    return { from: toISO(from), to: toISO(to), days };
+  }, [rangeKey]);
 
-  const satisfactionData = (() => {
-    if (!stats.departmentStats.length) return [
-      { subject: 'البيئة', A: stats.satisfactionRate },
-      { subject: 'الإدارة', A: 75 },
-      { subject: 'الرواتب', A: 70 },
-      { subject: 'التطوير', A: 78 },
-      { subject: 'التواصل', A: 85 },
-      { subject: 'التوازن', A: 72 },
-    ];
-    return stats.departmentStats.slice(0,6).map(dept => ({
-      subject: dept.name.slice(0,8),
-      A: Math.min(100, Math.max(50, dept.satisfactionScore || 75)),
-    }));
-  })();
+  const months = range.days > 180 ? 12 : 6;
 
-  const wellnessTrend = (() => {
-    if (!stats.departmentStats.length) return [];
-    const monthNames = ['يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-    return stats.departmentStats.slice(0,6).map((dept, idx) => ({
-      month: monthNames[idx % 6] || dept.name,
-      score: Math.min(100, Math.max(50, Math.round(dept.wellnessAvg || 70))),
-    }));
-  })();
-
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const [ov, dep, well, inc] = await Promise.all([
+        hrAnalyticsService.overview(range.from, range.to),
+        hrAnalyticsService.departments(range.from, range.to),
+        hrAnalyticsService.wellnessTrend(months),
+        hrAnalyticsService.incidentTrend(months),
+      ]);
+      setOverview(ov);
+      setDepartments(dep);
+      setWellness(well);
+      setIncidents(inc);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  }, [range.from, range.to, months]);
 
   useEffect(() => {
-    const fetchAnalytics = async () => {
+    let alive = true;
+    (async () => {
       setLoading(true);
-      try {
-      const [profiles, incidents, wellness, workforce] = await Promise.all([
-          userService.findAllUsers({ role: 'employee' }),
-          incidentService.findAll(),
-          wellnessEntryService.findAllEntries(),
-          workforceAnalyticsService.getSummary(),
-        ]);
-        setWorkforceSummary(workforce);
+      await load();
+      if (alive) setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [load]);
 
-        const profileList = (profiles || []) as ProfileRecord[];
-        const incidentList = (incidents || []) as IncidentRecord[];
-        const wellnessList = (wellness || []) as unknown as WellnessRecord[];
-        const currentMonth = new Date().getMonth();
-
-        const resolvedThisMonth = incidentList.filter(
-          (i) => (i.status === 'resolved' || i.status === 'closed') && new Date(i.updated_at).getMonth() === currentMonth
-        ).length;
-
-        const deptMap: Record<string, DepartmentStat> = {};
-        profileList.forEach((p) => {
-          const d = p.department || 'عام';
-          if (!deptMap[d]) {
-            deptMap[d] = { name: d, employeeCount: 0, problemCount: 0, resolvedCount: 0, wellnessTotal: 0, wellnessCount: 0, wellnessAvg: 0, satisfactionScore: 85 };
-          }
-          deptMap[d].employeeCount++;
-        });
-
-        incidentList.forEach((i) => {
-          const emp = profileList.find((p) => p.id === i.reported_by);
-          if (emp) {
-            const d = emp.department || 'عام';
-            if (deptMap[d]) {
-              deptMap[d].problemCount++;
-              if (i.status === 'resolved' || i.status === 'closed') deptMap[d].resolvedCount++;
-            }
-          }
-        });
-
-        wellnessList.forEach((w) => {
-          const emp = profileList.find((p) => p.id === w.employee_id);
-          if (emp) {
-            const d = emp.department || 'عام';
-            if (deptMap[d]) {
-              deptMap[d].wellnessTotal += w.score;
-              deptMap[d].wellnessCount++;
-            }
-          }
-        });
-
-        const departmentStats = Object.values(deptMap).map((d) => ({
-          ...d,
-          wellnessAvg: d.wellnessCount > 0 ? Math.round(d.wellnessTotal / d.wellnessCount) : 0,
-        }));
-
-        const overallWellness = wellnessList.length ? Math.round(wellnessList.reduce((a, b) => a + b.score, 0) / wellnessList.length) : 0;
-
-        setStats({
-          totalEmployees: profileList.length,
-          resolvedThisMonth,
-          wellnessScore: overallWellness,
-          satisfactionRate: 85,
-          avgResolutionTime: 2.4,
-          departmentStats,
-        });
-      } catch (err) {
-        console.error(getErrorMessage(err));
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAnalytics();
-  }, []);
-
-  const runAdvancedAnalysis = async () => {
-    setAdvancedLoading(true);
-    setAdvancedResults(null);
-    try {
-      await new Promise((r) => setTimeout(r, 2500));
-
-      let insights: string[] = [];
-      let metrics: MetricItem[] = [];
-      let chartData: Record<string, unknown>[] = [];
-      let chartConfig: ChartConfig = { type: 'composed', lines: [] };
-
-      if (selectedDataSource === 'wellness') {
-        if (selectedAnalysisType === 'predictive') {
-          insights = [
-            'توقع الذكاء الاصطناعي: من المتوقع انخفاض طفيف في مؤشر الصحة النفسية بنسبة 3% خلال الأسبوعين القادمين.',
-            'توصية استباقية: يوصى بجدولة أنشطة ترفيهية قصيرة أو تقليل الساعات الإضافية.',
-          ];
-          metrics = [
-            { label: 'دقة النموذج', value: '91%', color: 'text-emerald-600' },
-            { label: 'مستوى المخاطرة', value: 'متوسط', color: 'text-amber-600' },
-            { label: 'p-value', value: '< 0.05', color: 'text-indigo-600' },
-          ];
-          chartData = [
-            { name: 'أسبوع 1', actual: 78, predicted: 78 },
-            { name: 'أسبوع 4 (الحالي)', actual: 70, predicted: 70 },
-            { name: 'أسبوع 5 (تنبؤ)', actual: null, predicted: 68 },
-            { name: 'أسبوع 6 (تنبؤ)', actual: null, predicted: 65 },
-          ];
-          chartConfig = { type: 'composed', lines: ['actual', 'predicted'] };
-        } else if (selectedAnalysisType === 'correlation') {
-          insights = [
-            'تحليل الارتباط: علاقة طردية قوية (0.85) بين ساعات العمل الإضافية وانخفاض مؤشرات الطاقة.',
-            'التباين المكتشف: موظفو قسم الإنتاج يظهرون تقلبات أعلى في التوتر.',
-          ];
-          chartData = Array.from({ length: 40 }, (_, i) => ({
-            hours: Math.round(35 + Math.random() * 25),
-            stress: Math.round(30 + Math.random() * 50 + i * 0.4),
-            department: i % 2 === 0 ? 'الإنتاج' : 'الإدارة',
-          }));
-          chartConfig = { type: 'scatter', x: 'hours', y: 'stress', z: 'department' };
-          metrics = [
-            { label: 'معامل بيرسون (r)', value: '+0.85', color: 'text-rose-600' },
-            { label: 'حجم العينة', value: '240 سجل', color: 'text-slate-600' },
-            { label: 'R²', value: '0.72', color: 'text-indigo-600' },
-          ];
-        } else {
-          insights = [
-            'التشخيص: السبب الرئيسي لانخفاض الرضا هو بطء الاستجابة للصيانة بنسبة 45%.',
-            'اكتشاف شذوذ: 5 حالات انخفاض حاد في المزاج للوردية الليلية.',
-          ];
-          chartData = [
-            { factor: 'ضغط العمل', impact: 85 },
-            { factor: 'بيئة العمل', impact: 65 },
-            { factor: 'التواصل', impact: 40 },
-            { factor: 'المكافآت', impact: 55 },
-          ];
-          chartConfig = { type: 'bar', x: 'factor', y: 'impact' };
-          metrics = [
-            { label: 'العامل الأكثر تأثيراً', value: 'ضغط المناوبات', color: 'text-rose-600' },
-            { label: 'النقاط الشاذة', value: '5 حالات', color: 'text-amber-600' },
-          ];
-        }
-      } else if (selectedDataSource === 'skills') {
-        insights = [
-          'تحليل فجوة المهارات: 40% من المهندسين يفتقرون لإدارة المشاريع المتقدمة.',
-          'توصية: أنشئ برنامج تدريبي مكثف لمهارات القيادة التقنية.',
-        ];
-        chartData = [
-          { name: 'هندسة', current: 25, required: 30 },
-          { name: 'جودة', current: 15, required: 10 },
-          { name: 'قيادة', current: 5, required: 20 },
-          { name: 'تحليل', current: 10, required: 15 },
-        ];
-        chartConfig = { type: 'composed', lines: ['current', 'required'] };
-        metrics = [
-          { label: 'إجمالي المهارات', value: '+350', color: 'text-emerald-600' },
-          { label: 'الفجوة', value: '18%', color: 'text-rose-600' },
-        ];
-      } else {
-        insights = [
-          `معالجة ضخمة لبيانات: تم تحليل (${selectedDataSource}) باستخدام التعلم الآلي.`,
-          'اكتشاف أنماط مخفية: فرص لتحسين الكفاءة بنسبة 10-15%.',
-        ];
-        chartData = [
-          { name: 'Q1', current: 40, historical: 24 },
-          { name: 'Q2', current: 30, historical: 33 },
-          { name: 'Q3', current: 50, historical: 38 },
-          { name: 'Q4', current: 27, historical: 39 },
-        ];
-        chartConfig = { type: 'composed', lines: ['current', 'historical'] };
-        metrics = [
-          { label: 'حجم البيانات', value: '+12k', color: 'text-slate-600' },
-          { label: 'الخوارزمية', value: 'Random Forest', color: 'text-purple-600' },
-        ];
-      }
-
-      setAdvancedResults({ insights, chartData, chartConfig, metrics });
-    } catch (err) {
-      console.error(getErrorMessage(err));
-    } finally {
-      setAdvancedLoading(false);
-    }
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
   };
+
+  // ★ العطل ⑤: أشهر حقيقية من القاعدة — لا أقسام مُسمّاة بأسماء أشهر.
+  const wellnessSeries = useMemo(
+    () => wellness.map((p) => ({
+      month: monthLabel(p.monthStart),
+      score: p.avgScore,
+      samples: p.samples,
+    })),
+    [wellness],
+  );
+
+  const incidentSeries = useMemo(
+    () => incidents.map((p) => ({
+      month: monthLabel(p.monthStart),
+      opened: p.opened,
+      closed: p.closed,
+    })),
+    [incidents],
+  );
+
+  const hasWellness = overview.wellnessSamples > 0;
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64 text-slate-500 gap-3">
         <Loader className="animate-spin" />
-        <span className="font-medium text-sm">جاري تحليل بيانات المؤسسة...</span>
+        <span className="font-medium text-sm">جاري تحميل التحليلات...</span>
       </div>
     );
   }
 
   return (
     <div className="space-y-6 animate-fade-in" dir="rtl">
-      <div>
-        <h2 className="text-xl font-extrabold text-slate-800">📊 التحليلات والإحصاءات</h2>
-        <p className="text-sm text-slate-500 mt-1">نظرة تفصيلية على أداء المؤسسة وصحة الموظفين</p>
-      </div>
-
-      {workforceSummary && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { label: 'معدل الحضور', value: `${workforceSummary.attendanceRate}%`, hint: `غياب ${workforceSummary.absenteeismRate}%`, color: 'bg-emerald-50 text-emerald-700' },
-            { label: 'التأخير', value: `${workforceSummary.lateRate}%`, hint: 'من سجلات الحضور', color: 'bg-amber-50 text-amber-700' },
-            { label: 'عقود قريبة الانتهاء', value: workforceSummary.contractsExpiring30Days, hint: 'حسب فترة التنبيه', color: 'bg-blue-50 text-blue-700' },
-            { label: 'تغطية التعاقب', value: `${workforceSummary.successionCoverageRate}%`, hint: `${workforceSummary.criticalPositions} منصب عالي/حرج`, color: 'bg-purple-50 text-purple-700' },
-          ].map((item) => (
-            <Card key={item.label} className={`${item.color} border-0`}>
-              <p className="text-2xl font-extrabold">{item.value}</p>
-              <p className="text-xs font-bold mt-1">{item.label}</p>
-              <p className="text-[11px] opacity-70 mt-1">{item.hint}</p>
-            </Card>
-          ))}
+      {/* ═══ الترويسة ═══ */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-extrabold text-slate-800">
+            التحليلات والإحصاءات
+          </h2>
+          <p className="text-sm text-slate-500 mt-1">
+            كل رقم هنا محسوب من قاعدة البيانات — من {range.from} إلى {range.to}
+          </p>
         </div>
-      )}
-
-      <div className="flex gap-2 bg-slate-50 border border-slate-100 rounded-2xl p-1.5 overflow-x-auto">
-        <button onClick={() => setActiveTab('overview')} className={`flex-1 min-w-[150px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'overview' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>
-          <TrendingUp size={16} /> الإحصاءات العامة
-        </button>
-        <button onClick={() => setActiveTab('advanced')} className={`flex-1 min-w-[150px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'advanced' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}>
-          <Brain size={16} /> التحليل المتقدم بالذكاء الاصطناعي
-        </button>
-      </div>
-
-      {activeTab === 'advanced' ? (
-        <div className="space-y-6 animate-fade-in">
-          <Card className="bg-indigo-50/40 border-indigo-100">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-indigo-900"><Database size={18} /> إعدادات التحليل المتقدم</CardTitle>
-              <Badge variant="purple" dot>AI Powered</Badge>
-            </CardHeader>
-            <div className="grid md:grid-cols-2 gap-4 mb-5 mt-2">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">مصدر البيانات</label>
-                <select value={selectedDataSource} onChange={(e) => setSelectedDataSource(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold outline-none focus:border-indigo-500">
-                  <option value="wellness">الصحة النفسية والرفاهية</option>
-                  <option value="incidents">المشاكل والحوادث</option>
-                  <option value="movements">حركة الموظفين</option>
-                  <option value="attendance">الحضور والانصراف</option>
-                  <option value="reviews">مراجعات العملاء</option>
-                  <option value="skills">سجل المؤهلات</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">نوع التحليل</label>
-                <select value={selectedAnalysisType} onChange={(e) => setSelectedAnalysisType(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold outline-none focus:border-indigo-500">
-                  <option value="predictive">تحليل تنبؤي (Predictive)</option>
-                  <option value="correlation">تحليل الارتباط (Correlation)</option>
-                  <option value="diagnostic">تحليل تشخيصي (Anomaly Detection)</option>
-                </select>
-              </div>
-            </div>
-            <Button onClick={runAdvancedAnalysis} loading={advancedLoading} size="lg" className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-purple-600 border-0" icon={<Sparkles size={18} />} iconPosition="left">
-              بدء التحليل والمعالجة
-            </Button>
-          </Card>
-
-          {advancedResults && (
-            <div className="space-y-6 animate-fade-in">
-              {/* الاستنتاجات */}
-              <Card className="bg-slate-900 text-white border-0 shadow-xl overflow-hidden relative">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2"><Sparkles className="text-amber-400" /> الاستنتاجات والرؤى</CardTitle>
-                </CardHeader>
-                <ul className="space-y-4 mt-2 relative z-10">
-                  {advancedResults.insights.map((insight, idx) => (
-                    <li key={idx} className="flex items-start gap-3 bg-white/5 p-4 rounded-xl border border-white/10">
-                      <CheckCircle size={18} className="text-emerald-400 mt-0.5 shrink-0" />
-                      <p className="text-slate-200 text-sm leading-relaxed">{insight}</p>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-
-              {/* المقاييس */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {advancedResults.metrics.map((m, idx) => (
-                  <Card key={idx} className="border-slate-100 shadow-sm">
-                    <p className="text-xs font-bold text-slate-400 mb-1">{m.label}</p>
-                    <p className={`text-2xl font-black ${m.color}`}>{m.value}</p>
-                  </Card>
-                ))}
-              </div>
-
-              {/* الرسوم */}
-              <Card className="border-slate-100 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Filter size={18} className="text-indigo-600" /> التمثيل البصري</CardTitle>
-                </CardHeader>
-                <div className="h-80 w-full mt-6">
-                  <ResponsiveContainer width="100%" height="100%">
-                    {advancedResults.chartConfig.type === 'scatter' ? (
-                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                        <XAxis type="number" dataKey={advancedResults.chartConfig.x || 'x'} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                        <YAxis type="number" dataKey={advancedResults.chartConfig.y || 'y'} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                        <ZAxis type="category" dataKey={advancedResults.chartConfig.z || 'z'} />
-                        <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ borderRadius: '12px', border: 'none', background: '#1e293b', color: '#fff' }} />
-                        <Legend />
-                        <Scatter name="البيانات" data={advancedResults.chartData} fill="#8b5cf6" />
-                      </ScatterChart>
-                    ) : advancedResults.chartConfig.type === 'bar' ? (
-                      <BarChart data={advancedResults.chartData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                        <XAxis dataKey={advancedResults.chartConfig.x || 'x'} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                        <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', background: '#1e293b', color: '#fff' }} />
-                        <Bar dataKey={advancedResults.chartConfig.y || 'y'} fill="#6366f1" radius={[4, 4, 0, 0]} barSize={40} />
-                      </BarChart>
-                    ) : (
-                      <ComposedChart data={advancedResults.chartData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                        <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', background: '#1e293b', color: '#fff' }} />
-                        <Legend />
-                        {(advancedResults.chartConfig.lines || []).map((lineKey, i) => (
-                          <Line key={i} type="monotone" dataKey={lineKey} stroke={i === 0 ? '#10b981' : '#6366f1'} strokeWidth={3} dot={{ r: 4 }} />
-                        ))}
-                      </ComposedChart>
-                    )}
-                  </ResponsiveContainer>
-                </div>
-              </Card>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-6 animate-fade-in">
-          {/* Key Metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'متوسط وقت الحل', value: `${stats.avgResolutionTime} أيام`, color: 'bg-blue-50 text-blue-700' },
-              { label: 'مؤشر الصحة', value: `${stats.wellnessScore}%`, color: 'bg-rose-50 text-rose-700' },
-              { label: 'معدل الرضا', value: `${stats.satisfactionRate}%`, color: 'bg-emerald-50 text-emerald-700' },
-              { label: 'محلولة هذا الشهر', value: stats.resolvedThisMonth, color: 'bg-purple-50 text-purple-700' },
-            ].map((m, i) => (
-              <Card key={i} className={`${m.color} border-0`}>
-                <p className="text-2xl font-extrabold">{m.value}</p>
-                <p className="text-xs font-medium mt-0.5 opacity-80">{m.label}</p>
-              </Card>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 bg-slate-50 border border-slate-100 rounded-xl p-1">
+            {RANGES.map((r) => (
+              <button
+                key={r.key}
+                onClick={() => setRangeKey(r.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  rangeKey === r.key
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                {r.label}
+              </button>
             ))}
           </div>
+          <Button
+            onClick={onRefresh}
+            loading={refreshing}
+            variant="secondary"
+            size="sm"
+            icon={<RefreshCw size={15} />}
+            iconPosition="left"
+          >
+            تحديث
+          </Button>
+        </div>
+      </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Sentiment */}
-            <Card>
-              <CardHeader>
-                <CardTitle>🎭 تحليل المشاعر الشهري</CardTitle>
-                <Badge variant="purple" dot>تحليل AI</Badge>
-              </CardHeader>
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sentimentTrend} barSize={10}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: '10px', color: 'white', fontSize: '12px' }} />
-                    <Bar dataKey="positive" fill="#10b981" radius={[4, 4, 0, 0]} name="إيجابي" />
-                    <Bar dataKey="negative" fill="#ef4444" radius={[4, 4, 0, 0]} name="سلبي" />
-                    <Bar dataKey="neutral" fill="#f59e0b" radius={[4, 4, 0, 0]} name="محايد" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-
-            {/* Satisfaction */}
-            <Card>
-              <CardHeader>
-                <CardTitle>🎯 مؤشرات الرضا</CardTitle>
-                <Badge variant="success" dot>آخر تقييم</Badge>
-              </CardHeader>
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={satisfactionData}>
-                    <PolarGrid stroke="#e2e8f0" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fill: '#64748b' }} />
-                    <Radar dataKey="A" stroke="#6366f1" fill="#6366f1" fillOpacity={0.2} strokeWidth={2} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
+      {error && (
+        <Card className="bg-rose-50 border-rose-200">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={18} className="text-rose-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-rose-800">تعذّر تحميل التحليلات</p>
+              <p className="text-xs text-rose-700 mt-1">{error}</p>
+            </div>
           </div>
+        </Card>
+      )}
 
-          {/* Wellness Trend */}
-          <Card>
-            <CardHeader>
-              <CardTitle>💚 مؤشر الصحة النفسية</CardTitle>
-              <Badge variant="success" dot>6 أشهر</Badge>
-            </CardHeader>
-            <div className="h-52">
+      {/* ═══ بطاقات الحضور ═══ */}
+      {/* ★ العطل ⑥: المقام أيام العمل — العطلة والمجاز مستبعدان صراحةً */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="bg-emerald-50 text-emerald-700 border-0">
+          <p className="text-2xl font-extrabold">{overview.attendanceRate}%</p>
+          <p className="text-xs font-bold mt-1">معدل الحضور</p>
+          <p className="text-[11px] opacity-70 mt-1">
+            {overview.presentDays} من {overview.workingDays} يوم عمل
+          </p>
+        </Card>
+        <Card className="bg-rose-50 text-rose-700 border-0">
+          <p className="text-2xl font-extrabold">{overview.absenteeismRate}%</p>
+          <p className="text-xs font-bold mt-1">معدل الغياب</p>
+          <p className="text-[11px] opacity-70 mt-1">{overview.absentDays} يوم غياب</p>
+        </Card>
+        <Card className="bg-amber-50 text-amber-700 border-0">
+          <p className="text-2xl font-extrabold">{overview.lateRate}%</p>
+          <p className="text-xs font-bold mt-1">معدل التأخير</p>
+          <p className="text-[11px] opacity-70 mt-1">{overview.lateDays} يوم تأخير</p>
+        </Card>
+        <Card className="bg-slate-50 text-slate-700 border-0">
+          <p className="text-2xl font-extrabold">
+            {overview.holidayDays + overview.leaveDays}
+          </p>
+          <p className="text-xs font-bold mt-1">خارج أيام العمل</p>
+          <p className="text-[11px] opacity-70 mt-1">
+            {overview.holidayDays} عطلة · {overview.leaveDays} مجاز
+          </p>
+        </Card>
+      </div>
+
+      {/* ═══ بطاقات البلاغات والصحة ═══ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="bg-blue-50 text-blue-700 border-0">
+          {/* ★ العطل ④: محسوب من closed_at − created_at لا الثابت 2.4 */}
+          <p className="text-2xl font-extrabold">
+            {overview.resolvedInRange > 0 ? overview.avgResolutionDays : '—'}
+          </p>
+          <p className="text-xs font-bold mt-1">متوسط وقت الحل (أيام)</p>
+          <p className="text-[11px] opacity-70 mt-1">
+            {overview.resolvedInRange > 0
+              ? `من ${overview.resolvedInRange} بلاغ مُغلق`
+              : 'لا بلاغات مُغلقة في المدة'}
+          </p>
+        </Card>
+        <Card className="bg-purple-50 text-purple-700 border-0">
+          {/* ★ العطل ②: النطاق يحمل سنته — لا getMonth() */}
+          <p className="text-2xl font-extrabold">{overview.resolvedInRange}</p>
+          <p className="text-xs font-bold mt-1">بلاغات مُغلقة</p>
+          <p className="text-[11px] opacity-70 mt-1">ضمن المدة المحددة</p>
+        </Card>
+        <Card className="bg-orange-50 text-orange-700 border-0">
+          {/* ★ العطل ⑦: المؤرشف ليس مفتوحاً */}
+          <p className="text-2xl font-extrabold">{overview.openIncidents}</p>
+          <p className="text-xs font-bold mt-1">بلاغات مفتوحة</p>
+          <p className="text-[11px] opacity-70 mt-1">غير المؤرشفة</p>
+        </Card>
+        <Card className="bg-teal-50 text-teal-700 border-0">
+          {/* ★ العطل ①+③: مقياس حقيقي — ولا يُعرض رقم إن لم توجد عيّنة */}
+          <p className="text-2xl font-extrabold">
+            {hasWellness ? overview.wellnessScore : '—'}
+          </p>
+          <p className="text-xs font-bold mt-1">مؤشر الصحة النفسية</p>
+          <p className="text-[11px] opacity-70 mt-1">
+            {hasWellness
+              ? `من ${overview.wellnessSamples} قياساً`
+              : 'لا قياسات في المدة'}
+          </p>
+        </Card>
+      </div>
+
+      {/* ═══ بطاقات القوى العاملة ═══ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border-slate-100">
+          <p className="text-2xl font-extrabold text-slate-800">
+            {overview.activeEmployees}
+          </p>
+          <p className="text-xs font-bold text-slate-500 mt-1">موظف نشط</p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            من {overview.totalEmployees} إجمالاً
+          </p>
+        </Card>
+        <Card className="border-slate-100">
+          <p className="text-2xl font-extrabold text-slate-800">
+            {overview.contractsExpiring}
+          </p>
+          <p className="text-xs font-bold text-slate-500 mt-1">عقود قريبة الانتهاء</p>
+          <p className="text-[11px] text-slate-400 mt-1">حسب فترة التنبيه</p>
+        </Card>
+        <Card className="border-slate-100">
+          <p className="text-2xl font-extrabold text-slate-800">
+            {overview.criticalPositions}
+          </p>
+          <p className="text-xs font-bold text-slate-500 mt-1">مناصب عالية/حرجة</p>
+          <p className="text-[11px] text-slate-400 mt-1">تحتاج خطة تعاقب</p>
+        </Card>
+        <Card className="border-slate-100">
+          <p className="text-2xl font-extrabold text-slate-800">
+            {overview.criticalPositions > 0 ? `${overview.successionCoverage}%` : '—'}
+          </p>
+          <p className="text-xs font-bold text-slate-500 mt-1">تغطية التعاقب</p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            {overview.criticalPositions > 0 ? 'لها مرشّحون' : 'لا مناصب حرجة'}
+          </p>
+        </Card>
+      </div>
+
+      {/* ═══ الرسوم الزمنية ═══ */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* اتجاه البلاغات — بديل «تحليل المشاعر» المُصنَّع (العطل ⑤) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp size={18} className="text-indigo-600" />
+              الوارد مقابل المُغلق
+            </CardTitle>
+            <Badge variant="neutral">{months} أشهر</Badge>
+          </CardHeader>
+          {incidentSeries.length === 0 ? (
+            <p className="text-center py-16 text-sm text-slate-400">
+              لا بيانات بلاغات في المدة
+            </p>
+          ) : (
+            <div className="h-56 mt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={wellnessTrend}>
+                <BarChart data={incidentSeries} barSize={14}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }}
+                         axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#94a3b8' }}
+                         axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{
+                    background: '#1e293b', border: 'none',
+                    borderRadius: '10px', color: 'white', fontSize: '12px',
+                  }} />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} />
+                  <Bar dataKey="opened" name="وارد" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="closed" name="مُغلق" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </Card>
+
+        {/* اتجاه الصحة — سلسلة زمنية حقيقية (العطل ⑤) */}
+        <Card>
+          <CardHeader>
+            <CardTitle>مؤشر الصحة النفسية</CardTitle>
+            <Badge variant="neutral">{months} أشهر</Badge>
+          </CardHeader>
+          {wellnessSeries.every((p) => p.samples === 0) ? (
+            <p className="text-center py-16 text-sm text-slate-400">
+              لا قياسات صحة نفسية مُسجّلة
+            </p>
+          ) : (
+            <div className="h-56 mt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={wellnessSeries}>
                   <defs>
                     <linearGradient id="wellGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -561,57 +381,137 @@ export default function AnalyticsPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[50, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: '10px', color: 'white', fontSize: '12px' }} formatter={(value: number) => [`${value}%`, 'الصحة']} />
-                  <Area type="monotone" dataKey="score" stroke="#10b981" strokeWidth={2.5} fill="url(#wellGrad)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }}
+                         axisLine={false} tickLine={false} />
+                  {/* ★ المجال 0..100 لا 50..100 — لئلا يُقصّ الانخفاض الحاد */}
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }}
+                         axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      background: '#1e293b', border: 'none',
+                      borderRadius: '10px', color: 'white', fontSize: '12px',
+                    }}
+                    formatter={(value: number, _k: string, item: { payload?: { samples?: number } }) => [
+                      item?.payload?.samples ? `${value} (${item.payload.samples} قياس)` : 'لا قياسات',
+                      'المؤشر',
+                    ]}
+                  />
+                  <Area type="monotone" dataKey="score" stroke="#10b981"
+                        strokeWidth={2.5} fill="url(#wellGrad)" connectNulls={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </Card>
+          )}
+        </Card>
+      </div>
 
-          {/* Department Stats */}
-          <Card>
-            <CardHeader>
-              <CardTitle>🏢 إحصاءات الأقسام</CardTitle>
-            </CardHeader>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    {['القسم', 'الموظفون', 'المشاكل', 'محلولة', 'متوسط الصحة', 'الرضا'].map((h) => (
-                      <th key={h} className="text-right py-3 px-3 text-xs font-bold text-slate-500">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.departmentStats.length === 0 ? (
-                    <tr><td colSpan={6} className="text-center py-8 text-slate-400">لا توجد بيانات للأقسام</td></tr>
-                  ) : stats.departmentStats.map((dept, i) => (
-                    <tr key={i} className="border-b border-slate-50 hover:bg-slate-50">
-                      <td className="py-3 px-3 font-semibold text-slate-800">{dept.name}</td>
-                      <td className="py-3 px-3 text-slate-600">{dept.employeeCount}</td>
-                      <td className="py-3 px-3 text-slate-600">{dept.problemCount}</td>
-                      <td className="py-3 px-3 text-emerald-600 font-semibold">{dept.resolvedCount}</td>
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${dept.wellnessAvg >= 75 ? 'bg-emerald-500' : dept.wellnessAvg >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${dept.wellnessAvg}%` }} />
-                          </div>
-                          <span className="text-xs font-bold text-slate-600">{dept.wellnessAvg}%</span>
+      {/* ═══ جدول الأقسام ═══ */}
+      <Card>
+        <CardHeader>
+          <CardTitle>إحصاءات الأقسام</CardTitle>
+          <Badge variant="neutral">{departments.length} قسم</Badge>
+        </CardHeader>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100">
+                {['القسم', 'الموظفون', 'الحضور', 'أيام الغياب', 'البلاغات', 'مفتوحة', 'متوسط الصحة'].map((h) => (
+                  <th key={h} className="text-right py-3 px-3 text-xs font-bold text-slate-500">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {departments.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-slate-400">
+                    لا أقسام مُعرَّفة
+                  </td>
+                </tr>
+              ) : departments.map((d) => (
+                <tr key={d.departmentId} className="border-b border-slate-50 hover:bg-slate-50">
+                  <td className="py-3 px-3 font-semibold text-slate-800">{d.departmentName}</td>
+                  <td className="py-3 px-3 text-slate-600">{d.employeeCount}</td>
+                  <td className="py-3 px-3">
+                    {d.employeeCount === 0 ? (
+                      <span className="text-slate-300">—</span>
+                    ) : (
+                      <Badge
+                        variant={d.attendanceRate >= 90 ? 'success'
+                          : d.attendanceRate >= 75 ? 'warning' : 'danger'}
+                        size="sm"
+                      >
+                        {d.attendanceRate}%
+                      </Badge>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 text-slate-600">{d.absentDays}</td>
+                  <td className="py-3 px-3 text-slate-600">{d.incidentCount}</td>
+                  <td className="py-3 px-3 font-semibold text-amber-600">{d.openCount}</td>
+                  <td className="py-3 px-3">
+                    {/* ★ العطل ①: كان صفراً لكل قسم أبداً. والآن إن لم توجد
+                        عيّنة نعرض «—» لا صفراً — الصفر قياسٌ والغياب ليس قياساً. */}
+                    {d.wellnessSamples === 0 ? (
+                      <span className="text-slate-300 text-xs">لا قياسات</span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${
+                              d.wellnessAvg >= 75 ? 'bg-emerald-500'
+                                : d.wellnessAvg >= 60 ? 'bg-amber-500' : 'bg-rose-500'
+                            }`}
+                            style={{ width: `${Math.min(100, Math.max(0, d.wellnessAvg))}%` }}
+                          />
                         </div>
-                      </td>
-                      <td className="py-3 px-3">
-                        <Badge variant={dept.satisfactionScore >= 80 ? 'success' : dept.satisfactionScore >= 65 ? 'warning' : 'danger'} size="sm">{dept.satisfactionScore}%</Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+                        <span className="text-xs font-bold text-slate-600">
+                          {d.wellnessAvg}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          ({d.wellnessSamples})
+                        </span>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+      </Card>
+
+      {/* ═══ ما لا يُعرض ولماذا ═══ */}
+      {/* ★ العطل ③+⑧: كان هنا «معدل الرضا 85%» و«رادار مؤشرات الرضا»
+          و«التحليل المتقدم بالذكاء الاصطناعي». لا مصدر لأيٍّ منها. */}
+      <Card className="bg-slate-50 border-slate-200">
+        <div className="flex items-start gap-3">
+          <Info size={18} className="text-slate-500 mt-0.5 shrink-0" />
+          <div className="space-y-2">
+            <p className="text-sm font-bold text-slate-700">مقاييس غير معروضة — ولماذا</p>
+            <ul className="text-xs text-slate-600 space-y-1.5 leading-relaxed">
+              <li>
+                <strong>معدل الرضا:</strong> كان يُعرض ثابتاً عند 85% في ثلاثة
+                مواضع. لا استبيان رضا مربوطاً بالموظفين اليوم، فأُزيل بدل
+                عرض رقم مُختلَق.
+              </li>
+              <li>
+                <strong>تحليل المشاعر:</strong> كان يُحسب بمعادلة
+                <code className="mx-1 px-1 bg-slate-200 rounded text-[10px]">
+                  40 + عدد الموظفين × 2
+                </code>
+                ويُسمّي الأقسام بأسماء أشهر. استُبدل باتجاه البلاغات الحقيقي.
+              </li>
+              <li>
+                <strong>التحليل التنبؤي:</strong> كان انتظاراً مُفتعَلاً مدّته
+                ثانيتان ونصف، ثم أرقام ثابتة مكتوبة داخل الملف عن دقة نموذج
+                ومستوى دلالة إحصائية. لا نموذج قائم ولا بيانات تدريب، فأُزيل:
+                النتيجة الخاطئة أسوأ من غيابها.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

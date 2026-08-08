@@ -4,19 +4,66 @@
  *
  *  الأجزاء غير-pure (requireAdmin, targetInCallerTenant, audit) تعتمد
  *  على Supabase runtime → تُختبر عبر E2E من الواجهة.
+ *
+ *  ⚠️ تصحيح 2026-08-04:
+ *  كانت هذه المجموعات منسوخة يدوياً هنا مع تعليق «طابق مع adminAuth.ts».
+ *  النسخ اليدوي فشل بالضبط كما هو متوقع: الاختبار بقي على 9 أدوار بينما
+ *  المصدر وصل إلى 13، ثم أُضيفت ثلاثة أدوار لبوابة الحركة إلى قيد القاعدة
+ *  في 0288 دون أن يلاحظ أي اختبار. لذلك صار الاختبار الآن يقرأ الملفات
+ *  الحقيقية (Edge Function + المايجريشن) نصّاً ويقارن بينها، فلا يمكن أن
+ *  تنحرف الثلاثة مصادر مرة أخرى دون فشل أحمر.
  * ═════════════════════════════════════════════════════════════════════════
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-// نسخة inline من isUuid + الأدوار (طابق مع _shared/adminAuth.ts)
+const ROOT = resolve(__dirname, '../../..');
+const ADMIN_AUTH_PATH = resolve(ROOT, 'supabase/functions/_shared/adminAuth.ts');
+const CREATE_USER_PATH = resolve(ROOT, 'supabase/functions/admin-create-user/index.ts');
+const MIGRATION_0288_PATH = resolve(
+  ROOT,
+  'supabase/migrations/0288_movement_profile_roles_constraint.sql',
+);
+
+const adminAuthSource = readFileSync(ADMIN_AUTH_PATH, 'utf8');
+const createUserSource = readFileSync(CREATE_USER_PATH, 'utf8');
+const migration0288Source = readFileSync(MIGRATION_0288_PATH, 'utf8');
+
+/** يستخرج أعضاء `new Set([...])` المُسنَد إلى اسم مُعطى من مصدر TypeScript. */
+function parseRoleSet(source: string, name: string): Set<string> {
+  const match = new RegExp(
+    `(?:export\\s+)?const\\s+${name}\\s*=\\s*new\\s+Set\\(\\[([\\s\\S]*?)\\]\\)`,
+  ).exec(source);
+  if (!match) throw new Error(`تعذّر العثور على ${name} في المصدر`);
+  return new Set(
+    Array.from(match[1].matchAll(/'([^']+)'/g)).map((m) => m[1]),
+  );
+}
+
+/** يستخرج قائمة الأدوار من قيد profiles_role_check في المايجريشن. */
+function parseCheckConstraintRoles(sql: string): Set<string> {
+  const match = /ADD\s+CONSTRAINT\s+profiles_role_check\s+CHECK\s*\(\s*role\s+IN\s*\(([\s\S]*?)\)\s*\)\s*;/i
+    .exec(sql);
+  if (!match) throw new Error('تعذّر العثور على قيد profiles_role_check في 0288');
+  const withoutComments = match[1].replace(/--[^\n]*/g, '');
+  return new Set(
+    Array.from(withoutComments.matchAll(/'([^']+)'/g)).map((m) => m[1]),
+  );
+}
+
 function isUuid(value: unknown): value is string {
   return typeof value === 'string'
     && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-const TARGET_ROLES = new Set(['employee', 'supervisor', 'manager', 'hr', 'gatekeeper', 'admin', 'finance', 'tech', 'marketing']);
-const CALLER_ROLES = new Set(['admin', 'developer', 'it_admin']);
-const PLATFORM_ROLES = new Set(['developer', 'it_admin']);
+const TARGET_ROLES = parseRoleSet(adminAuthSource, 'TARGET_ROLES');
+const CALLER_ROLES = parseRoleSet(adminAuthSource, 'CALLER_ROLES');
+const PLATFORM_ROLES = parseRoleSet(adminAuthSource, 'PLATFORM_ROLES');
+const DB_ROLES = parseCheckConstraintRoles(migration0288Source);
+
+/** أدوار بوابة الحركة واللوجستيات (0270-0299). */
+const MOVEMENT_PORTAL_ROLES = ['employee_movement', 'logistics', 'movement_manager'] as const;
 
 describe('adminAuth — isUuid()', () => {
   it('يقبل UUID v4 صحيح', () => {
@@ -79,47 +126,57 @@ describe('adminAuth — Role sets', () => {
   });
 });
 
-describe('adminAuth — Escalation prevention logic', () => {
-  /**
-   * محاكاة المنطق في admin-update-role:
-   * يجب أن يمنع رفع مستخدم إلى دور منصة، حتى لو المستدعي developer.
-   */
-  function canAssignRole(newRole: string, callerRole: string, targetRole: string): { allowed: boolean; reason?: string } {
-    // 1) newRole يجب أن يكون في TARGET_ROLES
-    if (!TARGET_ROLES.has(newRole)) return { allowed: false, reason: 'target_role_invalid' };
-    // 2) newRole لا يجوز أن يكون دور منصة
-    if (PLATFORM_ROLES.has(newRole)) return { allowed: false, reason: 'platform_role_forbidden' };
-    // 3) لا يجوز تعديل مستخدم منصة إلا من developer
-    if (PLATFORM_ROLES.has(targetRole) && callerRole !== 'developer') {
-      return { allowed: false, reason: 'target_is_platform' };
-    }
-    return { allowed: true };
-  }
+describe('adminAuth — تطابق الأدوار بين Edge Function وقاعدة البيانات', () => {
+  it.each(MOVEMENT_PORTAL_ROLES)(
+    'TARGET_ROLES يشمل دور بوابة الحركة «%s»',
+    (role) => {
+      expect(TARGET_ROLES.has(role)).toBe(true);
+    },
+  );
 
-  it('admin يستطيع ترقية employee إلى hr', () => {
-    expect(canAssignRole('hr', 'admin', 'employee').allowed).toBe(true);
+  it.each(MOVEMENT_PORTAL_ROLES)(
+    'قيد profiles_role_check يشمل دور بوابة الحركة «%s»',
+    (role) => {
+      expect(DB_ROLES.has(role)).toBe(true);
+    },
+  );
+
+  it('كل دور في TARGET_ROLES مقبول في قيد profiles_role_check', () => {
+    const rejectedByDb = [...TARGET_ROLES].filter((role) => !DB_ROLES.has(role));
+    expect(rejectedByDb).toEqual([]);
   });
 
-  it('admin لا يستطيع ترقية نفسه أو غيره إلى developer', () => {
-    const r = canAssignRole('developer', 'admin', 'employee');
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toBe('target_role_invalid');
+  it('كل دور في CALLER_ROLES مقبول في قيد profiles_role_check', () => {
+    const rejectedByDb = [...CALLER_ROLES].filter((role) => !DB_ROLES.has(role));
+    expect(rejectedByDb).toEqual([]);
   });
 
-  it('حتى developer لا يستطيع رفع مستخدم إلى it_admin عبر هذه الواجهة', () => {
-    const r = canAssignRole('it_admin', 'developer', 'employee');
-    expect(r.allowed).toBe(false);
+  it('قيد القاعدة = TARGET_ROLES ∪ PLATFORM_ROLES بالضبط (لا دور يتيم)', () => {
+    const expected = new Set([...TARGET_ROLES, ...PLATFORM_ROLES]);
+    const orphansInDb = [...DB_ROLES].filter((role) => !expected.has(role));
+    expect(orphansInDb).toEqual([]);
+    expect(DB_ROLES.size).toBe(expected.size);
+  });
+});
+
+describe('adminAuth — مصدر واحد للأدوار (منع تكرار الانحراف)', () => {
+  it('admin-create-user يستورد TARGET_ROLES بدل إعادة تعريفها محلياً', () => {
+    expect(createUserSource).toMatch(
+      /import\s*\{[^}]*\bTARGET_ROLES\b[^}]*\}\s*from\s*'\.\.\/_shared\/adminAuth\.ts'/,
+    );
+    expect(createUserSource).not.toMatch(/const\s+TARGET_ROLES\s*=\s*new\s+Set/);
   });
 
-  it('admin لا يستطيع تعديل دور developer آخر', () => {
-    const r = canAssignRole('employee', 'admin', 'developer');
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toBe('target_is_platform');
+  it('admin-create-user يستورد CALLER_ROLES بدل إعادة تعريفها محلياً', () => {
+    expect(createUserSource).toMatch(
+      /import\s*\{[^}]*\bCALLER_ROLES\b[^}]*\}\s*from\s*'\.\.\/_shared\/adminAuth\.ts'/,
+    );
+    expect(createUserSource).not.toMatch(/const\s+CALLER_ROLES\s*=\s*new\s+Set/);
   });
 
-  it('developer يستطيع تخفيض developer آخر إلى admin', () => {
-    // ملاحظة: لا يزال يفشل لأن admin ليس TARGET_ROLE للـ developer promotion
-    // لكن admin هو TARGET_ROLE عادي، لذا يجب أن ينجح
-    expect(canAssignRole('admin', 'developer', 'developer').allowed).toBe(true);
+  it('لا Edge Function أخرى تُعيد تعريف مجموعات الأدوار محلياً', () => {
+    expect(adminAuthSource).toMatch(/export\s+const\s+TARGET_ROLES/);
+    expect(adminAuthSource).toMatch(/export\s+const\s+CALLER_ROLES/);
+    expect(adminAuthSource).toMatch(/export\s+const\s+PLATFORM_ROLES/);
   });
 });

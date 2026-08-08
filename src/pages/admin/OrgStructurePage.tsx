@@ -23,6 +23,8 @@ import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import Input from '../../shared/components/ui/Input';
 import { departmentService } from '../../services/sdk/DepartmentService';
+import { archiveService } from '../../services/sdk/ArchiveService';
+import { OrgChainPanel } from './components/OrgChainPanel';
 import { userService } from '../../services/sdk/UserService';
 import { useUIStore } from '../../core/stores';
 import type { DepartmentRecord } from '../../shared/types/sdk';
@@ -39,6 +41,9 @@ export default function OrgStructurePage() {
   const [error, setError] = useState<string | null>(null);
 
   // مستخدمون حسب الدور (لقوائم التعيين)
+  // ★ هدف الأرشفة — بديل window.confirm() المحظور (سياسة المنصة)
+  const [archiveTarget, setArchiveTarget] = useState<DepartmentRecord | null>(null);
+  const [archiving, setArchiving] = useState(false);
   const [supervisors, setSupervisors] = useState<SimpleUser[]>([]);
   const [managers, setManagers] = useState<SimpleUser[]>([]);
   const [admins, setAdmins] = useState<SimpleUser[]>([]);
@@ -120,6 +125,15 @@ export default function OrgStructurePage() {
   }, [departments]);
 
   const nameById = useMemo(() => new Map(departments.map((d) => [d.id, d.name_ar])), [departments]);
+
+  // خريطة معرّف المستخدم ← اسمه، لعرض الهيكل البشري في OrgChainPanel
+  const userNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const list of [supervisors, managers, admins, procurements]) {
+      for (const u of list) map.set(u.id, u.full_name || u.name || '—');
+    }
+    return map;
+  }, [supervisors, managers, admins, procurements]);
   const selected = departments.find((d) => d.id === selectedId) || null;
   const subDepartments = departments.filter((d) => d.parent_department_id === selectedId);
 
@@ -154,15 +168,34 @@ export default function OrgStructurePage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('حذف هذا القسم؟ سيتم إزالة ارتباطه بالموظفين والأقسام الفرعية.')) return;
+  /**
+   * أرشفة القسم — لا حذف نهائي.
+   *
+   * ★ النسخة السابقة كانت تَعِد بما لا تفعل:
+   *      window.confirm('حذف هذا القسم؟ سيتم إزالة ارتباطه بالموظفين
+   *                      والأقسام الفرعية.')
+   *      → departmentService.delete(id)
+   *
+   *   مُقاس على Postgres: `departments_parent_department_id_fkey` يمنع
+   *   الحذف أصلاً، فتظهر «حدث خطأ أثناء الحذف» بلا سبب. ولو نجح لأباد
+   *   `approval_rules` و`org_role_assignments` عبر ON DELETE CASCADE.
+   *
+   *   `archive_department` (0324) تُعيد سبباً مفهوماً وتحفظ التبعيات.
+   */
+  const handleArchive = async () => {
+    if (!archiveTarget) return;
+    setArchiving(true);
     try {
-      await departmentService.delete(id);
-      addToast('تم حذف القسم', 'success');
-      if (selectedId === id) setSelectedId(null);
+      await archiveService.archiveDepartment(archiveTarget.id);
+      addToast('تمت أرشفة القسم — قواعد الاعتماد محفوظة', 'success');
+      if (selectedId === archiveTarget.id) setSelectedId(null);
+      setArchiveTarget(null);
       await loadAll();
-    } catch {
-      addToast('حدث خطأ أثناء الحذف', 'error');
+    } catch (err) {
+      // ★ السبب الحقيقي لا «حدث خطأ»: عدد الموظفين أو الأقسام الفرعية
+      addToast(err instanceof Error ? err.message : 'تعذّرت الأرشفة', 'error');
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -337,8 +370,8 @@ export default function OrgStructurePage() {
                       <Button variant="outline" onClick={() => { setAddParentId(selected.id); setShowAdd(true); }} icon={<Plus size={14} />} iconPosition="left">
                         قسم فرعي
                       </Button>
-                      <Button variant="danger" onClick={() => handleDelete(selected.id)} icon={<Trash2 size={14} />} iconPosition="left">
-                        حذف
+                      <Button variant="danger" onClick={() => setArchiveTarget(selected)} icon={<Trash2 size={14} />} iconPosition="left">
+                        أرشفة
                       </Button>
                     </div>
                   </div>
@@ -382,6 +415,25 @@ export default function OrgStructurePage() {
                   </div>
                   <div className="px-5 pb-4">
                     <p className="text-[11px] text-slate-400">يُستخدم مسؤول المشتريات في سير موافقات طلبات الشراء PR — يُورث من القسم الأب إذا لم يُعيَّن، ويُطبق قواعد المبلغ (5K→مدير، 50K→مالية، 500K→إدارة).</p>
+                  </div>
+                </Card>
+
+                {/* الهيكل البشري وسلسلة الاعتماد (0304/0306).
+                    الشجرة أعلاه تعرض الأقسام؛ هذه تعرض **الأشخاص** وترتيب
+                    اعتمادهم — بما فيه ما وُرث من الأقسام الأعلى. */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base font-black flex items-center gap-2">
+                      <GitMerge size={16} className="text-indigo-600" /> سلسلة الاعتماد الفعلية
+                    </CardTitle>
+                  </CardHeader>
+                  <div className="p-5 pt-0">
+                    <OrgChainPanel
+                      departmentId={selected.id}
+                      departmentName={selected.name_ar}
+                      userNameById={userNameById}
+                      departmentNameById={nameById}
+                    />
                   </div>
                 </Card>
 
@@ -466,6 +518,31 @@ export default function OrgStructurePage() {
                 إضافة القسم
               </Button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ★ تأكيد الأرشفة — Modal لا window.confirm() (سياسة المنصة) */}
+      {archiveTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" dir="rtl">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-800">تأكيد أرشفة القسم</h3>
+            <p className="text-sm text-slate-700 leading-relaxed">
+              أرشفة قسم <b>«{archiveTarget.name_ar}»</b>؟
+            </p>
+            <p className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded-xl p-3 leading-relaxed">
+              القسم يُؤرشَف ولا يُحذف: قواعد الاعتماد والإسنادات التنظيمية
+              المرتبطة به تبقى سليمة. إن كان فيه موظفون أو أقسام فرعية نشطة
+              فستظهر رسالة تشرح المانع بالضبط.
+            </p>
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="secondary" onClick={() => setArchiveTarget(null)} disabled={archiving}>
+                تراجع
+              </Button>
+              <Button variant="danger" onClick={() => void handleArchive()} loading={archiving}>
+                أرشفة
+              </Button>
+            </div>
           </div>
         </div>
       )}

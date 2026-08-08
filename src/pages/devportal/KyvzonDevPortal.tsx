@@ -29,6 +29,8 @@ const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'));
 const ModulesPage       = lazy(() => import('./pages/ModulesPage'));
 const PlatformHealthPage = lazy(() => import('./pages/PlatformHealthPage'));
 const EngineeringConsolePage = lazy(() => import('./pages/EngineeringConsolePage'));
+const SubscriptionConflictsPage = lazy(() => import('./pages/SubscriptionConflictsPage'));
+const EnforcementConsolePage    = lazy(() => import('./pages/EnforcementConsolePage'));
 const AuditLogPage      = lazy(() => import('./pages/AuditLogPage'));
 const SettingsPage      = lazy(() => import('./pages/SettingsPage'));
 const LandingCMSPage    = lazy(() => import('../../pages/admin/AdminLandingPageCMS'));
@@ -67,6 +69,10 @@ const PageRenderer: FC<{
       return <PlatformHealthPage />;
     case 'engineering-console':
       return <EngineeringConsolePage />;
+    case 'enforcement-console':
+      return <EnforcementConsolePage />;
+    case 'subscription-conflicts':
+      return <SubscriptionConflictsPage />;
     case 'audit-log':
       return <AuditLogPage />;
     case 'settings':

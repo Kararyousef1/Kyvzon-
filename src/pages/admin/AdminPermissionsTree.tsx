@@ -287,6 +287,7 @@ export default function AdminPermissionsTree() {
   const [permissionsState, setPermissionsState] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [rootFilter, setRootFilter] = useState('all');
   const [deptFilter, setDeptFilter] = useState('all');
@@ -352,13 +353,15 @@ export default function AdminPermissionsTree() {
         .eq('id', selectedEmp.id);
       if (err) throw err;
 
+      setSaveError(null);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       await fetchHierarchy(true);
       setSelectedEmp((prev) => (prev ? { ...prev, custom_permissions: permissionsState } : null));
     } catch (err) {
+      // ★ alert() محظور بسياسة المنصة — يوقف الصفحة ولا يُنسَّق مع بقية الواجهة
       const message = err instanceof Error ? err.message : 'خطأ في الحفظ';
-      alert(message);
+      setSaveError(message);
     } finally {
       setSaving(false);
     }
@@ -706,6 +709,14 @@ export default function AdminPermissionsTree() {
                   <div className="p-4 border-t border-slate-100 bg-slate-50/50">
                     {saveSuccess && (
                       <div className="mb-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl p-3 text-sm font-bold flex items-center gap-2 fade-in"><CheckCircle size={16} /> تم حفظ الصلاحيات بنجاح!</div>
+                    )}
+                    {/* ★ عرض الخطأ داخل الصفحة بدل alert() المحظور */}
+                    {saveError && (
+                      <div className="mb-3 bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm font-bold flex items-start gap-2">
+                        <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                        <span className="flex-1">{saveError}</span>
+                        <button onClick={() => setSaveError(null)} className="text-red-400 hover:text-red-600">✕</button>
+                      </div>
                     )}
                     <button onClick={handleSavePermissions} disabled={saving || !hasChanges}
                       className={`w-full py-3.5 rounded-xl font-black text-base flex items-center justify-center gap-2 transition-all shadow-md ${hasChanges ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'} disabled:opacity-60`}>

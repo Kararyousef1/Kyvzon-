@@ -1,20 +1,37 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, DollarSign, Plus } from 'lucide-react';
+import { BarChart3, DollarSign, Plus , X } from 'lucide-react';
 import { useUIStore } from '../../../../core/stores';
 import { logisticsTripCostService } from '../../../../services/sdk/LogisticsCarriersCostsService';
 import type { LogisticsTripCostRecord } from '../../../../shared/types/logistics-carriers-costs';
 import Card from '../../../../shared/components/ui/Card';
+import { MovementUnitNav } from '../shared/MovementUnitNav';
 import Button from '../../../../shared/components/ui/Button';
 import { getErrorMessage } from '../../../../services/errors';
+import Input from '../../../../shared/components/ui/Input';
+import { movementFoundationOperationsService } from '../../../../services/sdk/MovementFoundationOperationsService';
+import { exportToCsv, type ExportColumn } from '../../../../utils/dataExport';
+import {
+  logisticsDispatchOperationsService,
+  type DispatchBoardRow,
+} from '../../../../services/sdk/LogisticsDispatchOperationsService';
 
 export default function LogisticsCostAnalyticsPage() {
   const { addToast } = useUIStore();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [closedDispatches, setClosedDispatches] = useState<DispatchBoardRow[]>([]);
+  const [form, setForm] = useState({
+    dispatchId: '', fuelCost: 0, tollCost: 0,
+    driverAllowance: 0, maintenanceShare: 0, revenue: 0,
+  });
   const [costs, setCosts] = useState<LogisticsTripCostRecord[]>([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      const board = await logisticsDispatchOperationsService.findDispatchBoard().catch(() => []);
+      setClosedDispatches(board.filter((d) => ['completed', 'failed'].includes(d.dispatch_status)));
       const data = await logisticsTripCostService.findAll({ orderBy: 'created_at', ascending: false });
       setCosts(data || []);
     } catch (err) {
@@ -30,15 +47,59 @@ export default function LogisticsCostAnalyticsPage() {
   const totalRevenue = costs.reduce((acc, c) => acc + Number(c.revenue), 0);
   const netProfit = costs.reduce((acc, c) => acc + Number(c.net_profit), 0);
 
+  /*
+    الإجمالي والربح يُحسبان في الخادم (0285) — لا يُمرَّران من الواجهة.
+    قبل ذلك كانا عمودين عاديين قابلين للكتابة بقيمة لا تطابق مكوّناتها.
+  */
+  const previewTotal =
+    form.fuelCost + form.tollCost + form.driverAllowance + form.maintenanceShare;
+  const previewProfit = form.revenue - previewTotal;
+
+  /* التصدير عبر dataExport: BOM للعربية + حماية من حقن الصيغ */
+  const exportCosts = () => {
+    if (costs.length === 0) {
+      addToast('لا بيانات للتصدير', 'info');
+      return;
+    }
+    const columns: ExportColumn<typeof costs[number]>[] = [
+      { header: 'تكلفة الوقود',   value: (r) => r.fuel_cost ?? 0 },
+      { header: 'الرسوم',         value: (r) => r.toll_cost ?? 0 },
+      { header: 'بدل السائق',     value: (r) => r.driver_allowance ?? 0 },
+      { header: 'حصة الصيانة',    value: (r) => r.maintenance_share ?? 0 },
+      { header: 'إجمالي التكلفة', value: (r) => r.total_cost ?? 0 },
+      { header: 'الإيراد',        value: (r) => r.revenue ?? 0 },
+      { header: 'صافي الربح',     value: (r) => r.net_profit ?? 0 },
+      { header: 'الحالة',         value: (r) => r.status },
+    ];
+    exportToCsv('تكاليف_الرحلات', columns, costs);
+    addToast(`تم تصدير ${costs.length} سجلاً`, 'success');
+  };
+
+  const submitCost = async () => {
+    if (!form.dispatchId) { addToast('اختر الرحلة', 'error'); return; }
+    setSaving(true);
+    try {
+      const res = await movementFoundationOperationsService.recordTripCost(form);
+      addToast(`تم التسجيل — التكلفة ${res.total_cost} · الربح ${res.net_profit}`, 'success');
+      setShowCreate(false);
+      setForm({ dispatchId: '', fuelCost: 0, tollCost: 0, driverAllowance: 0, maintenanceShare: 0, revenue: 0 });
+      await loadData();
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+    } finally { setSaving(false); }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in" dir="rtl">
+      <MovementUnitNav unit="logistics_costs" />
       <div className="bg-gradient-to-br from-indigo-700 to-slate-900 rounded-2xl p-6 text-white flex items-center justify-between flex-wrap gap-4">
         <div>
           <p className="text-white/70 text-sm font-semibold">Logistics Control • L11</p>
           <h2 className="text-2xl font-extrabold mt-1 flex items-center gap-2"><BarChart3 /> التكاليف والتحليلات المالية للرحلات</h2>
           <p className="text-white/75 mt-2 text-sm">متابعة تكاليف التشغيل، الإيرادات، صافي الأرباح، والتسويات المالية للرحلات.</p>
         </div>
-        <Button onClick={() => addToast('إضافة تحليل تكلفة جديد قيد التطوير', 'info')} className="!bg-white !text-indigo-900 hover:!bg-indigo-50 !border-none" icon={<Plus size={16} />} iconPosition="left">سجل تكلفة</Button>
+        <Button variant="secondary" onClick={exportCosts} className="!bg-white/10 !text-white hover:!bg-white/20 !border-none">تصدير CSV</Button>
+        <Button onClick={() => setShowCreate(true)} className="!bg-white !text-indigo-900 hover:!bg-indigo-50 !border-none" icon={<Plus size={16} />} iconPosition="left">سجل تكلفة</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -77,6 +138,89 @@ export default function LogisticsCostAnalyticsPage() {
           </table>
         </div>
       </Card>
+
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-xl max-h-[92vh] overflow-auto" dir="rtl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg">تسجيل تكلفة رحلة</h3>
+              <button type="button" onClick={() => setShowCreate(false)}
+                className="text-slate-400 hover:text-slate-700"><X size={20} /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-600">الرحلة (المنتهية فقط) *</label>
+                <select value={form.dispatchId} className="w-full border rounded-xl p-2.5 text-sm mt-1"
+                  onChange={(e) => setForm({ ...form, dispatchId: e.target.value })}>
+                  <option value="">اختر رحلة</option>
+                  {closedDispatches.map((d) => (
+                    <option key={d.dispatch_id} value={d.dispatch_id}>
+                      {d.dispatch_code} — {d.order_code} ({d.vehicle_code})
+                    </option>
+                  ))}
+                </select>
+                {closedDispatches.length === 0 && (
+                  <p className="text-[11px] text-amber-600 mt-1">
+                    لا رحلات منتهية بعد. التكلفة تُسجَّل بعد اكتمال الرحلة أو فشلها.
+                  </p>
+                )}
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-600">تكلفة الوقود</label>
+                  <Input type="number" value={form.fuelCost}
+                    onChange={(e) => setForm({ ...form, fuelCost: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600">الرسوم والعبور</label>
+                  <Input type="number" value={form.tollCost}
+                    onChange={(e) => setForm({ ...form, tollCost: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600">بدل السائق</label>
+                  <Input type="number" value={form.driverAllowance}
+                    onChange={(e) => setForm({ ...form, driverAllowance: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600">حصة الصيانة</label>
+                  <Input type="number" value={form.maintenanceShare}
+                    onChange={(e) => setForm({ ...form, maintenanceShare: Number(e.target.value) })} />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600">الإيراد</label>
+                <Input type="number" value={form.revenue}
+                  onChange={(e) => setForm({ ...form, revenue: Number(e.target.value) })} />
+              </div>
+
+              <div className="border rounded-xl p-3 bg-slate-50 text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-600">إجمالي التكلفة (محسوب)</span>
+                  <span className="font-bold font-mono">{previewTotal.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">صافي الربح (محسوب)</span>
+                  <span className={`font-bold font-mono ${previewProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    {previewProfit.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-400">
+                القيم أعلاه معاينة فقط — الحساب النهائي يتم في الخادم ولا يُقبل
+                إدخاله يدوياً. لا يُسمح بتسجيل تكلفتين لنفس الرحلة.
+              </p>
+            </div>
+
+            <div className="flex gap-2 mt-5">
+              <Button onClick={() => void submitCost()} loading={saving} className="flex-1">حفظ</Button>
+              <Button variant="secondary" onClick={() => setShowCreate(false)} className="flex-1">إلغاء</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

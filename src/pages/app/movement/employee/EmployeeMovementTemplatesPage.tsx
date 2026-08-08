@@ -8,6 +8,7 @@ import type { MovementLocationRecord } from '../../../../shared/types/movement-f
 import Card from '../../../../shared/components/ui/Card';
 import Button from '../../../../shared/components/ui/Button';
 import { getErrorMessage } from '../../../../services/errors';
+import { MovementUnitNav } from '../shared/MovementUnitNav';
 
 export default function EmployeeMovementTemplatesPage() {
   const { user } = useAuthStore();
@@ -83,6 +84,7 @@ export default function EmployeeMovementTemplatesPage() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto animate-fade-in" dir="rtl">
+      <MovementUnitNav unit="employee_permits" />
       <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white flex items-center justify-between flex-wrap gap-4">
         <div>
           <p className="text-white/70 text-sm font-semibold">Employee Movement • E01</p>

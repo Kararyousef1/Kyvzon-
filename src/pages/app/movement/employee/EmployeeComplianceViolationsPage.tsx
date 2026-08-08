@@ -5,6 +5,7 @@ import { employeeViolationService } from '../../../../services/sdk/EmployeeCompl
 import type { EmployeeViolationRecord } from '../../../../shared/types/employee-compliance';
 import Card from '../../../../shared/components/ui/Card';
 import { getErrorMessage } from '../../../../services/errors';
+import { MovementUnitNav } from '../shared/MovementUnitNav';
 
 export default function EmployeeComplianceViolationsPage() {
   const { addToast } = useUIStore();
@@ -27,6 +28,7 @@ export default function EmployeeComplianceViolationsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in" dir="rtl">
+      <MovementUnitNav unit="employee_compliance" />
       <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white flex items-center justify-between flex-wrap gap-4">
         <div>
           <p className="text-white/70 text-sm font-semibold">Employee Movement • E05</p>

@@ -1,24 +1,34 @@
 /**
  * ════════════════════════════════════════════════════════════════
- *  NewProblemPage - رفع مشكلة جديدة (نسخة مُصلحة)
- * ════════════════════════════════════════════════════════════════
+ *  NewProblemPage — رفع بلاغ جديد
  *
- *  🔧 الإصلاحات المُطبّقة:
- *  ─────────────────────────────────────────────────────────────────
- *  ✅ تنظيف جميع markdown artifacts (&lt; &gt; &amp; + روابط مكسورة)
- *  ✅ إصلاح template literal المكسور في fetch()  ← كان لا يُترجم
- *  ✅ INSERT يضمن user_id (يوافق Migration 051)
- *  ✅ إظهار رسالة الخطأ الحقيقية من Supabase (بدل رسالة عامة)
- *  ✅ إشعار فريق HR تلقائياً عند رفع المشكلة (نظام الإشعارات الجديد)
- *  ✅ جداول ثوابت (SEVERITY/CATEGORY labels) لتقليل التكرار
- *  ✅ إزالة الاستيراد غير المستخدم (useProblemStore)
- *  ════════════════════════════════════════════════════════════════
+ *  ═══ ما تغيّر في 0342 ═══════════════════════════════════════════
+ *
+ *  ★★★ رفع أي بلاغ كان **مستحيلاً**.
+ *      الصفحة كانت تُدرج في `incidents` مباشرةً بلا `tenant_id`،
+ *      وسياسة `kyvzon_incidents_insert` تشترطه:
+ *        (tenant_id = current_user_tenant_id())
+ *        AND (current_user_is_staff() OR user_id = auth.uid())
+ *      مُقاس بجلسة RLS حقيقية:
+ *        ERROR: new row violates row-level security policy
+ *               for table "incidents"
+ *
+ *  ★★★ والبلاغ المجهول أسوأ: الصفحة كانت تُفرّغ `user_id`
+ *      فتُصدّ بالسياسة نفسها. ولو مرّ لفقد صاحبُه بلاغَه للأبد —
+ *      `my_incidents` ترشّح بـ`user_id`. مُقاس: صاحبه يراه ⇒ **0**.
+ *      الإخفاء الصحيح **في العرض** كما فعل 0338، لا بإتلاف الرابط.
+ *
+ *  ★★ ولم تكن تملأ `employee_id` ولا `department_id` — فيظهر القسم
+ *      «—» في صندوق الموارد. الآن القاعدة تشتقّهما من الجلسة.
+ *
+ *  الآن: `incidentService.submit()` — استدعاء واحد ذرّي.
+ * ════════════════════════════════════════════════════════════════
  */
 
 import { useState } from 'react';
 import { ChevronRight, Eye, EyeOff, Sparkles, Send, Info } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
-import { supabase } from '../../services/supabase/supabase';
+import { incidentService, incidentErrorMessage } from '../../services/sdk/IncidentService';
 import { callAi } from '../../services/ai/edgeAiService';
 import { notifyRole } from '../../services/notifications/notificationService';
 import Card from '../../shared/components/ui/Card';
@@ -183,28 +193,23 @@ export default function NewProblemPage() {
 
     setSubmitting(true);
     try {
-      // الإدراج مع إرجاع id (لاستخدامه في الإشعار)
-      const { data, error } = await supabase
-        .from('incidents')
-        .insert({
-          title: form.title,
-          description: form.description,
-          category: form.category,
-          severity: form.severity,
-          is_anonymous: form.isAnonymous,
-          reported_by: form.isAnonymous ? null : user?.id,
-          user_id: form.isAnonymous ? null : user?.id, // ✅ يوافق Migration 051
-          status: 'pending',
-          ai_analysis: dynamicSuggestion || undefined,
-        })
-        .select('id')
-        .single();
+      // ★★★ لا نمرّر tenant_id ولا user_id ولا employee_id — القاعدة
+      //   تشتقّها كلّها من الجلسة. تمريرها من المتصفح هو ما عطّل
+      //   الصفحة (RLS) وأفقد أصحابَ البلاغات المجهولة بلاغاتِهم.
+      const res = await incidentService.submit({
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        severity: form.severity,
+        isAnonymous: form.isAnonymous,
+        aiAnalysis: dynamicSuggestion
+          ? { ...dynamicSuggestion }
+          : null,
+      });
 
-      if (error) throw error;
+      const incidentId = res.id;
 
-      const incidentId = data?.id;
-
-      // ✅ إشعار فريق HR بالمشكلة الجديدة (غير حجري - لا يفشل الإرسال)
+      // إشعار فريق الموارد — غير حجري: فشلُه لا يُفشل رفع البلاغ
       if (incidentId) {
         notifyRole(['hr', 'admin'], {
           type: 'problem_created',
@@ -213,7 +218,7 @@ export default function NewProblemPage() {
             ? 'وردت مشكلة مجهولة الهوية تحتاج للمراجعة'
             : `${user?.name || user?.full_name || 'موظف'}: ${form.description.slice(0, 120)}`,
           priority: form.severity === 'critical' || form.severity === 'high' ? 'high' : 'normal',
-          actionUrl: 'admin-problems',
+          actionUrl: '/app/hr/problems',
           groupKey: `incident-${incidentId}`,
           metadata: {
             problemId: incidentId,
@@ -222,18 +227,15 @@ export default function NewProblemPage() {
             isAnonymous: form.isAnonymous,
           },
         }).catch((notifErr) => {
-          console.error('فشل إرسال إشعار HR:', notifErr);
+          console.error('فشل إرسال إشعار الموارد:', notifErr);
         });
       }
 
       addToast('تم رفع مشكلتك بنجاح ✅', 'success');
       navigate('/app/employee/problems');
     } catch (err) {
-      console.error('Incident insert failed:', err);
-      // ✅ إظهار رسالة الخطأ الحقيقية من Supabase
-      const message =
-        err instanceof Error && err.message ? err.message : 'حدث خطأ أثناء رفع المشكلة';
-      addToast(message, 'error');
+      const raw = err instanceof Error && err.message ? err.message : '';
+      addToast(raw ? incidentErrorMessage(raw) : 'حدث خطأ أثناء رفع البلاغ', 'error');
     } finally {
       setSubmitting(false);
     }
