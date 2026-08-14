@@ -1,5 +1,4 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { supabase } from '../../../../services/supabase/supabase';
 import { ItemLookup, LocationLookup, WarehouseLookup } from './InventoryLookups';
 import {
   inventoryAnalyticsService,
@@ -8,6 +7,7 @@ import {
   inventoryItemService,
   inventoryLocationService,
   inventoryPostingService,
+  inventoryRecordService,
   inventoryStockBalanceService,
   inventoryStockMovementService,
   inventoryWarehouseService,
@@ -149,16 +149,14 @@ function DetailModal({ row, type, onClose, onSaved }: { row: Record<string, unkn
   const save=async()=>{try{
     if(!entityType) return;
     if(!reason.trim()){setMsg('يجب كتابة سبب التعديل للتدقيق'); return;}
-    const {error}=await supabase.rpc('update_inventory_master_record',{p_entity_type:entityType,p_entity_id:row.id,p_patch:patch(),p_reason:reason.trim()});
-    if(error) throw new Error(error.message);
+    await inventoryRecordService.updateMaster({entityType,id:String(row.id),patch:patch(),reason:reason.trim()});
     setMsg('تم الحفظ وتسجيل التعديل في سجل النشاط'); setReason(''); onSaved();
   }catch(e){setMsg(e instanceof Error?e.message:String(e));}};
   const archive=async()=>{try{
     if(!entityType) return;
     if(!reason.trim()){setMsg('يجب كتابة سبب الأرشفة/الإغلاق للتدقيق'); return;}
     const status = type==='items' ? 'archived' : 'closed';
-    const {error}=await supabase.rpc('update_inventory_master_record',{p_entity_type:entityType,p_entity_id:row.id,p_patch:{status},p_reason:reason.trim()});
-    if(error) throw new Error(error.message);
+    await inventoryRecordService.updateMaster({entityType,id:String(row.id),patch:{status},reason:reason.trim()});
     setMsg('تم تعطيل/أرشفة السجل وتسجيل العملية'); setReason(''); onSaved();
   }catch(e){setMsg(e instanceof Error?e.message:String(e));}};
   const editable=['items','warehouses','locations'].includes(type);

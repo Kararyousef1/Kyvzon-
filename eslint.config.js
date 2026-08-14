@@ -29,6 +29,8 @@ export default tseslint.config(
       '**/*.config.{js,ts,mjs,cjs}',
       'scripts/**',
       'e2e/**',
+      'src/pages/_archived/**',
+      'src/pages/**/_archive/**',
     ],
   },
 

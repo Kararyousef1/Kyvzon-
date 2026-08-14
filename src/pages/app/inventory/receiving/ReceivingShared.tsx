@@ -17,6 +17,7 @@ import {
   inventoryReceivingLineService,
   inventoryReceivingScanService,
   inventoryReceivingSessionService,
+  type InventoryStatusTable,
 } from '../../../../services/sdk';
 
 type Column = { key: string; label: string; render?: (row: Record<string, unknown>) => string };
@@ -102,7 +103,7 @@ const configs: Record<string, { title: string; subtitle: string; service: Servic
 };
 
 
-const tableByType: Record<string,string> = {
+const tableByType: Record<string,InventoryStatusTable> = {
   asn:'inventory_asns', docks:'inventory_dock_appointments', sessions:'inventory_receiving_sessions', osd:'inventory_osd_cases', quarantine:'inventory_quarantine_holds', putaway:'inventory_putaway_tasks', crossdock:'inventory_cross_dock_tasks', scans:'inventory_receiving_scans', labels:'inventory_lpn_label_prints', notifications:'inventory_inbound_notifications', attachments:'inventory_receiving_attachments', ncr:'inventory_quality_ncr_cases'
 };
 const statusActionsByType: Record<string, Array<{value:string;label:string}>> = {

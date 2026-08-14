@@ -11,7 +11,7 @@
  * ════════════════════════════════════════════════════════════════
  */
 
-import { supabase } from '../supabase';
+import { attendanceNotificationQueryService } from '../sdk/AttendanceNotificationQueryService';
 import { notifyManager, notifySupervisors, notifyRole, notifyUser } from './notificationService';
 import type { AttendanceStatus } from '../../utils/shiftUtils';
 
@@ -55,12 +55,7 @@ interface WeeklyReport {
 
 async function getEmployeeName(employeeId: string): Promise<string> {
   try {
-    const { data } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', employeeId)
-      .single();
-    return data?.full_name || 'موظف';
+    return await attendanceNotificationQueryService.findEmployeeName(employeeId) || 'موظف';
   } catch {
     return 'موظف';
   }
@@ -164,13 +159,11 @@ export async function checkAndNotifyRepeatedLate(
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    const { data: summaries } = await supabase
-      .from('attendance_summary')
-      .select('shift_date, status, late_minutes')
-      .eq('employee_id', employeeId)
-      .gte('shift_date', startDate)
-      .lte('shift_date', endDate)
-      .order('shift_date', { ascending: false });
+    const summaries = await attendanceNotificationQueryService.findEmployeeSummaries(
+      employeeId,
+      startDate,
+      endDate,
+    );
 
     if (!summaries || summaries.length === 0) return false;
 
@@ -251,22 +244,14 @@ export async function notifyMorningReminder(
 ): Promise<void> {
   try {
     // جلب فريق المدير
-    const { data: team } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .eq('manager_id', managerId)
-      .not('role', 'eq', 'developer');
+    const team = await attendanceNotificationQueryService.findTeam(managerId, true);
 
     if (!team || team.length === 0) return;
 
     const teamIds = team.map(e => e.id);
 
     // جلب ملخصات الحضور لليوم
-    const { data: summaries } = await supabase
-      .from('attendance_summary')
-      .select('employee_id, status')
-      .eq('shift_date', date)
-      .in('employee_id', teamIds);
+    const summaries = await attendanceNotificationQueryService.findDailySummaries(date, teamIds);
 
     // الموظفون الذين لم يبصموا
     const punchedIds = new Set((summaries || []).map(s => s.employee_id));
@@ -311,22 +296,18 @@ export async function sendWeeklyReportToManager(
     const weekStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     // جلب الفريق
-    const { data: team } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .eq('manager_id', managerId);
+    const team = await attendanceNotificationQueryService.findTeam(managerId);
 
     if (!team || team.length === 0) return false;
 
     const teamIds = team.map(e => e.id);
 
     // جلب ملخصات الأسبوع
-    const { data: summaries } = await supabase
-      .from('attendance_summary')
-      .select('employee_id, status, shift_date')
-      .gte('shift_date', weekStart)
-      .lte('shift_date', weekEnd)
-      .in('employee_id', teamIds);
+    const summaries = await attendanceNotificationQueryService.findSummariesForEmployees(
+      teamIds,
+      weekStart,
+      weekEnd,
+    );
 
     if (!summaries) return false;
 
@@ -442,18 +423,12 @@ export async function runAttendanceScan(date?: string): Promise<{
     console.log(`🔍 بدء مسح الحضور لـ ${scanDate}...`);
 
     // جلب جميع ملخصات الحضور لليوم
-    const { data: summaries } = await supabase
-      .from('attendance_summary')
-      .select('*, profiles(full_name, manager_id)')
-      .eq('shift_date', scanDate);
+    const summaries = await attendanceNotificationQueryService.findDailySummaries(scanDate);
 
     if (!summaries) return results;
 
     // جلب جميع الموظفين النشطين
-    const { data: employees } = await supabase
-      .from('profiles')
-      .select('id, full_name, manager_id')
-      .eq('status', 'active');
+    const employees = await attendanceNotificationQueryService.findActiveEmployees();
 
     const empMap = new Map((employees || []).map(e => [e.id, e]));
 

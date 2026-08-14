@@ -13,6 +13,7 @@
  */
 
 import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
+import { tenantService } from '../../services/sdk/TenantService';
 
 // ════════════════════════════════════════════════════════════════
 //  الأنواع
@@ -120,18 +121,9 @@ function resolveTenantSlug(): string | null {
  */
 async function fetchTenantBySlug(slug: string): Promise<TenantInfo | null> {
   try {
-    // ✅ ملاحظة: هذه الدالة ستستدعي service لاحقاً
-    // حالياً نعيد بيانات تجريبية للاختبار
-    // TODO: استبدالها بـ services/sdk/tenants بعد إنشاء SDK
-    const { supabase } = await import('../../services/supabase/supabase');
-    const { data, error } = await supabase
-      .from('tenants')
-      .select('id, slug, name_ar, name_en, logo_url, status')
-      .eq('slug', slug)
-      .maybeSingle();
-
-    if (error || !data) return null;
-    return data as TenantInfo;
+    const tenant = await tenantService.getCompanyBySlug(slug);
+    if (!tenant) return null;
+    return tenant as TenantInfo;
   } catch {
     return null;
   }

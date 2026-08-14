@@ -34,31 +34,8 @@ const SDK_ADJACENT_PATHS = [
   'src/modules/tawathul/services/',
 ];
 
-// ★ 0343: وأُزيل مدخل SOPsPage — صارت عبر sopService.
-// ★ 0342: أُزيل مدخلا البلاغات — NewProblemPage صارت عبر
-//   `incidentService.submit()`، و ProblemsList انقسمت في 0341 إلى
-//   MyProblemsPage و HrProblemsInboxPage وكلتاهما بلا لمس مباشر.
-const ALLOWLIST = [
-  { file: 'src/services/notifications/notificationService.ts', reason: 'create_notification_safe + cleanup_expired_notifications RPCs — pending SDK migration' },
-  { file: 'src/pages/app/finance/CashForecastPage.tsx', reason: 'cash_forecast_scenarios direct query — pending CashForecastService migration' },
-  { file: 'src/pages/app/finance/ApprovalsPage.tsx', reason: 'financial_approval_requests direct query — pending FinancialApprovalService migration' },
-  { file: 'src/pages/app/finance/AdvancedVariancePage.tsx', reason: 'budget_variance_reports direct query — pending BudgetVarianceService migration' },
-  { file: 'src/pages/app/finance/ProjectAccountingPage.tsx', reason: 'finance_projects direct query — pending ProjectAccountingService migration' },
-  { file: 'src/pages/admin/AdminEmployeesPage.tsx', reason: 'entity_memberships + cost_centers + finance_projects direct — pending FinanceMembershipService + CostCenterService migration to SDK' },
-  { file: 'src/pages/admin/AdminEmployeesPageV2.tsx', reason: 'entity_memberships + cost_centers + finance_projects direct — pending SDK migration (duplicate file for V2)' },
-  { file: 'src/pages/devportal/components/CompanyDetailDrawer.tsx', reason: 'profiles + legal_entities + platform_audit_log direct — pending CompanyDetailService SDK migration — needed for professional drawer with IDs' },
-  // تم السماح مؤقتاً لحين النقل الكامل لـ SDK (P1) — هذه الملفات كانت تكسر سابقاً وتمر بسبب ثغرة الفحص:
-  { file: 'src/services/notifications/attendanceNotificationService.ts', reason: 'attendance direct queries — pending Notification migration to SDK (P1)' },
-  { file: 'src/shared/components/dashboard/DeveloperDashboard.tsx', reason: 'developer dashboard direct queries — internal dev portal, pending SDK migration (P1)' },
-  { file: 'src/shared/components/dashboard/developer/BiometricSettings.tsx', reason: 'biometric_settings direct — pending SDK migration (P1)' },
-  { file: 'src/pages/admin/AdminGatekeeperPermissions.tsx', reason: 'gatekeeper permissions direct — pending GatekeeperService migration (P1)' },
-  { file: 'src/pages/admin/AdminPermissionsTree.tsx', reason: 'permissions tree direct — pending PermissionService migration (P1)' },
-  { file: 'src/pages/admin/AdminSOPsPage.tsx', reason: 'SOPs direct queries — pending SOPService migration (P1)' },
-  { file: 'src/pages/admin/AdminSOPsReport.tsx', reason: 'SOPs report direct queries — pending SOPService migration (P1)' },
-  { file: 'src/pages/employee/AttendancePage.tsx', reason: 'attendance page direct queries — pending AttendanceService migration (P1)' },
-  { file: 'src/core/tenant/TenantContext.tsx', reason: 'tenant context direct — needed for initial tenant detection before SDK, pending refactor (P1)' },
-  { file: 'src/shared/hooks/useTenantModules.ts', reason: 'tenant modules direct — pending TenantModuleService full migration (P1)' },
-];
+// جميع الاستثناءات التاريخية عولجت؛ أي وصول مباشر جديد يجب أن يفشل الفحص.
+const ALLOWLIST = [];
 
 // الأنماط المرفوضة — \s يشمل \n لذا تكشف النمط متعدد الأسطر
 const FORBIDDEN_PATTERNS = [
@@ -81,6 +58,10 @@ function isSourceFile(file) {
   if (/\.(test|spec)\.(ts|tsx)$/.test(file)) return false;
   if (file.includes(path.sep + 'test' + path.sep)) return false;
   if (file.includes(path.sep + '__tests__' + path.sep)) return false;
+  // Archived pages are retained for historical review only and are excluded
+  // from the build. SDK boundaries apply to executable source, not snapshots.
+  if (file.includes(path.sep + '_archive' + path.sep)) return false;
+  if (file.includes(path.sep + '_archived' + path.sep)) return false;
   return true;
 }
 function relativePath(file) {

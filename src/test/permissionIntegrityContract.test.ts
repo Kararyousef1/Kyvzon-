@@ -327,7 +327,8 @@ describe('0340 ⑧ — PermissionsPage', () => {
   it('★★★ لا اعتماد مباشر — لا approveRequest ولا rejectRequest', () => {
     expect(PAGE_CODE).not.toMatch(/approveRequest/);
     expect(PAGE_CODE).not.toMatch(/rejectRequest/);
-    expect(PAGE_CODE).toMatch(/hrApprovalService\.decide\(/);
+    expect(PAGE_CODE).toMatch(/unifiedApprovalService\.decideHrAny\(row\.id/);
+    expect(PAGE_CODE).not.toMatch(/hrApprovalService|findRequestIdBySource/);
   });
 
   it('★★ لا تلمس Supabase ولا الجدول الخام', () => {

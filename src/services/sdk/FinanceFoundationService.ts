@@ -65,6 +65,19 @@ export interface AccountingPeriodRecord {
 export interface CostCenterRecord { id:string; tenant_id:string; legal_entity_id:string; code:string; name_ar:string; name_en?:string|null; parent_id?:string|null; is_active:boolean; }
 export interface FinanceProjectRecord { id:string; tenant_id:string; legal_entity_id:string; code:string; name_ar:string; name_en?:string|null; status:'active'|'on_hold'|'closed'|'archived'; start_date?:string|null; end_date?:string|null; }
 export interface ExchangeRateRecord { id:string; tenant_id:string; legal_entity_id:string; rate_date:string; from_currency_code:string; to_currency_code:string; rate:number; source:string; status:'draft'|'approved'|'superseded'; }
+export interface FinanceCostCenterLookupRecord extends CostCenterRecord { entity_code?: string | null; entity_name?: string | null; }
+export interface FinanceProjectLookupRecord extends FinanceProjectRecord { entity_code?: string | null; entity_name?: string | null; }
+export interface FinanceExchangeRateBoardRecord extends ExchangeRateRecord { entity_code?: string | null; entity_name?: string | null; }
+export interface FinanceEntityMembershipBoardRecord extends EntityMembershipRecord { entity_code?: string | null; entity_name?: string | null; full_name?: string | null; email?: string | null; }
+export interface FinanceMembershipUserRecord { id:string; full_name:string|null; email:string|null; role:string; }
+export interface FinanceFoundationDashboardRecord {
+  active_legal_entities: number;
+  open_fiscal_years: number;
+  open_periods: number;
+  active_cost_centers: number;
+  active_projects: number;
+  approved_exchange_rates: number;
+}
 export interface FinancePeriodCloseTaskRecord { id:string; tenant_id:string; legal_entity_id:string; accounting_period_id:string; task_code:string; title_ar:string; title_en?:string|null; severity:'required'|'recommended'|'blocking'; status:'open'|'completed'|'waived'; evidence_ref?:string|null; notes?:string|null; waiver_reason?:string|null; }
 export interface FinancePeriodCloseReadinessRecord { tenant_id:string; legal_entity_id:string; entity_code:string; entity_name:string; fiscal_year_id:string; fiscal_year_name:string; accounting_period_id:string; period_number:number; period_name:string; start_date:string; end_date:string; status:AccountingPeriodStatus; open_journal_entries:number; unbalanced_entries:number; checklist_tasks:number; required_open_tasks:number; completed_tasks:number; waived_tasks:number; ready_for_final_close:boolean; }
 export interface FinanceCloseChecklistBoardRecord extends FinancePeriodCloseTaskRecord { entity_code:string; entity_name:string; period_name:string; start_date:string; end_date:string; period_status:AccountingPeriodStatus; completed_at?:string|null; completed_by_name?:string|null; waived_at?:string|null; waived_by_name?:string|null; }
@@ -89,6 +102,24 @@ class EntityMembershipService extends BaseService<EntityMembershipRecord> {
 
   async findForUser(userId: string) {
     return this.findAll({ filters: { user_id: userId, is_active: true }, orderBy: 'created_at' });
+  }
+
+  async findBoard(limit = 500): Promise<FinanceEntityMembershipBoardRecord[]> {
+    const { data, error } = await supabase
+      .from('finance_entity_membership_board')
+      .select('*')
+      .limit(Math.max(1, Math.min(limit, 500)));
+    if (error) throw new Error(error.message);
+    return (data ?? []) as FinanceEntityMembershipBoardRecord[];
+  }
+
+  async findAssignableUsers(limit = 500): Promise<FinanceMembershipUserRecord[]> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id,full_name,email,role')
+      .limit(Math.max(1, Math.min(limit, 500)));
+    if (error) throw new Error(error.message);
+    return (data ?? []) as FinanceMembershipUserRecord[];
   }
 
   async assign(input: { legalEntityId: string; userId: string; financeRole: FinanceRole }): Promise<EntityMembershipRecord> {
@@ -184,6 +215,14 @@ export function requireFinanceTenantId(): string {
 
 class CostCenterService extends BaseService<CostCenterRecord> {
   constructor() { super('cost_centers'); }
+  async findLookup(limit = 500): Promise<FinanceCostCenterLookupRecord[]> {
+    const { data, error } = await supabase
+      .from('finance_cost_center_lookup')
+      .select('*')
+      .limit(Math.max(1, Math.min(limit, 500)));
+    if (error) throw new Error(error.message);
+    return (data ?? []) as FinanceCostCenterLookupRecord[];
+  }
   async upsert(input: { legalEntityId:string; code:string; nameAr:string; nameEn?:string; parentId?:string|null }): Promise<CostCenterRecord> {
     const { data, error } = await supabase.rpc('upsert_finance_cost_center', { p_legal_entity_id: input.legalEntityId, p_code: input.code, p_name_ar: input.nameAr, p_name_en: input.nameEn || null, p_parent_id: input.parentId || null });
     if (error) throw new Error(error.message);
@@ -197,6 +236,14 @@ class CostCenterService extends BaseService<CostCenterRecord> {
 
 class FinanceProjectService extends BaseService<FinanceProjectRecord> {
   constructor() { super('finance_projects'); }
+  async findLookup(limit = 500): Promise<FinanceProjectLookupRecord[]> {
+    const { data, error } = await supabase
+      .from('finance_project_lookup')
+      .select('*')
+      .limit(Math.max(1, Math.min(limit, 500)));
+    if (error) throw new Error(error.message);
+    return (data ?? []) as FinanceProjectLookupRecord[];
+  }
   async upsert(input: { legalEntityId:string; code:string; nameAr:string; nameEn?:string; status?:string; startDate?:string; endDate?:string }): Promise<FinanceProjectRecord> {
     const { data, error } = await supabase.rpc('upsert_finance_project', { p_legal_entity_id: input.legalEntityId, p_code: input.code, p_name_ar: input.nameAr, p_name_en: input.nameEn || null, p_status: input.status || 'active', p_start_date: input.startDate || null, p_end_date: input.endDate || null });
     if (error) throw new Error(error.message);
@@ -210,10 +257,30 @@ class FinanceProjectService extends BaseService<FinanceProjectRecord> {
 
 class ExchangeRateService extends BaseService<ExchangeRateRecord> {
   constructor() { super('exchange_rates'); }
+  async findBoard(limit = 500): Promise<FinanceExchangeRateBoardRecord[]> {
+    const { data, error } = await supabase
+      .from('finance_exchange_rate_board')
+      .select('*')
+      .limit(Math.max(1, Math.min(limit, 500)));
+    if (error) throw new Error(error.message);
+    return (data ?? []) as FinanceExchangeRateBoardRecord[];
+  }
   async upsert(input: { legalEntityId:string; rateDate:string; fromCurrency:string; toCurrency:string; rate:number; source?:string; status?:string }): Promise<ExchangeRateRecord> {
     const { data, error } = await supabase.rpc('upsert_finance_exchange_rate', { p_legal_entity_id: input.legalEntityId, p_rate_date: input.rateDate, p_from_currency_code: input.fromCurrency, p_to_currency_code: input.toCurrency, p_rate: input.rate, p_source: input.source || 'manual', p_status: input.status || 'approved' });
     if (error) throw new Error(error.message);
     return data as ExchangeRateRecord;
+  }
+}
+
+class FinanceFoundationDashboardService {
+  async findSummary(): Promise<FinanceFoundationDashboardRecord | null> {
+    const { data, error } = await supabase
+      .from('finance_foundation_dashboard')
+      .select('*')
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data as FinanceFoundationDashboardRecord | null;
   }
 }
 
@@ -271,4 +338,5 @@ export const accountingPeriodService = new AccountingPeriodService();
 export const financeCostCenterService = new CostCenterService();
 export const financeProjectService = new FinanceProjectService();
 export const exchangeRateService = new ExchangeRateService();
+export const financeFoundationDashboardService = new FinanceFoundationDashboardService();
 export const financePeriodCloseService = new FinancePeriodCloseService();

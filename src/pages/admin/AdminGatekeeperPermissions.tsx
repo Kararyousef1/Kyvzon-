@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../services/supabase/supabase';
+import { gatekeeperAdminPermissionService } from '../../services/sdk/GatekeeperAdminPermissionService';
 import Card from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import { useUIStore } from '../../core/stores';
@@ -19,13 +19,7 @@ export default function AdminGatekeeperPermissions() {
   const loadManagers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, role, department, position, can_manage_breaks')
-        .order('full_name');
-
-      if (error) throw error;
-      setManagers(data || []);
+      setManagers(await gatekeeperAdminPermissionService.findProfilePermissions());
       setDbError(false);
     } catch (error: any) {
       console.error('Error loading managers:', error);
@@ -54,17 +48,10 @@ export default function AdminGatekeeperPermissions() {
     try {
       setSaving(true);
       for (const m of changedManagers) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .update({ can_manage_breaks: m.can_manage_breaks })
-          .eq('id', m.id)
-          .select();
-
-        if (error) throw error;
-        
-        if (!data || data.length === 0) {
-          throw new Error('RLS_ERROR');
-        }
+        await gatekeeperAdminPermissionService.updateBreakPermission(
+          m.id,
+          m.can_manage_breaks,
+        );
       }
       
       setManagers(managers.map(m => ({ ...m, _changed: false })));

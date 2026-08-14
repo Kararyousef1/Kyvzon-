@@ -36,7 +36,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Briefcase, Plus, Loader2, Users, Search, UserPlus, Mail, Phone,
-  FileText, Star, AlertTriangle, CheckCircle2, Clock, Archive,
+  FileText, Star, AlertTriangle, CheckCircle2, Clock,
 } from 'lucide-react';
 import { useUIStore } from '../../core/stores';
 import { getErrorMessage } from '../../services/errors';
@@ -246,18 +246,37 @@ export default function RecruitmentPage() {
     setSaving(true);
     try {
       const r = await recruitmentSdk.hire(hireTarget.id, hireCode.trim() || null);
+      const vacancyMessage = r.postingStatus === 'filled'
+        ? 'وأُغلق الإعلان لامتلاء الشواغر'
+        : `وبقي ${r.vacanciesLeft} شاغر`;
       addToast(
-        r.postingStatus === 'filled'
-          ? 'تم التوظيف — وأُغلق الإعلان لامتلاء الشواغر'
-          : `تم التوظيف — بقي ${r.vacanciesLeft} شاغر`,
+        r.identityStatus === 'completed'
+          ? `تم التوظيف ${vacancyMessage} — أُنشئت مسودة العقد وأُرسلت دعوة الحساب`
+          : `تم التوظيف ${vacancyMessage} — أُنشئت مسودة العقد ودعوة الحساب بانتظار إعادة المحاولة`,
         'success',
       );
+      if (r.identityError) addToast(r.identityError, 'warning');
       setHireTarget(null);
       await refreshApps();
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const retryIdentity = async (app: ApplicationRow) => {
+    if (!app.identityJobId) return;
+    setBusyId(app.id);
+    try {
+      await recruitmentSdk.runIdentityJob(app.identityJobId);
+      addToast('أُرسلت دعوة الحساب وربطت بالموظف', 'success');
+      await refreshApps();
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+      await refreshApps();
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -570,9 +589,31 @@ export default function RecruitmentPage() {
                     )}
                     {/* ★★★ الموظَّف لا يعود متقدّماً */}
                     {app.stage === 'hired' ? (
-                      <span className="text-xs text-emerald-700 font-bold flex items-center gap-1">
-                        <CheckCircle2 size={12} /> وُظِّف — لا رجوع
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-emerald-700 font-bold flex items-center gap-1">
+                          <CheckCircle2 size={12} /> وُظِّف — لا رجوع
+                        </span>
+                        {app.contractId && (
+                          <span className="text-[11px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
+                            مسودة عقد جاهزة
+                          </span>
+                        )}
+                        {app.identityStatus === 'completed' ? (
+                          <span className="text-[11px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Mail size={11} /> دعوة الحساب أُرسلت
+                          </span>
+                        ) : app.identityJobId && app.identityStatus !== 'cancelled' ? (
+                          <button
+                            type="button"
+                            onClick={() => void retryIdentity(app)}
+                            disabled={busyId === app.id}
+                            title={app.identityError ?? undefined}
+                            className="text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-lg disabled:opacity-50 flex items-center gap-1"
+                          >
+                            <Mail size={11} /> إعادة إرسال دعوة الحساب
+                          </button>
+                        ) : null}
+                      </div>
                     ) : (
                       <>
                         <select

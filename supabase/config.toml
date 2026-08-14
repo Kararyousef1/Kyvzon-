@@ -22,6 +22,9 @@ verify_jwt = false
 [functions.admin-toggle-status]
 verify_jwt = false
 
+[functions.employee-lifecycle-identity]
+verify_jwt = false
+
 [functions.zkteco-sync]
 verify_jwt = false
 

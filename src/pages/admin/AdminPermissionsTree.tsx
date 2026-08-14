@@ -24,8 +24,11 @@ import {
   Minimize2, ZoomIn, ZoomOut, RotateCcw, Info, Star, Lock,
   Unlock, Bell, Activity, TrendingUp, Award, Loader2, X,
 } from 'lucide-react';
-import { supabase } from '../../services/supabase/supabase';
 import { userService } from '../../services/sdk';
+import {
+  permissionAdminService,
+  type PermissionAuditRecord,
+} from '../../services/sdk/PermissionAdminService';
 import Card from '../../shared/components/ui/Card';
 
 // ════════════════════════════════════════════════════════════════
@@ -92,16 +95,7 @@ interface EmployeeNode {
   children?: EmployeeNode[];
 }
 
-interface AuditLog {
-  id: string;
-  emp_id: string;
-  emp_name: string;
-  changed_by: string;
-  permission_key: string;
-  old_value: boolean;
-  new_value: boolean;
-  timestamp: string;
-}
+type AuditLog = PermissionAuditRecord;
 
 // ════════════════════════════════════════════════════════════════
 //  Sub Components
@@ -330,13 +324,7 @@ export default function AdminPermissionsTree() {
 
     // ✅ جلب سجل التدقيق الحقيقي من الخادم
     try {
-      const { data } = await supabase
-        .from('permission_audit_logs')
-        .select('*')
-        .eq('emp_id', emp.id)
-        .order('timestamp', { ascending: false })
-        .limit(10);
-      setAuditLogs(data || []);
+      setAuditLogs(await permissionAdminService.findRecentAuditLogs(emp.id));
     } catch {
       setAuditLogs([]); // الجدول قد لا يكون موجوداً بعد
     }
@@ -347,11 +335,10 @@ export default function AdminPermissionsTree() {
     if (!selectedEmp) return;
     setSaving(true);
     try {
-      const { error: err } = await supabase
-        .from('profiles')
-        .update({ custom_permissions: permissionsState })
-        .eq('id', selectedEmp.id);
-      if (err) throw err;
+      await permissionAdminService.updateCustomPermissions(
+        selectedEmp.id,
+        permissionsState,
+      );
 
       setSaveError(null);
       setSaveSuccess(true);

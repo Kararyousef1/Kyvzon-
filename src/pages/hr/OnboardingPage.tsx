@@ -179,20 +179,41 @@ export default function OnboardingPage() {
     setProcessing(true);
     try {
       // ★★★ العطل ①: نداء واحد — السجلّ والتعطيل معاً في القاعدة
-      await onboardingLifecycleSdk.offboard({
+      const result = await onboardingLifecycleSdk.offboard({
         employeeId: offForm.employee_id,
         lastDay: offForm.last_working_day,
         reason: offForm.reason.trim(),
         exitType: offForm.exit_type,
         notes: offForm.notes.trim() || null,
       });
-      addToast('سُجِّل إنهاء الخدمة وعُطِّل الحساب', 'success');
+      addToast(
+        result.identityStatus === 'completed'
+          ? 'سُجِّل إنهاء الخدمة، أُغلق العقد، وعُطِّل الحساب'
+          : 'سُجِّل إنهاء الخدمة وأُغلق العقد؛ تعطيل الحساب محفوظ لإعادة المحاولة',
+        'success',
+      );
+      if (result.identityError) addToast(result.identityError, 'warning');
       setShowOffboard(false);
       setOffForm({ ...EMPTY_OFFBOARD });
       setTab('offboarding');
       await fetchAll();
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const retryOffboardingIdentity = async (rec: OffboardingRow) => {
+    if (!rec.identityJobId) return;
+    setProcessing(true);
+    try {
+      await onboardingLifecycleSdk.runIdentityJob(rec.identityJobId);
+      addToast('عُطّل حساب الموظف', 'success');
+      await fetchAll();
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+      await fetchAll();
     } finally {
       setProcessing(false);
     }
@@ -378,6 +399,7 @@ export default function OnboardingPage() {
               <OffboardingCard
                 key={rec.id} rec={rec} processing={processing}
                 onChecklist={(p) => void handleChecklist(rec, p)}
+                onIdentityRetry={() => void retryOffboardingIdentity(rec)}
               />
             ))}
           </div>
@@ -661,9 +683,10 @@ function TaskRow({ task, processing, onTask }: {
   );
 }
 
-function OffboardingCard({ rec, processing, onChecklist }: {
+function OffboardingCard({ rec, processing, onChecklist, onIdentityRetry }: {
   rec: OffboardingRow; processing: boolean;
   onChecklist: (patch: { accessRevoked?: boolean; settlementDone?: boolean }) => void;
+  onIdentityRetry: () => void;
 }) {
   return (
     <div className={`bg-white rounded-2xl border p-4 ${
@@ -703,6 +726,29 @@ function OffboardingCard({ rec, processing, onChecklist }: {
           </span>
         </div>
       )}
+
+      <div className="flex flex-wrap gap-2 mt-3">
+        {rec.closedContracts > 0 && (
+          <span className="text-[11px] text-indigo-700 bg-indigo-50 px-2 py-1 rounded-full">
+            أُغلق {rec.closedContracts} عقد
+          </span>
+        )}
+        {rec.identityStatus === 'completed' ? (
+          <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full flex items-center gap-1">
+            <KeyRound size={11} /> حساب Auth معطّل
+          </span>
+        ) : rec.identityJobId ? (
+          <button
+            type="button"
+            onClick={onIdentityRetry}
+            disabled={processing}
+            title={rec.identityError ?? undefined}
+            className="text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-full disabled:opacity-50 flex items-center gap-1"
+          >
+            <KeyRound size={11} /> إعادة محاولة تعطيل الحساب
+          </button>
+        ) : null}
+      </div>
 
       <p className="text-sm text-slate-600 mt-2 bg-slate-50 px-3 py-2 rounded-lg">
         {rec.reason}

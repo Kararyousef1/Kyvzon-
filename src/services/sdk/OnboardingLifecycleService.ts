@@ -36,6 +36,10 @@
 import { supabase } from '../supabase/supabase';
 import { logger } from '../utils/logger';
 import { SdkError } from './BaseService';
+import {
+  employeeIdentityService,
+  type IdentityJobStatus,
+} from './EmployeeIdentityService';
 
 /** ★ مفردات حالة المهمة — مطابِقة لـ`employee_onboarding_status_chk` */
 export const ONBOARDING_TASK_STATUSES = [
@@ -132,6 +136,10 @@ export interface OffboardingRow {
   /** ★★★ الحالة الشاذّة: سجلُّ إنهاء وموظفٌ ما زال نشطاً (العطل ①) */
   stillActive: boolean;
   createdAt: string | null;
+  identityJobId: string | null;
+  identityStatus: IdentityJobStatus | null;
+  identityError: string | null;
+  closedContracts: number;
 }
 
 export interface OnboardingSummary {
@@ -156,6 +164,13 @@ export interface OffboardingInput {
   accessRevoked?: boolean;
   settlementDone?: boolean;
   assets?: string[] | null;
+}
+
+export interface OffboardingResult {
+  recordId: string;
+  identityJobId: string | null;
+  identityStatus: IdentityJobStatus | null;
+  identityError: string | null;
 }
 
 type Raw = Record<string, unknown>;
@@ -317,6 +332,10 @@ class OnboardingLifecycleSdk {
       conductor:      str(r.out_conductor),
       stillActive:    Boolean(r.out_still_active),
       createdAt:      strOrNull(r.out_created_at),
+      identityJobId:  strOrNull(r.out_identity_task_id),
+      identityStatus: strOrNull(r.out_identity_status) as IdentityJobStatus | null,
+      identityError:  strOrNull(r.out_identity_error),
+      closedContracts: num(r.out_closed_contracts),
     }));
   }
 
@@ -327,7 +346,7 @@ class OnboardingLifecycleSdk {
    *   (`employment_status` عمود معدوم) فيبقى سجلٌّ يتيم وموظفٌ نشط.
    *   الآن كلاهما في معاملة واحدة داخل القاعدة.
    */
-  async offboard(input: OffboardingInput): Promise<string> {
+  async offboard(input: OffboardingInput): Promise<OffboardingResult> {
     const { data, error } = await supabase.rpc('offboarding_execute', {
       p_employee_id:     input.employeeId,
       p_last_day:        input.lastDay,
@@ -339,7 +358,34 @@ class OnboardingLifecycleSdk {
       p_assets:          input.assets ?? null,
     });
     if (error) throw SdkError.fromSupabaseError(error);
-    return String(data ?? '');
+
+    const recordId = String(data ?? '');
+    let identity = await employeeIdentityService.findForEmployee(input.employeeId, 'disable');
+    let identityError = identity?.lastError ?? null;
+    if (identity && ['pending', 'failed'].includes(identity.status)) {
+      try {
+        const status = await employeeIdentityService.run(identity.id);
+        identity = { ...identity, status, lastError: null };
+        identityError = null;
+      } catch (edgeError) {
+        identity = { ...identity, status: 'failed' };
+        identityError = edgeError instanceof Error
+          ? edgeError.message
+          : 'تعذّر تعطيل حساب Auth';
+      }
+    }
+
+    return {
+      recordId,
+      identityJobId: identity?.id ?? null,
+      identityStatus: identity?.status ?? null,
+      identityError,
+    };
+  }
+
+  /** إعادة محاولة تعطيل Auth من بطاقة إنهاء الخدمة. */
+  async runIdentityJob(jobId: string): Promise<IdentityJobStatus> {
+    return employeeIdentityService.run(jobId);
   }
 
   /**

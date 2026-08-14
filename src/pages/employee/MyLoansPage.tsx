@@ -15,6 +15,7 @@ import { getErrorMessage } from '../../services/errors';
 import { addMonths, format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import type { EmployeeLoan, LoanStatus } from '../../shared/types/payroll';
+import type { EmployeeLoanRecord } from '../../shared/types/sdk';
 import { LOAN_STATUS_LABELS, LOAN_STATUS_COLORS, formatCurrency } from '../../utils/payrollUtils';
 import { Modal, DetailRow, FormField, ModalActions } from '../hr/LoansPage';
 
@@ -27,7 +28,7 @@ interface NormalizedLoan extends EmployeeLoan {
   start_date: string;
 }
 
-function normalizeLoan(row: any): NormalizedLoan {
+function normalizeLoan(row: EmployeeLoanRecord): NormalizedLoan {
   const amount = Number(row.amount ?? row.loan_amount ?? 0);
   const months = Number(row.months_count ?? row.total_installments ?? 1) || 1;
   const monthly = Number(row.monthly_installment ?? row.installment_amount ?? (amount / months));

@@ -5,8 +5,7 @@ import {
   X, Edit3, Save, HardDrive, Monitor, Server, Search, BarChart3, Users
 } from 'lucide-react';
 import { useUIStore, useAuthStore } from '../../../../core/stores';
-import { supabase } from '../../../../services/supabase/supabase';
-import { settingsService } from '../../../../services/sdk';
+import { attendanceService, settingsService, syncLogService } from '../../../../services/sdk';
 
 interface BiometricDevice {
   id: string;
@@ -278,12 +277,8 @@ export default function BiometricSettings() {
   const fetchFromSupabase = async () => {
     setIsLoading(true);
     try {
-      const { data: syncData } = await supabase
-        .from('sync_log')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (syncData) {
+      const syncData = await syncLogService.findRecentLogs(50);
+      if (syncData.length > 0) {
         setSyncLogs(syncData.map((s: any) => ({
           id: s.id,
           timestamp: s.created_at,
@@ -296,9 +291,7 @@ export default function BiometricSettings() {
         })));
       }
 
-      const { count: logsCount } = await supabase
-        .from('attendance_logs')
-        .select('*', { count: 'exact', head: true });
+      const logsCount = await attendanceService.count();
 
       // جلب إعدادات النظام عبر SettingsService
       try {

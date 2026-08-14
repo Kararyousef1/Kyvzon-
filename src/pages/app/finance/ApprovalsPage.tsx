@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FileCheck, Clock, AlertCircle, Loader2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
-import { supabase } from '../../../services/supabase/supabase';
+import {
+  financialApprovalQueueService,
+  type FinancialApprovalQueueItem,
+  type FinancialApprovalStatus,
+} from '../../../services/sdk/FinancialApprovalQueueService';
 import { getErrorMessage } from '../../../services/errors';
 import { useUIStore } from '../../../core/stores';
 
 export default function ApprovalsPage() {
   const { addToast } = useUIStore();
-  const [filter, setFilter] = useState('pending');
-  const [rows, setRows] = useState<any[]>([]);
+  const [filter, setFilter] = useState<FinancialApprovalStatus>('pending');
+  const [rows, setRows] = useState<FinancialApprovalQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('financial_approval_requests').select('*').eq('status', filter).order('created_at', { ascending: false }).limit(50);
-      if (error) throw error;
-      setRows(data || []);
+      setRows(await financialApprovalQueueService.findByStatus(filter));
     } catch (e) {
       addToast(`تعذر التحميل: ${getErrorMessage(e)}`, 'error');
     } finally {
@@ -27,8 +29,7 @@ export default function ApprovalsPage() {
 
   const handleDecision = async (id: string, decision: 'approved' | 'rejected') => {
     try {
-      const { error } = await supabase.from('financial_approval_requests').update({ status: decision, updated_at: new Date().toISOString() }).eq('id', id);
-      if (error) throw error;
+      await financialApprovalQueueService.decide(id, decision);
       addToast(`تم ${decision === 'approved' ? 'الموافقة' : 'الرفض'}`, decision === 'approved' ? 'success' : 'info');
       await load();
     } catch (e) {
@@ -49,7 +50,7 @@ export default function ApprovalsPage() {
 
       <div className="flex gap-2">
         {[{k:'pending',l:'معلقة',icon:Clock},{k:'approved',l:'موافق',icon:CheckCircle},{k:'rejected',l:'مرفوض',icon:XCircle}].map(({k,l,icon:Icon}) => (
-          <button key={k} onClick={() => setFilter(k)} className={`px-4 py-2 rounded-xl text-sm font-bold border flex items-center gap-2 ${filter===k ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200'}`}><Icon size={14} />{l}</button>
+          <button key={k} onClick={() => setFilter(k as FinancialApprovalStatus)} className={`px-4 py-2 rounded-xl text-sm font-bold border flex items-center gap-2 ${filter===k ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200'}`}><Icon size={14} />{l}</button>
         ))}
       </div>
 

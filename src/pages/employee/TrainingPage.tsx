@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   BookOpen, CheckCircle, Clock, Star,
   Search, Filter, X, Microscope, FlaskConical,
@@ -7,8 +7,11 @@ import {
   GraduationCap, Target, Flame, Layers,
 } from 'lucide-react';
 import Card from '../../shared/components/ui/Card';
-import { useAuthStore } from '../../core/stores';
-import { courseService, employeeGoalService, employeeService, employeeSkillService } from '../../services/sdk';
+import { useAuthStore, useUIStore } from '../../core/stores';
+import {
+  courseService, employeeGoalService, employeeService, employeeSkillService,
+  quizService, type QuizRecord,
+} from '../../services/sdk';
 import {
   myTrainingService,
   type MyCourseProgress,
@@ -101,6 +104,7 @@ const CATEGORIES = [
 // ── Main Component ──
 export default function TrainingPage() {
   const { user } = useAuthStore();
+  const { addToast } = useUIStore();
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState<CourseLevel | 'all'>('all');
@@ -111,6 +115,12 @@ export default function TrainingPage() {
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [coursesError, setCoursesError] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<string[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [courseQuizzes, setCourseQuizzes] = useState<QuizRecord[]>([]);
+  const [activeQuiz, setActiveQuiz] = useState<QuizRecord | null>(null);
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
+  const [quizSubmitting, setQuizSubmitting] = useState(false);
+  const openedAtRef = useRef<number | null>(null);
 
   // Fetch courses through SDK + enrich with employee progress/goals/skills
   useEffect(() => {
@@ -193,13 +203,18 @@ export default function TrainingPage() {
           .map((course) => normalizeCourse(course, progressByCourse));
         setCourses(normalized);
 
-        const skillNames = (skillRows || []).map((s: any) => String(s.skill_name || '').toLowerCase()).filter(Boolean);
-        const learningGoals = (goalRows || []).filter((g: any) => g.category === 'learning' || g.category === 'career');
+        const skillNames = (skillRows || [])
+          .map((skill) => String(skill.skill_name || '').toLowerCase())
+          .filter(Boolean);
+        const learningGoals = (goalRows || [])
+          .filter((goal) => goal.category === 'learning' || goal.category === 'career');
         const recommended = normalized
           .filter(course => course.status !== 'completed')
           .filter(course => {
             const haystack = [course.title, course.description, course.category, ...course.tags].join(' ').toLowerCase();
-            return skillNames.some(skill => haystack.includes(skill)) || learningGoals.some((goal: any) => haystack.includes(String(goal.title || '').toLowerCase().split(' ')[0] || '')) || course.mandatory;
+            return skillNames.some((skill) => haystack.includes(skill))
+              || learningGoals.some((goal) => haystack.includes(String(goal.title || '').toLowerCase().split(' ')[0] || ''))
+              || course.mandatory;
           })
           .slice(0, 4)
           .map(course => course.id);
@@ -216,6 +231,105 @@ export default function TrainingPage() {
 
     fetchCourses();
   }, [user?.id]);
+
+  const openCourse = async (course: Course) => {
+    setSelectedCourse(course);
+    setActiveQuiz(null);
+    setQuizAnswers({});
+    openedAtRef.current = Date.now();
+    const [quizzes] = await Promise.all([
+      quizService.findByCourse(course.id).catch(() => [] as QuizRecord[]),
+      myTrainingService.touch(course.id, 0, Math.max(course.progress, 1)),
+    ]);
+    setCourseQuizzes(quizzes.filter((quiz) => quiz.is_active));
+    setCourses((current) => current.map((item) =>
+      item.id === course.id && item.status === 'not_started'
+        ? { ...item, status: 'in_progress', progress: Math.max(item.progress, 1) }
+        : item));
+  };
+
+  const closeCourse = () => {
+    setSelectedCourse(null);
+    setActiveQuiz(null);
+    setQuizAnswers({});
+    setCourseQuizzes([]);
+  };
+
+  // نبضة فعلية من مشغل المحتوى كل 30 ثانية، مع إرسال الباقي عند الإغلاق.
+  useEffect(() => {
+    if (!selectedCourse) return;
+    openedAtRef.current = Date.now();
+    const timer = window.setInterval(() => {
+      void myTrainingService.touch(selectedCourse.id, 30, selectedCourse.progress);
+    }, 30_000);
+    return () => {
+      window.clearInterval(timer);
+      const started = openedAtRef.current;
+      if (started) {
+        const remainder = Math.floor((Date.now() - started) / 1000) % 30;
+        if (remainder > 0) void myTrainingService.touch(selectedCourse.id, remainder);
+      }
+      openedAtRef.current = null;
+    };
+  }, [selectedCourse]);
+
+  const completeCourse = async () => {
+    if (!selectedCourse) return;
+    const result = await myTrainingService.touch(selectedCourse.id, 0, 100);
+    if (result) {
+      setCourses((current) => current.map((course) => course.id === selectedCourse.id
+        ? { ...course, progress: result.progress, status: result.completed ? 'completed' : 'in_progress' }
+        : course));
+      setSelectedCourse({ ...selectedCourse, progress: result.progress, status: result.completed ? 'completed' : 'in_progress' });
+      addToast(result.completed ? 'اكتملت الدورة' : 'حُفظ التقدم', 'success');
+    }
+  };
+
+  const submitQuiz = async () => {
+    if (!activeQuiz) return;
+    const questions = activeQuiz.questions ?? [];
+    if (questions.length === 0) return;
+    if (questions.some((question) => quizAnswers[question.id] === undefined)) {
+      addToast('أجب عن جميع الأسئلة', 'warning');
+      return;
+    }
+    setQuizSubmitting(true);
+    try {
+      const correct = questions.filter(
+        (question) => quizAnswers[question.id] === question.correctAnswer,
+      ).length;
+      const score = Math.round((correct / questions.length) * 100);
+      const duration = openedAtRef.current
+        ? Math.max(0, Math.round((Date.now() - openedAtRef.current) / 1000)) : 0;
+      const result = await myTrainingService.submitQuiz(
+        activeQuiz.id,
+        score,
+        questions.map((question) => ({
+          questionId: question.id,
+          selected: quizAnswers[question.id],
+        })),
+        duration,
+      );
+      if (result.passed && selectedCourse) {
+        await myTrainingService.touch(selectedCourse.id, 0, 100);
+        setCourses((current) => current.map((course) => course.id === selectedCourse.id
+          ? { ...course, progress: 100, status: 'completed' } : course));
+        setSelectedCourse({ ...selectedCourse, progress: 100, status: 'completed' });
+      }
+      addToast(
+        result.passed
+          ? `نجحت بدرجة ${result.score}% — اكتملت الدورة`
+          : `درجتك ${result.score}% — المطلوب ${activeQuiz.passing_score}%`,
+        result.passed ? 'success' : 'warning',
+      );
+      setActiveQuiz(null);
+      setQuizAnswers({});
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+    } finally {
+      setQuizSubmitting(false);
+    }
+  };
 
   const totalCourses    = courses.length;
   const completedCount  = courses.filter(c => c.status === 'completed').length;
@@ -399,7 +513,7 @@ export default function TrainingPage() {
               </h3>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {courses.filter(c => recommendations.includes(c.id)).map(course => (
-                  <div key={course.id} className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-4 hover:shadow-lg transition-all">
+                  <button type="button" onClick={() => void openCourse(course)} key={course.id} className="text-right bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-4 hover:shadow-lg transition-all">
                     <span className="text-[10px] font-bold text-emerald-700 bg-white border border-emerald-100 rounded-full px-2 py-1">مقترح لك</span>
                     <h3 className="font-bold text-slate-800 text-sm mt-3 mb-1">{course.title}</h3>
                     <p className="text-xs text-slate-500 line-clamp-2">{course.description}</p>
@@ -407,7 +521,7 @@ export default function TrainingPage() {
                       <span className="text-xs text-emerald-700 font-bold">{course.level}</span>
                       {course.mandatory && <span className="text-xs text-amber-700 font-bold">إلزامية</span>}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -424,6 +538,7 @@ export default function TrainingPage() {
                 {courses.filter(c => c.status === 'in_progress').map(course => (
                   <div
                     key={course.id}
+                    onClick={() => void openCourse(course)}
                     className="bg-white border border-slate-100 rounded-2xl p-4 hover:shadow-xl transition-all cursor-pointer hover:border-indigo-300"
                   >
                     {course.thumbnail && (
@@ -460,6 +575,7 @@ export default function TrainingPage() {
               {filteredCourses.map(course => (
                 <div
                   key={course.id}
+                  onClick={() => void openCourse(course)}
                   className="bg-white border border-slate-100 rounded-2xl p-4 hover:shadow-xl transition-all cursor-pointer hover:border-indigo-300 group"
                 >
                   {course.thumbnail && (
@@ -481,6 +597,88 @@ export default function TrainingPage() {
             </div>
           </div>
         </>
+      )}
+
+      {selectedCourse && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" dir="rtl">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <p className="text-xs font-bold text-indigo-600">مشغل المحتوى التدريبي</p>
+                <h3 className="text-xl font-black text-slate-900">{selectedCourse.title}</h3>
+                <p className="text-sm text-slate-500 mt-1">{selectedCourse.description}</p>
+              </div>
+              <button type="button" onClick={closeCourse} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-2">
+              <div className="h-full bg-indigo-600" style={{ width: `${selectedCourse.progress}%` }} />
+            </div>
+            <p className="text-xs text-slate-500 mb-4">التقدم {selectedCourse.progress}% · تُحفظ نبضة مشاهدة كل 30 ثانية</p>
+
+            {selectedCourse.objectives.length > 0 && (
+              <div className="bg-slate-50 rounded-xl p-4 mb-4">
+                <p className="text-sm font-bold text-slate-700 mb-2">أهداف الدورة</p>
+                <ul className="space-y-1 text-sm text-slate-600 list-disc pr-5">
+                  {selectedCourse.objectives.map((objective) => <li key={objective}>{objective}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {activeQuiz ? (
+              <div className="space-y-4">
+                <div className="bg-violet-50 border border-violet-200 rounded-xl p-3">
+                  <p className="font-bold text-violet-800">{activeQuiz.title}</p>
+                  <p className="text-xs text-violet-700">درجة النجاح {activeQuiz.passing_score}%</p>
+                </div>
+                {(activeQuiz.questions ?? []).map((question, index) => (
+                  <fieldset key={question.id} className="border border-slate-200 rounded-xl p-4">
+                    <legend className="px-2 text-sm font-bold text-slate-800">
+                      {index + 1}. {question.question}
+                    </legend>
+                    <div className="space-y-2 mt-2">
+                      {question.options.map((option, optionIndex) => (
+                        <label key={`${question.id}-${optionIndex}`} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                          <input type="radio" name={question.id}
+                            checked={quizAnswers[question.id] === optionIndex}
+                            onChange={() => setQuizAnswers({ ...quizAnswers, [question.id]: optionIndex })} />
+                          {option}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                ))}
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => { setActiveQuiz(null); setQuizAnswers({}); }}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold">رجوع</button>
+                  <button type="button" onClick={() => void submitQuiz()} disabled={quizSubmitting}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-violet-600 text-white font-bold disabled:opacity-50">
+                    {quizSubmitting ? 'جارٍ التسليم…' : 'تسليم الاختبار'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {courseQuizzes.map((quiz) => (
+                  <button key={quiz.id} type="button"
+                    onClick={() => { setActiveQuiz(quiz); setQuizAnswers({}); }}
+                    className="w-full text-right border border-violet-200 bg-violet-50 hover:bg-violet-100 rounded-xl p-3">
+                    <span className="font-bold text-violet-800">بدء الاختبار: {quiz.title}</span>
+                    <span className="block text-xs text-violet-600 mt-1">
+                      {quiz.questions.length} أسئلة · النجاح {quiz.passing_score}%
+                    </span>
+                  </button>
+                ))}
+                <button type="button" onClick={() => void completeCourse()}
+                  className="w-full px-4 py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700">
+                  {selectedCourse.status === 'completed' ? 'الدورة مكتملة' : 'إكمال المحتوى وحفظ 100%'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── Language Toggle ── */}

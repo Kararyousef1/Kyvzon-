@@ -27,7 +27,7 @@ import Card, { CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { useUIStore, useAuthStore } from '../../../core/stores';
-import { supabase } from '../../../services/supabase/supabase';
+import { developerDashboardService } from '../../../services/sdk/DeveloperDashboardService';
 import { getErrorMessage } from '../../../services/errors';
 import {
   checkDevPin,
@@ -685,39 +685,14 @@ export default function DeveloperDashboard() {
     const startTime = performance.now();
 
     try {
-      // جلب الحقول الضرورية فقط — لا select('*')
-      const { data: usersData, error: usersError } = await supabase
-        .from('profiles')
-        .select('id,full_name,email,role,department,position,phone,status,created_at,updated_at,permissions');
+      const snapshot = await developerDashboardService.loadSnapshot();
+      setUsers(snapshot.users);
+      setIncidents(snapshot.incidents);
+      setAuditLogs(snapshot.auditLogs);
 
-      if (usersError) throw usersError;
-      setUsers((usersData as Profile[]) ?? []);
-
-      const { data: incidentsData, error: incidentsError } = await supabase
-        .from('incidents')
-        .select('*');
-      if (incidentsError) throw incidentsError;
-      setIncidents((incidentsData as Incident[]) ?? []);
-
-      const { data: logsData, error: logsError } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(100);
-      if (logsError) throw logsError;
-      setAuditLogs((logsData as AuditLog[]) ?? []);
-
-      const { count: responsesCount } = await supabase
-        .from('survey_responses')
-        .select('*', { count: 'exact', head: true });
-
-      const { count: totalLogs } = await supabase
-        .from('audit_logs')
-        .select('*', { count: 'exact', head: true });
-
-      const dbLatency    = Math.round(performance.now() - startTime);
-      const ud           = (usersData as Profile[]) ?? [];
-      const id           = (incidentsData as Incident[]) ?? [];
+      const dbLatency = Math.round(performance.now() - startTime);
+      const ud = snapshot.users;
+      const id = snapshot.incidents;
       const activeUsers  = ud.filter((u) => u.status === 'active').length;
       const openIncidents    = id.filter((i) => i.status === 'pending' || i.status === 'in_progress').length;
       const resolvedIncidents = id.filter((i) => i.status === 'resolved' || i.status === 'closed').length;
@@ -733,10 +708,10 @@ export default function DeveloperDashboard() {
         totalIncidents:       id.length,
         openIncidents,
         resolvedIncidents,
-        totalSurveyResponses: responsesCount ?? 0,
+        totalSurveyResponses: snapshot.surveyResponsesCount,
         avgResponseTime:      dbLatency,
         dbLatency,
-        totalAuditLogs:       totalLogs ?? 0,
+        totalAuditLogs:       snapshot.auditLogsCount,
         errorRate,
       });
 
@@ -752,8 +727,8 @@ export default function DeveloperDashboard() {
       setDbTables([
         { name: 'profiles',         rows: ud.length               },
         { name: 'incidents',        rows: id.length               },
-        { name: 'audit_logs',       rows: (logsData?.length ?? 0) },
-        { name: 'survey_responses', rows: responsesCount ?? 0     },
+        { name: 'audit_logs',       rows: snapshot.auditLogs.length        },
+        { name: 'survey_responses', rows: snapshot.surveyResponsesCount    },
         { name: 'time_logs',        rows: 0                       },
         { name: 'hr_messages',      rows: 0                       },
         { name: 'wellness_entries', rows: 0                       },
@@ -786,11 +761,7 @@ export default function DeveloperDashboard() {
   const handleToggleUserStatus = async (u: Profile) => {
     try {
       const newStatus = u.status === 'active' ? 'inactive' : 'active';
-      const { error } = await supabase
-        .from('profiles')
-        .update({ status: newStatus })
-        .eq('id', u.id);
-      if (error) throw error;
+      await developerDashboardService.updateUserStatus(u.id, newStatus);
       setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, status: newStatus } : x)));
       addToast(`تم ${newStatus === 'active' ? 'تفعيل' : 'تعطيل'} المستخدم: ${u.full_name}`, 'success');
     } catch (error) {
@@ -804,19 +775,7 @@ export default function DeveloperDashboard() {
   const handleSaveUser = async () => {
     if (!selectedUser) return;
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name:   selectedUser.full_name,
-          email:       selectedUser.email,
-          role:        selectedUser.role,
-          department:  selectedUser.department,
-          position:    selectedUser.position,
-          phone:       selectedUser.phone,
-          permissions: selectedUser.permissions,
-        })
-        .eq('id', selectedUser.id);
-      if (error) throw error;
+      await developerDashboardService.updateUser(selectedUser);
       setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? selectedUser : u)));
       addToast('تم حفظ التغييرات بنجاح', 'success');
       setShowUserModal(false);
@@ -830,11 +789,7 @@ export default function DeveloperDashboard() {
   const handleIncidentStatusChange = async (incident: Incident, status: string) => {
     try {
       const newStatus = status as IncidentStatus;
-      const { error } = await supabase
-        .from('incidents')
-        .update({ status: newStatus, resolved_at: status === 'resolved' ? new Date().toISOString() : null })
-        .eq('id', incident.id);
-      if (error) throw error;
+      await developerDashboardService.updateIncidentStatus(incident.id, newStatus);
       setIncidents((prev) => prev.map((i) => (i.id === incident.id ? { ...i, status: newStatus } : i)));
       addToast('تم تحديث حالة البلاغ', 'success');
     } catch (error) {
@@ -848,17 +803,7 @@ export default function DeveloperDashboard() {
   const handleSaveIncident = async () => {
     if (!selectedIncident) return;
     try {
-      const { error } = await supabase
-        .from('incidents')
-        .update({
-          title:       selectedIncident.title,
-          description: selectedIncident.description,
-          status:      selectedIncident.status,
-          severity:    selectedIncident.severity,
-          category:    selectedIncident.category,
-        })
-        .eq('id', selectedIncident.id);
-      if (error) throw error;
+      await developerDashboardService.updateIncident(selectedIncident);
       setIncidents((prev) => prev.map((i) => (i.id === selectedIncident.id ? selectedIncident : i)));
       addToast('تم حفظ البلاغ', 'success');
       setShowIncidentModal(false);

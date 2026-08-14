@@ -81,7 +81,8 @@ export const BONUS_TYPE_AR: Record<BonusDbType, string> = {
  */
 export const BONUS_TRANSITIONS: Record<BonusDbStatus, BonusDbStatus[]> = {
   pending:   ['approved', 'cancelled'],
-  approved:  ['paid', 'cancelled'],
+  // 0377: paid يأتي حصراً من payroll_mark_paid بعد صرف الفترة.
+  approved:  ['cancelled'],
   paid:      [],
   cancelled: [],
 };
@@ -122,6 +123,9 @@ export interface BonusRow {
   decisionNote: string | null;
   archived: boolean;
   createdAt: string | null;
+  payrollPeriodId: string | null;
+  payrollPeriodName: string | null;
+  payrollPeriodStatus: string | null;
 }
 
 export interface BonusCreateInput {
@@ -215,6 +219,9 @@ class BonusSdk {
       decisionNote: strOrNull(r.out_decision_note),
       archived:     Boolean(r.out_archived),
       createdAt:    strOrNull(r.out_created_at),
+      payrollPeriodId: strOrNull(r.out_payroll_period_id),
+      payrollPeriodName: strOrNull(r.out_payroll_period_name),
+      payrollPeriodStatus: strOrNull(r.out_payroll_period_status),
     }));
   }
 

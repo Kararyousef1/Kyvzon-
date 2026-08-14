@@ -38,6 +38,12 @@
 import { supabase } from '../supabase/supabase';
 import { logger } from '../utils/logger';
 import { SdkError } from './BaseService';
+import {
+  employeeIdentityService,
+  type EmployeeIdentityJob,
+  type IdentityJobStatus,
+} from './EmployeeIdentityService';
+export type { IdentityJobStatus } from './EmployeeIdentityService';
 
 /** ★ حالات الإعلان الخمس — مطابِقة لـ`job_postings_status_chk` */
 export const POSTING_STATUSES = [
@@ -174,6 +180,12 @@ export interface ApplicationRow {
   reviewedAt: string | null;
   hiredEmployeeId: string | null;
   submittedAt: string | null;
+  /** 0376: outbox دعوة Auth المرتبطة بالتوظيف. */
+  identityJobId: string | null;
+  identityStatus: IdentityJobStatus | null;
+  identityError: string | null;
+  /** العقد draft الناتج ذرياً عن التوظيف. */
+  contractId: string | null;
 }
 
 export interface RecruitmentSummary {
@@ -218,6 +230,10 @@ export interface HireResult {
   employeeId: string;
   postingStatus: PostingStatus | string;
   vacanciesLeft: number;
+  contractId: string | null;
+  identityJobId: string | null;
+  identityStatus: IdentityJobStatus | null;
+  identityError: string | null;
 }
 
 type Raw = Record<string, unknown>;
@@ -345,6 +361,10 @@ class RecruitmentPipelineSdk {
       reviewedAt:      strOrNull(r.out_reviewed_at),
       hiredEmployeeId: strOrNull(r.out_hired_employee_id),
       submittedAt:     strOrNull(r.out_submitted_at),
+      identityJobId:   strOrNull(r.out_identity_task_id),
+      identityStatus:  strOrNull(r.out_identity_status) as IdentityJobStatus | null,
+      identityError:   strOrNull(r.out_identity_error),
+      contractId:      strOrNull(r.out_contract_id),
     }));
   }
 
@@ -418,6 +438,16 @@ class RecruitmentPipelineSdk {
     return str(data);
   }
 
+  /** حالة outbox المرتبطة بالموظف بعد التوظيف (0376). */
+  private async identityJob(employeeId: string): Promise<EmployeeIdentityJob | null> {
+    return employeeIdentityService.findForEmployee(employeeId, 'provision');
+  }
+
+  /** تنفيذ/إعادة محاولة دعوة Auth عبر Edge Function؛ لا service key في المتصفح. */
+  async runIdentityJob(jobId: string): Promise<IdentityJobStatus> {
+    return employeeIdentityService.run(jobId);
+  }
+
   /**
    * ★★★ التوظيف — الحلقة المفقودة.
    *
@@ -445,10 +475,33 @@ class RecruitmentPipelineSdk {
       throw SdkError.fromSupabaseError(error);
     }
     const r = ((data ?? []) as Raw[])[0] ?? {};
+    const employeeId = str(r.out_employee_id);
+    let identity = await this.identityJob(employeeId);
+    let identityError: string | null = identity?.lastError ?? null;
+
+    // DB اكتملت قبل Auth عمداً: outbox تحفظ العمل إن فشل البريد/المزوّد.
+    // لا نرمي بعد نجاح التوظيف حتى لا نوهم المستخدم أن الموظف لم يُنشأ.
+    if (identity && ['pending', 'failed'].includes(identity.status)) {
+      try {
+        const status = await this.runIdentityJob(identity.id);
+        identity = { ...identity, status, lastError: null };
+        identityError = null;
+      } catch (edgeError) {
+        identity = { ...identity, status: 'failed' };
+        identityError = edgeError instanceof Error
+          ? edgeError.message
+          : 'تعذّر إرسال دعوة الحساب';
+      }
+    }
+
     return {
-      employeeId:    str(r.out_employee_id),
+      employeeId,
       postingStatus: str(r.out_posting_status),
       vacanciesLeft: num(r.out_left),
+      contractId: identity?.contractId ?? null,
+      identityJobId: identity?.id ?? null,
+      identityStatus: identity?.status ?? null,
+      identityError,
     };
   }
 }

@@ -43,6 +43,12 @@ export interface PayrollRunResult {
   net: number;
 }
 
+export interface PayrollPaymentResult {
+  records: number;
+  bonuses: number;
+  bonusAmount: number;
+}
+
 export interface PayrollSummary {
   records: number;
   gross: number;
@@ -99,6 +105,25 @@ class PayrollRunService {
     });
     if (error) throw SdkError.fromSupabaseError(error);
     return Number(data ?? 0);
+  }
+
+  /** صرف الفترة المعتمدة وإغلاق مكافآتها المرتبطة ذرياً (0377). */
+  async markPaid(periodId: string): Promise<PayrollPaymentResult> {
+    const { data, error } = await supabase.rpc('payroll_mark_paid', {
+      p_period_id: periodId,
+    });
+    if (error) throw SdkError.fromSupabaseError(error);
+    type Raw = {
+      out_records: number;
+      out_bonuses: number;
+      out_bonus_amount: number;
+    };
+    const row = ((data ?? []) as Raw[])[0];
+    return {
+      records: Number(row?.out_records ?? 0),
+      bonuses: Number(row?.out_bonuses ?? 0),
+      bonusAmount: Number(row?.out_bonus_amount ?? 0),
+    };
   }
 
   /** ملخّص الفترة — لم يكن للصفحة ملخّص مالي إطلاقاً */

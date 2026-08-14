@@ -40,15 +40,20 @@ import {
   DollarSign, Calendar, Plus, Loader2, FileText, CheckCircle,
   XCircle, Eye, Play, TrendingUp, Users,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useUIStore } from '../../core/stores';
-import { payrollPeriodService, payrollRecordService, payrollSettingService, employeeService } from '../../services/sdk';
+import { payrollPeriodService, payrollRecordService, payrollSettingService } from '../../services/sdk';
 import {
   payrollRunService, type PayrollSummary,
 } from '../../services/sdk/PayrollRunService';
+import type {
+  PayrollRecordView,
+  PayrollSettingsRecord,
+} from '../../services/sdk/PayrollService';
 import { getErrorMessage } from '../../services/errors';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
-import type { PayrollPeriod, PayrollRecord, PayrollStatus } from '../../shared/types/payroll';
+import type { PayrollPeriod } from '../../shared/types/payroll';
 import {
   PAYROLL_STATUS_LABELS, PAYROLL_STATUS_COLORS, PAYROLL_FREQUENCY_LABELS,
   formatCurrency,
@@ -61,7 +66,7 @@ export default function PayrollPage() {
   const [tab, setTab] = useState<Tab>('periods');
   const [loading, setLoading] = useState(true);
   const [periods, setPeriods] = useState<PayrollPeriod[]>([]);
-  const [records, setRecords] = useState<PayrollRecord[]>([]);
+  const [records, setRecords] = useState<PayrollRecordView[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [running, setRunning] = useState(false);
@@ -70,6 +75,7 @@ export default function PayrollPage() {
   //   موظف نشط، والاعتماد يُقفل الفترة كاملةً.
   const [confirmRun, setConfirmRun] = useState<PayrollPeriod | null>(null);
   const [confirmApprove, setConfirmApprove] = useState<PayrollPeriod | null>(null);
+  const [confirmPay, setConfirmPay] = useState<PayrollPeriod | null>(null);
   // ★★ 0348: لم يكن للصفحة ملخّص مالي إطلاقاً
   const [summary, setSummary] = useState<PayrollSummary | null>(null);
 
@@ -101,11 +107,7 @@ export default function PayrollPage() {
   const fetchRecords = useCallback(async () => {
     if (!selectedPeriod) return;
     try {
-      const data = await payrollRecordService.findByPeriod(selectedPeriod);
-      const employees = await employeeService.findAll({ orderBy: 'full_name_ar' });
-      const empMap = new Map((employees || []).map((e: any) => [e.id, e]));
-      const enriched = (data || []).map((r: any) => ({ ...r, employees: empMap.get(r.employee_id) || null }));
-      setRecords(enriched as unknown as PayrollRecord[]);
+      setRecords(await payrollRecordService.findPeriodBoard(selectedPeriod));
       setSummary(await payrollRunService.summary(selectedPeriod));
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
@@ -123,7 +125,7 @@ export default function PayrollPage() {
     }
     setRunning(true);
     try {
-      await payrollPeriodService.createPeriod({ ...formData, status: 'draft' } as unknown as Record<string, unknown>);
+      await payrollPeriodService.createPeriod({ ...formData, status: 'draft' });
       addToast('تم إنشاء فترة الرواتب بنجاح', 'success');
       setShowCreateModal(false);
       setFormData({
@@ -178,6 +180,24 @@ export default function PayrollPage() {
     try {
       const n = await payrollRunService.approve(period.id);
       addToast(`اعتُمدت الرواتب — ${n} سجلّاً`, 'success');
+      await fetchData();
+      if (tab === 'records') await fetchRecords();
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const handleMarkPaid = async (period: PayrollPeriod) => {
+    setConfirmPay(null);
+    setRunning(true);
+    try {
+      const result = await payrollRunService.markPaid(period.id);
+      addToast(
+        `صُرفت ${result.records} رواتب و${result.bonuses} مكافآت بقيمة ${formatCurrency(result.bonusAmount)}`,
+        'success',
+      );
       await fetchData();
       if (tab === 'records') await fetchRecords();
     } catch (err) {
@@ -310,6 +330,15 @@ export default function PayrollPage() {
                           <Eye size={14} /> عرض الكشف
                         </button>
                       )}
+                      {period.status === 'approved' && (
+                        <button
+                          onClick={() => setConfirmPay(period)}
+                          disabled={running}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-violet-600 text-white rounded-lg text-sm font-semibold hover:bg-violet-700 transition-colors disabled:opacity-50"
+                        >
+                          <DollarSign size={14} /> تأكيد الصرف
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -389,13 +418,12 @@ export default function PayrollPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {records.map((r) => {
-                        const emp = r as unknown as { employees?: { employee_code: string; full_name_ar: string } };
                         const statusColor = PAYROLL_STATUS_COLORS[r.status] || PAYROLL_STATUS_COLORS.draft;
                         return (
                           <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                             <td className="px-4 py-3">
-                              <p className="font-semibold text-slate-900 text-sm">{emp.employees?.full_name_ar || '—'}</p>
-                              <p className="text-xs text-slate-400">{emp.employees?.employee_code}</p>
+                              <p className="font-semibold text-slate-900 text-sm">{r.employees?.full_name_ar || '—'}</p>
+                              <p className="text-xs text-slate-400">{r.employees?.employee_code}</p>
                             </td>
                             <td className="px-4 py-3 text-sm text-slate-700">{formatCurrency(r.basic_salary)}</td>
                             <td className="px-4 py-3 text-sm text-emerald-600">+{formatCurrency(r.total_allowances)}</td>
@@ -538,6 +566,31 @@ export default function PayrollPage() {
           </div>
         </div>
       )}
+
+      {confirmPay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" dir="rtl">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-800">تأكيد صرف الرواتب</h3>
+            <p className="text-sm text-slate-700">
+              تأكيد صرف فترة <b>«{confirmPay.name}»</b>؟
+            </p>
+            <p className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-xl p-3 leading-relaxed">
+              ستتحول سجلات الرواتب والمكافآت المرتبطة إلى «مدفوع» معاً، ولا يمكن إعادة تشغيل الفترة بعدها.
+            </p>
+            <div className="flex gap-2 justify-end pt-1">
+              <button onClick={() => setConfirmPay(null)} disabled={running}
+                className="px-5 py-2.5 bg-white border rounded-xl font-bold text-sm disabled:opacity-50">
+                تراجع
+              </button>
+              <button onClick={() => void handleMarkPaid(confirmPay)} disabled={running}
+                className="px-5 py-2.5 bg-violet-600 text-white rounded-xl font-bold text-sm disabled:opacity-50 flex items-center gap-2">
+                {running && <Loader2 size={14} className="animate-spin" />}
+                تأكيد الصرف
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -546,7 +599,7 @@ export default function PayrollPage() {
 
 function PayrollSettingsTab() {
   const { addToast } = useUIStore();
-  const [settings, setSettings] = useState<any>(null);
+  const [settings, setSettings] = useState<Partial<PayrollSettingsRecord> | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -575,6 +628,10 @@ function PayrollSettingsTab() {
   }, [addToast]);
 
   const handleSave = async () => {
+    if (!settings) {
+      addToast('لا توجد إعدادات رواتب قابلة للحفظ', 'error');
+      return;
+    }
     setSaving(true);
     try {
       await payrollSettingService.updateSettings('1', {
@@ -587,7 +644,7 @@ function PayrollSettingsTab() {
         working_days_per_month: Number(settings.working_days_per_month),
         max_loan_amount: Number(settings.max_loan_amount),
         max_loan_months: Number(settings.max_loan_months),
-      } as unknown as Record<string, unknown>);
+      });
       addToast('تم حفظ الإعدادات', 'success');
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
@@ -616,37 +673,37 @@ function PayrollSettingsTab() {
         </Field>
         <Field label="أيام العمل بالشهر">
           <input type="number" value={settings.working_days_per_month || 26}
-            onChange={(e) => setSettings({ ...settings, working_days_per_month: e.target.value })}
+            onChange={(e) => setSettings({ ...settings, working_days_per_month: Number(e.target.value) })}
             className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
         </Field>
         <Field label="نسبة الضريبة (%)">
           <input type="number" step="0.01" value={settings.tax_rate || 0}
-            onChange={(e) => setSettings({ ...settings, tax_rate: e.target.value })}
+            onChange={(e) => setSettings({ ...settings, tax_rate: Number(e.target.value) })}
             className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
         </Field>
         <Field label="نسبة التأمينات (%)">
           <input type="number" step="0.01" value={settings.social_security_rate || 0}
-            onChange={(e) => setSettings({ ...settings, social_security_rate: e.target.value })}
+            onChange={(e) => setSettings({ ...settings, social_security_rate: Number(e.target.value) })}
             className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
         </Field>
         <Field label="معامل الوقت الإضافية">
           <input type="number" step="0.1" value={settings.overtime_rate || 1.5}
-            onChange={(e) => setSettings({ ...settings, overtime_rate: e.target.value })}
+            onChange={(e) => setSettings({ ...settings, overtime_rate: Number(e.target.value) })}
             className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
         </Field>
         <Field label="غرامة التأخير/دقيقة">
           <input type="number" value={settings.late_penalty_per_minute || 0}
-            onChange={(e) => setSettings({ ...settings, late_penalty_per_minute: e.target.value })}
+            onChange={(e) => setSettings({ ...settings, late_penalty_per_minute: Number(e.target.value) })}
             className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
         </Field>
         <Field label="غرامة الغياب/يوم">
           <input type="number" value={settings.absence_penalty_per_day || 0}
-            onChange={(e) => setSettings({ ...settings, absence_penalty_per_day: e.target.value })}
+            onChange={(e) => setSettings({ ...settings, absence_penalty_per_day: Number(e.target.value) })}
             className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
         </Field>
         <Field label="أقصى مبلغ سلفة">
           <input type="number" value={settings.max_loan_amount || 0}
-            onChange={(e) => setSettings({ ...settings, max_loan_amount: e.target.value })}
+            onChange={(e) => setSettings({ ...settings, max_loan_amount: Number(e.target.value) })}
             className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
         </Field>
       </div>
@@ -661,7 +718,7 @@ function PayrollSettingsTab() {
 
 // ═══════════════════ مكونات مساعدة ═══════════════════
 
-function StatCard({ label, value, icon: Icon, color }: { label: string; value: string; icon: any; color: string }) {
+function StatCard({ label, value, icon: Icon, color }: { label: string; value: string; icon: LucideIcon; color: string }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-4">
       <div className="flex items-center gap-3">
@@ -688,7 +745,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
   );
 }
 
-function EmptyState({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle: string }) {
+function EmptyState({ icon: Icon, title, subtitle }: { icon: LucideIcon; title: string; subtitle: string }) {
   return (
     <div className="text-center py-16">
       <div className="w-16 h-16 mx-auto rounded-2xl bg-slate-100 flex items-center justify-center mb-3">

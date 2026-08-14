@@ -21,6 +21,7 @@ const VERIFY = read('tools/dev/verify-approval-lifecycle-0323.sql');
 const INBOX = read('src/shared/components/dashboard/HrApprovalInbox.tsx');
 const HOOK = read('src/shared/hooks/useNotificationSubscription.ts');
 const NOTIF_SVC = read('src/services/notifications/notificationService.ts');
+const NOTIF_GATEWAY = read('src/services/sdk/NotificationGatewayService.ts');
 const LEAVE_SVC = read('src/services/sdk/LeaveService.ts');
 
 /**
@@ -210,8 +211,9 @@ describe('0323 — الواجهة', () => {
     expect(codeOnly(INBOX)).not.toMatch(/\bas any\b/);
   });
 
-  it('★ عدّاد الجرس يأتي من القاعدة لا من الصفحة المحمَّلة', () => {
-    expect(NOTIF_SVC).toMatch(/rpc\('my_unread_notification_count'\)/);
+  it('★ عدّاد الجرس يأتي من القاعدة عبر بوابة SDK لا من الصفحة المحمَّلة', () => {
+    expect(NOTIF_GATEWAY).toMatch(/rpc\('my_unread_notification_count'\)/);
+    expect(NOTIF_SVC).toMatch(/notificationGatewayService\.unreadCount\(\)/);
     expect(HOOK).toMatch(/fetchUnreadCountFromServer/);
     expect(HOOK).toMatch(/Math\.max\(serverUnread, localUnread\)/);
   });

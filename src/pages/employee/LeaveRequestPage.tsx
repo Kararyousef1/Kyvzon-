@@ -17,7 +17,7 @@
  *      `approveLeave(id, realEmployeeId)` يكتب `employees.id` في عمود
  *      `approved_by` الذي يشير FK إلى `profiles`. مُقاس بجلسة RLS:
  *        violates foreign key constraint "leaves_approved_by_fkey"
- *      الآن القرار عبر `hrApprovalService.decide()` وحده — وهو المسار
+ *      الآن القرار عبر `unifiedApprovalService.decideHrAny()` وحده — وهو المسار
  *      الذي يُحرّك السلسلة ويُزامن `leaves.status` في القاعدة.
  *
  *  ★★ الرصيد صار حقيقياً: حجز عند الطلب · خصم عند الاعتماد ·
@@ -38,7 +38,7 @@ import {
   CheckCircle2, XCircle, Ban, Inbox, User,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
-import { hrApprovalService, employeeDashboardService } from '../../services/sdk';
+import { unifiedApprovalService, employeeDashboardService } from '../../services/sdk';
 import {
   leaveRequestService, leaveErrorMessage,
   type LeaveRequestRow, type LeaveScope, type LeaveStatusValue,
@@ -215,14 +215,10 @@ export default function LeaveRequestPage() {
   ) => {
     setProcessingId(row.id);
     try {
-      const requestId = await hrApprovalService.findRequestIdBySource('leave', row.id);
-      if (!requestId) {
-        addToast('لا توجد سلسلة اعتماد لهذا الطلب', 'error');
-        return;
-      }
-      // ★ القاعدة تُزامن leaves.status عبر sync_hr_source_status (0323).
-      //   لا نكتب الحالة من المتصفح — حارس 0324 يمنعها أصلاً.
-      const finalStatus = await hrApprovalService.decide(requestId, decision, comments);
+      // ★ واجهة المحرّك الموحّد تقبل معرّف المصدر مباشرةً وتترجمه داخل
+      //   القاعدة إلى معرّف طلب الاعتماد. لا بحث من الواجهة في الجدول القديم.
+      //   القاعدة تُزامن leaves.status عبر sync_hr_source_status (0323).
+      const finalStatus = await unifiedApprovalService.decideHrAny(row.id, decision, comments);
       addToast(
         finalStatus === 'pending'
           ? 'سُجِّل قرارك — الطلب انتقل للمرحلة التالية'

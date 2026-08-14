@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, Copy, Check, Building2, Users, Landmark, CreditCard, Layers, FileText, Shield, Clock, Mail, Phone, Globe, Calendar, Hash, Key, UserPlus, Building, Ban, Unlock, Eye } from 'lucide-react';
 import type { Company } from '../types';
 import { companiesApi, subscriptionsApi, auditApi, statsApi } from '../services/api';
-import { supabase } from '../../../services/supabase/supabase';
+import { tenantService } from '../../../services/sdk/TenantService';
 import { useUIStore } from '../../../core/stores';
 import { getErrorMessage } from '../../../services/errors';
 
@@ -64,16 +64,16 @@ export default function CompanyDetailDrawer({ company: c, onClose, onEdit, onCre
     setLoading(true);
     try {
       const [usersRes, entitiesRes, subsRes, auditRes, statsRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, email, role, status, created_at').eq('tenant_id', c.id).limit(10),
-        supabase.from('legal_entities').select('id, code, name_ar, base_currency_code, status').eq('tenant_id', c.id).limit(20),
+        tenantService.getCompanyUsers(c.id),
+        tenantService.getCompanyLegalEntities(c.id),
         subscriptionsApi.getByCompany(c.id).catch(() => []),
-        supabase.from('platform_audit_log').select('id, action, actor_name, description, created_at').eq('tenant_id', c.id).order('created_at', { ascending: false }).limit(20),
+        tenantService.getCompanyAuditLogs(c.id),
         companiesApi.getStats(c.id).catch(() => null),
       ]);
-      setUsers((usersRes as any)?.data || []);
-      setLegalEntities((entitiesRes as any)?.data || []);
+      setUsers(usersRes);
+      setLegalEntities(entitiesRes);
       setSubscriptions(subsRes as any[] || []);
-      setAuditLogs((auditRes as any)?.data || []);
+      setAuditLogs(auditRes);
       setStats(statsRes);
     } catch (err) {
       console.warn('Failed to load company details:', getErrorMessage(err));

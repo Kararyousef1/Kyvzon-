@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Heart, Smile, Activity, Brain, Calendar, TrendingUp, Loader2, RefreshCw } from 'lucide-react';
-import { useUIStore, useAuthStore } from '../../core/stores';
+import { useUIStore } from '../../core/stores';
 import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import { format } from 'date-fns';
@@ -15,24 +15,23 @@ import { ar } from 'date-fns/locale';
 
 // ─── طبقة SDK (مصدر بيانات نظيف) ───────────────────────────────
 import { wellnessEntryService } from '../../services/sdk/WellnessService';
+import { useEmployeeId } from '../../shared/hooks/useEmployeeId';
+import type { WellnessEntryRecord, WellnessMood } from '../../shared/types/sdk';
 
 // ════════════════════════════════════════════════════════════════
 //  الأنواع المحلية
 // ════════════════════════════════════════════════════════════════
 
-type WellnessMood = 'great' | 'good' | 'neutral' | 'bad' | 'terrible';
-
 interface WellnessEntry {
-  id: number;
-  userId: string;
+  id: string;
+  employeeId: string;
   date: string;
-  mood_score: WellnessMood;
+  mood: WellnessMood;
   stress: number;
   energy: number;
   score: number;
   notes: string | null;
   createdAt: string;
-  updatedAt?: string;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -47,8 +46,8 @@ const MOOD_SCORE: Record<WellnessMood, number> = {
   terrible: 20,
 };
 
-function calculateWellnessScore(input: { stress: number; energy: number; mood_score: WellnessMood }): number {
-  return Math.round((100 - input.stress) * 0.4 + input.energy * 0.4 + MOOD_SCORE[input.mood_score] * 0.2);
+function calculateWellnessScore(input: { stress: number; energy: number; mood: WellnessMood }): number {
+  return Math.round((100 - input.stress) * 0.4 + input.energy * 0.4 + MOOD_SCORE[input.mood] * 0.2);
 }
 
 function todayISO(): string {
@@ -57,18 +56,17 @@ function todayISO(): string {
   return new Date(d.getTime() - tz).toISOString().slice(0, 10);
 }
 
-function toEntry(d: any): WellnessEntry {
+function toEntry(row: WellnessEntryRecord): WellnessEntry {
   return {
-    id: d.id,
-    userId: d.user_id,
-    date: d.date,
-    mood_score: (d.mood_score || d.mood || 'neutral') as WellnessMood,
-    stress: d.stress ?? 50,
-    energy: d.energy ?? 50,
-    score: d.score ?? 50,
-    notes: d.notes ?? null,
-    createdAt: d.created_at,
-    updatedAt: d.updated_at,
+    id: row.id,
+    employeeId: row.employee_id,
+    date: row.date,
+    mood: row.mood,
+    stress: row.stress,
+    energy: row.energy,
+    score: row.score,
+    notes: row.notes ?? null,
+    createdAt: row.created_at,
   };
 }
 
@@ -104,7 +102,7 @@ const scoreBg = (score: number): string =>
 // ════════════════════════════════════════════════════════════════
 
 export default function WellnessPage() {
-  const { user } = useAuthStore();
+  const { employeeId, linkMissing } = useEmployeeId();
   const { addToast } = useUIStore();
 
   // ─── حالة النموذج ─────────────────────────────────────────────
@@ -124,7 +122,7 @@ export default function WellnessPage() {
 
   // ─── تحميل البيانات ───────────────────────────────────────────
   const loadData = useCallback(async () => {
-    if (!user?.id) {
+    if (!employeeId) {
       setLoading(false);
       return;
     }
@@ -133,15 +131,15 @@ export default function WellnessPage() {
     try {
       const today = todayISO();
       const [entries, stats] = await Promise.all([
-        wellnessEntryService.findByUser(user.id, 7),
-        wellnessEntryService.getStats(user.id, 7),
+        wellnessEntryService.findByEmployee(employeeId, 7),
+        wellnessEntryService.getStats(employeeId, 7),
       ]);
 
       const mappedHistory = (entries || []).map(toEntry);
       const todayEntry = mappedHistory.find((e) => e.date === today);
 
       if (todayEntry) {
-        setMood(todayEntry.mood_score);
+        setMood(todayEntry.mood);
         setStress(todayEntry.stress);
         setEnergy(todayEntry.energy);
         setNotes(todayEntry.notes ?? '');
@@ -158,7 +156,7 @@ export default function WellnessPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [employeeId]);
 
   useEffect(() => {
     loadData();
@@ -166,20 +164,22 @@ export default function WellnessPage() {
 
   // ─── حفظ السجل ────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!user?.id) return;
+    if (!employeeId) {
+      addToast('حسابك غير مرتبط بسجل موظف — راجع الموارد البشرية', 'error');
+      return;
+    }
     setSubmitting(true);
     try {
       // ★ المرحلة 1: mood رقم 1–5؛ الدالة تتوقّع الاتحاد الضيّق
-      const score = calculateWellnessScore({
-        stress, energy,
-        mood_score: mood as unknown as Parameters<typeof calculateWellnessScore>[0]['mood_score'],
-      });
+      const score = calculateWellnessScore({ stress, energy, mood });
       const today = todayISO();
 
-      await wellnessEntryService.saveEntry(user.id, {
-        mood_score: MOOD_SCORE[mood],
-        stress_level: stress,
-        energy_level: energy,
+      await wellnessEntryService.saveEntry(employeeId, {
+        score,
+        mood,
+        stress,
+        energy,
+        notes,
         date: today,
       });
 
@@ -203,6 +203,20 @@ export default function WellnessPage() {
           <div className="flex flex-col items-center justify-center py-12 text-slate-500">
             <Loader2 className="animate-spin mb-3" size={40} />
             <p className="text-sm font-medium">جاري التحميل...</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (linkMissing) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <div className="text-center py-16">
+            <Heart size={40} className="mx-auto mb-4 text-amber-500" />
+            <h3 className="font-bold text-slate-800">الحساب غير مرتبط بسجل موظف</h3>
+            <p className="mt-2 text-sm text-slate-500">راجع الموارد البشرية قبل تسجيل حالة العافية.</p>
           </div>
         </Card>
       </div>
@@ -382,7 +396,7 @@ export default function WellnessPage() {
           </CardHeader>
           <div className="space-y-2">
             {history.map((entry) => {
-              const meta = MOOD_META[entry.score];
+              const meta = MOOD_META[entry.mood];
               return (
                 <div
                   key={entry.id}

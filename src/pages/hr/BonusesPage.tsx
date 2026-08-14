@@ -40,11 +40,9 @@ import { ar } from 'date-fns/locale';
 import { formatCurrency } from '../../utils/payrollUtils';
 import { Modal, FormField, ModalActions, EmployeePicker } from './LoansPage';
 
-/** اليوم بتوقيت بغداد — القاعدة تستعمل Asia/Baghdad صراحةً */
 function todayBaghdad(): string {
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Baghdad',
-    year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone: 'Asia/Baghdad', year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(new Date());
 }
 
@@ -224,7 +222,11 @@ export default function BonusesPage() {
             تحديث
           </button>
           <button
-            onClick={() => { setForm({ ...EMPTY_FORM }); setShowCreate(true); }}
+            onClick={() => {
+              const today = todayBaghdad();
+              setForm({ ...EMPTY_FORM, period_start: today, period_end: today });
+              setShowCreate(true);
+            }}
             className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold transition-colors shadow-sm"
           >
             <Plus size={18} /> مكافأة جديدة
@@ -449,6 +451,12 @@ export default function BonusesPage() {
             <DetailRow label="الحالة" value={BONUS_STATUS_AR[selected.status]} />
             <DetailRow label="تاريخ المكافأة" value={fmtDate(selected.bonusDate)} />
             <DetailRow
+              label="فترة الرواتب"
+              value={selected.payrollPeriodName
+                ? `${selected.payrollPeriodName} — ${selected.payrollPeriodStatus ?? '—'}`
+                : selected.status === 'approved' ? 'بانتظار تشغيل الرواتب' : undefined}
+            />
+            <DetailRow
               label="الفترة"
               value={selected.periodStart
                 ? `${fmtDate(selected.periodStart)} ← ${fmtDate(selected.periodEnd)}`
@@ -609,6 +617,15 @@ function BonusCard({ bonus, processing, onDetails, onDecide, onArchive }: {
           الفترة: {fmtDate(bonus.periodStart)} ← {fmtDate(bonus.periodEnd)}
         </p>
       )}
+      {bonus.payrollPeriodName ? (
+        <p className="text-xs text-indigo-700 bg-indigo-50 rounded-lg px-2 py-1 mt-2">
+          ضمن راتب: {bonus.payrollPeriodName} — {bonus.payrollPeriodStatus ?? '—'}
+        </p>
+      ) : bonus.status === 'approved' ? (
+        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1 mt-2">
+          معتمدة — ستُصرف من فترة الرواتب المطابقة
+        </p>
+      ) : null}
 
       {!bonus.archived && (
         <div className="flex items-center gap-2 mt-3 flex-wrap">

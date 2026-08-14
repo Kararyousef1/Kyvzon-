@@ -49,7 +49,7 @@ class LeaveService extends BaseService<LeaveRecord> {
    * الموافقة على إجازة — **مسار إداري مباشر**.
    *
    * ⚠️ هذا يتجاوز سلسلة الموافقات (مشرف → مدير → مدير مباشر).
-   *    المسار الطبيعي: `hrApprovalService.decide()` الذي يُحرّك السلسلة،
+   *    المسار الطبيعي: `unifiedApprovalService.decideHrAny()` الذي يُحرّك السلسلة،
    *    ويُزامن `leaves.status` في القاعدة عبر `sync_hr_source_status`
    *    (محفّز migration 0323) — لا من المتصفح.
    *

@@ -9,7 +9,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '../../core/stores';
 import { tenantModuleService } from '../../services/sdk/TenantModuleService';
-import { supabase } from '../../services/supabase/supabase';
 import { getModuleStatus, isModuleProductionReady } from '../../services/sdk/TenantModuleCatalog';
 import { hybridEnabledModulesForFeatures } from '../../pages/hybridportal/hybridPagesCatalog';
 
@@ -81,11 +80,7 @@ export function useTenantModules(): UseTenantModulesResult {
     setLoading(true);
     try {
       // 2) فحص حالة الاشتراك + حالة tenant — منع الوصول عند expired/suspended
-      const { data: tenantData } = await supabase
-        .from('tenants')
-        .select('status, subscription_plan, features')
-        .eq('id', tenantId)
-        .maybeSingle();
+      const tenantData = await tenantModuleService.getTenantAccessState(tenantId);
       
       if (tenantData) {
         setTenantStatus((tenantData as any).status);
@@ -113,13 +108,7 @@ export function useTenantModules(): UseTenantModulesResult {
         setEnabledModules(rows.length ? enabled : STAFF_FALLBACK_MODULES);
       }
 
-      const { data: subData } = await supabase
-        .from('tenant_subscriptions')
-        .select('status, end_date, start_date, created_at')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const subData = await tenantModuleService.getLatestSubscription(tenantId);
 
       if (subData) {
         const sub: any = subData;

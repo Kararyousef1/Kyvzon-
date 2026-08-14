@@ -356,13 +356,14 @@ describe('★★ انتقالات الحالة', () => {
     expect(b).toMatch(/BONUS_BAD_TRANSITION/);
   });
 
-  it('جدول الواجهة نسخة مطابِقة', () => {
+  it('جدول الواجهة يمنع الدفع اليدوي بعد تكامل 0377', () => {
     const m = SVC_CODE.match(
       /BONUS_TRANSITIONS: Record<BonusDbStatus, BonusDbStatus\[\]> = \{([\s\S]*?)\};/);
     expect(m).toBeTruthy();
     const t = (m as RegExpMatchArray)[1];
     expect(t).toMatch(/pending:\s*\['approved', 'cancelled'\]/);
-    expect(t).toMatch(/approved:\s*\['paid', 'cancelled'\]/);
+    expect(t).toMatch(/approved:\s*\['cancelled'\]/);
+    expect(t).not.toMatch(/approved:\s*\[[^\]]*'paid'/);
     expect(t).toMatch(/paid:\s*\[\]/);
     expect(t).toMatch(/cancelled:\s*\[\]/);
   });

@@ -46,7 +46,8 @@ export { departmentService, specialtyService } from './DepartmentService';
 export { costCenterService } from './CostCenterService';
 export type { CostCenterRecord } from './CostCenterService';
 export { incidentService } from './IncidentService';
-export { wellnessService, wellnessEntryService } from './WellnessService';
+export { wellnessEntryService } from './WellnessService';
+export type { WellnessEntryInput } from './WellnessService';
 export { reviewService } from './ReviewService';
 export { auditLogService } from './AuditLogService';
 export type { AuditLogRecord } from './AuditLogService';
@@ -56,8 +57,6 @@ export { storageService } from './StorageService';
 export type { UploadOptions } from './StorageService';
 export { biometricDeviceService } from './BiometricDeviceService';
 export type { BiometricDeviceRecord, BiometricDeviceInput } from './BiometricDeviceService';
-export { messageService } from './MessageService';
-export type { HrMessageRecord, HrMessageInput } from './MessageService';
 export { certificationService } from './CertificationService';
 export { gatekeeperSessionService, gatekeeperVisitorLogService, movementLogService, employeeBreakService } from './GatekeeperService';
 export { gatekeeperVisitorService } from './GatekeeperVisitorService';
@@ -92,7 +91,7 @@ export { approvalRequestService, approvalActionService } from './ApprovalService
 export { managerWorkloadItemService } from './ManagerService';
 export { tenantModuleService, MODULE_CATALOG, PLAN_ALLOWED_MODULES, PLAN_LIMITS, modulesForPlan, isModuleAllowedForPlan, planLimitsForPlan } from './TenantModuleService';
 export type { TenantModuleRecord, ModuleCatalogItem, ModuleKey, PlanLimits } from './TenantModuleService';
-export { currencyService, financeSetupService, legalEntityService, entityMembershipService, fiscalYearService, accountingPeriodService, financeCostCenterService, financeProjectService, exchangeRateService, financePeriodCloseService, requireFinanceTenantId } from './FinanceFoundationService';
+export { currencyService, financeSetupService, legalEntityService, entityMembershipService, fiscalYearService, accountingPeriodService, financeCostCenterService, financeProjectService, exchangeRateService, financeFoundationDashboardService, financePeriodCloseService, requireFinanceTenantId } from './FinanceFoundationService';
 // 🆕 وحدة أتمتة التسويق (بوابة التسويق — التقرير 1)
 export {
   marketingLeadService,
@@ -308,7 +307,17 @@ export { projectAccountingService } from './ProjectAccountingService';
 export type { ProjectAccountingRecord, ProjectBudgetLineRecord, ProjectActualSnapshotRecord, ProjectAccountingDashboardRecord } from './ProjectAccountingService';
 export { financeIntegrationService } from './FinanceIntegrationService';
 export type { FinanceIntegrationConnectorRecord, FinanceIntegrationEventRecord, FinanceIntegrationDashboardRecord } from './FinanceIntegrationService';
-export { hrApprovalService } from './HrApprovalService';
+export {
+  unifiedApprovalService,
+  SOURCE_MODULE_LABELS,
+  SOURCE_MODULE_TONES,
+} from './UnifiedApprovalService';
+export type {
+  ApprovalDecision as UnifiedApprovalDecision,
+  ApprovalSourceModule,
+  ApprovalStep,
+  UnifiedApprovalItem,
+} from './UnifiedApprovalService';
 export { financialRequestService } from './FinancialRequestService';
 export { techMetricsService } from './TechMetricsService';
 export { legacyRouteService } from './LegacyRouteService';
@@ -506,6 +515,8 @@ export {
   inventoryCodeSequenceService,
   inventoryBarcodeService,
   inventoryPostingService,
+  inventoryLookupService,
+  inventoryRecordService,
   inventoryAnalyticsService,
 } from './InventoryService';
 export type {
@@ -516,6 +527,11 @@ export type {
   InventoryStockMovementRecord,
   InventoryCodeSequenceRecord,
   InventoryBarcodeRecord,
+  InventoryLookupKey,
+  InventoryLookupRow,
+  InventoryMasterEntity,
+  InventoryUnitKey,
+  InventoryStatusTable,
 } from './InventoryService';
 
 // 🆕 بوابة المخزون — الوحدة 01: الاستلام والعمليات الواردة
@@ -625,6 +641,10 @@ export type { InventoryAnalyticsKpiTargetRecord, InventoryAnalyticsKpiSnapshotRe
 export { mrpPlantService, mrpAreaService, mrpLineService, mrpWorkCenterService, mrpResourceService, mrpAssetService, mrpCalendarService, mrpShiftService, mrpOperationService, mrpRoutingService, mrpNumberingService, mrpCapacityService, mrpAnalyticsService } from './MrpService';
 export type { MrpPlantRecord, MrpAreaRecord, MrpLineRecord, MrpWorkCenterRecord, MrpResourceRecord, MrpAssetRecord, MrpCalendarRecord, MrpShiftRecord, MrpOperationRecord, MrpRoutingRecord, MrpNumberingRecord } from './MrpService';
 
+// 🏭 بوابة التصنيع MRP — lookups المشتركة (قراءة فقط)
+export { mrpLookupService } from './MrpLookupService';
+export type { MrpLookupKey, MrpLookupRow } from './MrpLookupService';
+
 // 🏭 بوابة التصنيع MRP — الوحدة 01: BOM & Engineering Change
 export { mrpBomHeaderService, mrpBomVersionService, mrpBomLineService, mrpEcrService, mrpEcoService, mrpBomExplosionService, mrpBomAvailabilityService, mrpBomImportBatchService, mrpBomExportRequestService, mrpBomAnalyticsService } from './MrpBomService';
 export type { MrpBomHeaderRecord, MrpBomVersionRecord, MrpBomLineRecord, MrpEcrRecord, MrpEcoRecord, MrpBomExplosionRunRecord, MrpBomAvailabilityCheckRecord, MrpBomImportBatchRecord, MrpBomExportRequestRecord } from './MrpBomService';
@@ -662,7 +682,7 @@ export { hrDashboardService } from './HrDashboardService';
 export { hrAttendanceBoardService } from './HrAttendanceBoardService';
 export { kioskService } from './KioskService';
 export { payrollRunService } from './PayrollRunService';
-export type { PayrollRunResult, PayrollSummary } from './PayrollRunService';
+export type { PayrollRunResult, PayrollSummary, PayrollPaymentResult } from './PayrollRunService';
 export type {
   KioskBoardRow, KioskStats, KioskPunchResult, PunchType,
 } from './KioskService';
@@ -726,8 +746,12 @@ export {
 } from './OnboardingLifecycleService';
 export type {
   OnboardingTaskStatus, ExitType, OnboardingTask, OnboardingRow,
-  OffboardingRow, OnboardingSummary, OffboardingInput,
+  OffboardingRow, OnboardingSummary, OffboardingInput, OffboardingResult,
 } from './OnboardingLifecycleService';
+export { employeeIdentityService } from './EmployeeIdentityService';
+export type {
+  EmployeeIdentityJob, IdentityJobAction, IdentityJobStatus,
+} from './EmployeeIdentityService';
 
 // 🆕 مستندات الموظفين (migration 0360)
 export {
@@ -753,6 +777,8 @@ export {
 export type {
   ReadinessLevel, RiskLevel, PositionStatus, SuccessionCandidate,
   SuccessionPositionRow, SuccessionSummary, PositionInput, NominateInput,
+  DevelopmentAction, DevelopmentStatus, DevelopmentPlan,
+  SuccessionCourseOption, DevelopmentPlanInput,
 } from './SuccessionPlanningService';
 
 // 🆕 التوظيف (migration 0362)
@@ -893,3 +919,13 @@ export {
 export type {
   InboxState, InboxPriority, InboxMessageRow, InboxSummary,
 } from './HrInboxService';
+
+// بوابات المجالات الدقيقة — تعالج حدود SDK من دون تمرير أسماء جداول من الواجهات.
+export { adminEmployeeDataService } from './AdminEmployeeDataService';
+export { attendanceNotificationQueryService } from './AttendanceNotificationQueryService';
+export { developerDashboardService } from './DeveloperDashboardService';
+export { financialApprovalQueueService } from './FinancialApprovalQueueService';
+export { gatekeeperAdminPermissionService } from './GatekeeperAdminPermissionService';
+export { notificationGatewayService } from './NotificationGatewayService';
+export { permissionAdminService } from './PermissionAdminService';
+export { sopAdminService } from './SopAdminService';

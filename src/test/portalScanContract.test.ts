@@ -42,7 +42,8 @@ interface ScanResult {
 let scan: ScanResult | null = null;
 function runScan(): ScanResult {
   if (scan) return scan;
-  const out = execFileSync('python3',
+  const python = process.env.PYTHON ?? (process.platform === 'win32' ? 'python' : 'python3');
+  const out = execFileSync(python,
     [resolve(root, 'tools/dev/scan_portals.py'), '--json'],
     { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
   scan = JSON.parse(out) as ScanResult;
@@ -182,7 +183,7 @@ describe('0373 — ★★★★ الماسحُ الآليّ جزءٌ من الع
   it('★★ سقفُ الديون المعروفة لا يرتفع', () => {
     const s = runScan();
     const CAPS: Record<string, number> = {
-      ANY: 14,
+      ANY: 0,
       CONSOLE: 35,
       SILENT_CATCH: 13,
       EMPTY_FALLBACK: 5,

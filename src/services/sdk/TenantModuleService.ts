@@ -27,6 +27,19 @@ export interface TenantModuleRecord {
   updated_at: string;
 }
 
+export interface TenantAccessState {
+  status: string;
+  subscription_plan: string;
+  features: string[];
+}
+
+export interface TenantLatestSubscription {
+  status: string;
+  end_date: string | null;
+  start_date: string;
+  created_at: string;
+}
+
 export const tenantModuleService = {
   getCatalog(): ModuleCatalogItem[] {
     return MODULE_CATALOG;
@@ -44,6 +57,26 @@ export const tenantModuleService = {
       .order('module_key', { ascending: true });
     if (error) throw new Error(getErrorMessage(error));
     return (data || []) as TenantModuleRecord[];
+  },
+
+  async getTenantAccessState(tenantId: string): Promise<TenantAccessState | null> {
+    const { data, error } = await supabase.from('tenants')
+      .select('status,subscription_plan,features')
+      .eq('id', tenantId)
+      .maybeSingle();
+    if (error) throw new Error(getErrorMessage(error));
+    return data as TenantAccessState | null;
+  },
+
+  async getLatestSubscription(tenantId: string): Promise<TenantLatestSubscription | null> {
+    const { data, error } = await supabase.from('tenant_subscriptions')
+      .select('status,end_date,start_date,created_at')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(getErrorMessage(error));
+    return data as TenantLatestSubscription | null;
   },
 
   async ensureTenantModules(tenantId: string, plan = 'basic', actorId?: string): Promise<TenantModuleRecord[]> {

@@ -171,12 +171,14 @@ export interface SurveyResponse {
 export interface WellnessEntry {
   id: string
   employee_id: string
-  mood_score: number
-  stress_level: number
-  energy_level: number
-  notes: string | null
   date: string
+  score: number
+  mood: 'great' | 'good' | 'neutral' | 'bad' | 'terrible'
+  stress: number
+  energy: number
+  notes: string | null
   created_at: string
+  tenant_id: string
 }
 
 export interface Notification {

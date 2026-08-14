@@ -15,7 +15,7 @@
  *     ولعزل الـFK عن الحارس (BEFORE trigger يسبق فحص FK):
  *       بلا سلسلة + approved_by = employees.id ⇒
  *       violates foreign key constraint "permissions_request_approved_by_fkey"
- *     الآن القرار عبر `hrApprovalService.decide()` وحده.
+ *     الآن القرار عبر `unifiedApprovalService.decideHrAny()` وحده.
  *
  *   ★★★ `canApprove = viewMode === 'hr' | 'manager'` مشتقّ من مسار URL،
  *     وكلا المسارين (`/app/hr/…` و`/app/manager/…`) **غير مسجَّل** في
@@ -59,6 +59,11 @@ export interface PermissionRequestRow {
   canCancel: boolean;
   /** ★ هل نُقلت فعلاً إلى جدول `permissions` المنفَّذ؟ */
   executed: boolean;
+  executionId: string | null;
+  actualOut: string | null;
+  actualReturn: string | null;
+  executionNote: string | null;
+  canRecordExecution: boolean;
 }
 
 export interface SubmitPermissionResult {
@@ -105,6 +110,11 @@ interface RawPermissionRow {
   out_can_decide: boolean;
   out_can_cancel: boolean;
   out_executed: boolean;
+  out_execution_id: string | null;
+  out_actual_out: string | null;
+  out_actual_return: string | null;
+  out_execution_note: string | null;
+  out_can_record_execution: boolean;
 }
 
 class PermissionRequestGatewayService {
@@ -150,6 +160,11 @@ class PermissionRequestGatewayService {
       canDecide: Boolean(r.out_can_decide),
       canCancel: Boolean(r.out_can_cancel),
       executed: Boolean(r.out_executed),
+      executionId: r.out_execution_id,
+      actualOut: r.out_actual_out,
+      actualReturn: r.out_actual_return,
+      executionNote: r.out_execution_note,
+      canRecordExecution: Boolean(r.out_can_record_execution),
     }));
   }
 
@@ -208,6 +223,23 @@ class PermissionRequestGatewayService {
     }
     return Boolean(data);
   }
+  /** تسجيل الخروج/العودة الفعليين للزمنية المعتمدة (0378). */
+  async recordExecution(input: {
+    requestId: string;
+    actualOut: string;
+    actualReturn?: string | null;
+    note?: string | null;
+  }): Promise<string> {
+    const { data, error } = await supabase.rpc('permission_execution_record', {
+      p_request_id: input.requestId,
+      p_actual_out: input.actualOut,
+      p_actual_return: input.actualReturn ?? null,
+      p_note: input.note ?? null,
+    });
+    if (error) throw new Error(permissionErrorMessage(error.message));
+    return String(data ?? '');
+  }
+
   /**
    * ★★★★ هل يحقّ للمستخدم الحاليّ هذا النطاق؟ (0372)
    *   بلاغ المستخدم: التبويبات الثلاثة كانت تُعرض للجميع فأوهمت

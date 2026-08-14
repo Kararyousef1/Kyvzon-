@@ -25,7 +25,7 @@ import { adminUserService } from '../../services/sdk/AdminUserService';
 import { entitlementService } from '../../services/sdk/EntitlementService';
 import { legalEntityService, type LegalEntityRecord } from '../../services/sdk/FinanceFoundationService';
 import { getCurrentTenantId } from '../../services/sdk/BaseService';
-import { supabase } from '../../services/supabase/supabase';
+import { adminEmployeeDataService } from '../../services/sdk/AdminEmployeeDataService';
 import { getErrorMessage } from '../../services/errors';
 import type { UserRole } from '../../shared/types';
 import { portalUnitService } from '../../services/sdk/PortalUnitService';
@@ -728,22 +728,10 @@ export default function AdminEmployeesPage() {
         departmentService.findActive().catch(() => []),
         branchService.findAll({ orderBy: 'name_ar' }).catch(() => []),
         legalEntityService.findActive().catch(() => []),
-        (async () => {
-          if (!tenantId) return [];
-          const { data } = await supabase.from('cost_centers').select('id, name_ar, code').eq('tenant_id', tenantId).limit(50);
-          return data || [];
-        })(),
-        (async () => {
-          if (!tenantId) return [];
-          const { data } = await supabase.from('finance_projects').select('id, name_ar, code').eq('tenant_id', tenantId).limit(50);
-          return data || [];
-        })(),
+        tenantId ? adminEmployeeDataService.findCostCenters(tenantId) : Promise.resolve([]),
+        tenantId ? adminEmployeeDataService.findFinanceProjects(tenantId) : Promise.resolve([]),
         entitlementService.getUsage().catch(() => null),
-        (async () => {
-          if (!tenantId) return [];
-          const { data } = await supabase.from('entity_memberships').select('user_id, legal_entity_id, finance_role, is_active').eq('tenant_id', tenantId);
-          return data || [];
-        })(),
+        tenantId ? adminEmployeeDataService.findTenantMemberships(tenantId) : Promise.resolve([]),
       ]);
       setEmployees(emps || []);
       setDepartments(depts || []);
@@ -866,12 +854,9 @@ export default function AdminEmployeesPage() {
       .catch(() => { /* لا تنسيب بعد — النموذج يبقى بقيمه المستنتَجة */ });
 
     try {
-      const { data } = await supabase
-        .from('entity_memberships')
-        .select('*, legal_entities!inner(name_ar, code)')
-        .eq('user_id', emp.id);
-      setEntityMemberships(data || []);
-      if (data && data.length > 0) {
+      const data = await adminEmployeeDataService.findUserMemberships(emp.id, getCurrentTenantId());
+      setEntityMemberships(data);
+      if (data.length > 0) {
         const first = data[0] as any;
         setForm(f => ({ ...f, finance: { ...f.finance, legal_entity_id: first.legal_entity_id, finance_role: first.finance_role } }));
       }
@@ -898,11 +883,7 @@ export default function AdminEmployeesPage() {
     setSelectedEmp(emp);
     setViewOpen(true);
     try {
-      const { data } = await supabase
-        .from('entity_memberships')
-        .select('*, legal_entities!inner(name_ar, code)')
-        .eq('user_id', emp.id);
-      setEntityMemberships(data || []);
+      setEntityMemberships(await adminEmployeeDataService.findUserMemberships(emp.id, getCurrentTenantId()));
     } catch { /* silent */ }
   };
 
@@ -1016,9 +997,10 @@ export default function AdminEmployeesPage() {
 
         // حفظ custom_permissions
         const currentCustom = selectedEmp.custom_permissions || {};
-        await supabase.from('profiles').update({
-          custom_permissions: { ...currentCustom, allowed_pages: effectiveAllowedPages },
-        }).eq('id', selectedEmp.id);
+        await adminEmployeeDataService.updateCustomPermissions(selectedEmp.id, {
+          ...currentCustom,
+          allowed_pages: effectiveAllowedPages,
+        });
 
         // ★ حفظ التنسيب: القسم والفرع والوردية (0319)
         //
@@ -1048,24 +1030,12 @@ export default function AdminEmployeesPage() {
 
         // entity_membership
         if (form.finance.legal_entity_id && tenantId) {
-          const { data: existing } = await supabase
-            .from('entity_memberships').select('id')
-            .eq('user_id', selectedEmp.id)
-            .eq('legal_entity_id', form.finance.legal_entity_id)
-            .maybeSingle();
-          if (existing) {
-            await supabase.from('entity_memberships')
-              .update({ finance_role: form.finance.finance_role, is_active: true })
-              .eq('id', (existing as any).id);
-          } else {
-            await supabase.from('entity_memberships').insert({
-              tenant_id:       tenantId,
-              legal_entity_id: form.finance.legal_entity_id,
-              user_id:         selectedEmp.id,
-              finance_role:    form.finance.finance_role,
-              is_active:       true,
-            });
-          }
+          await adminEmployeeDataService.upsertMembership({
+            tenantId,
+            legalEntityId: form.finance.legal_entity_id,
+            userId: selectedEmp.id,
+            financeRole: form.finance.finance_role,
+          });
         }
 
         // ─── وحدات البوابة (0302) ───────────────────────────────────────
@@ -1118,23 +1088,20 @@ export default function AdminEmployeesPage() {
 
         const newUserId = result.data?.user_id || (result as any).user_id;
         if (newUserId) {
-          await supabase.from('profiles').update({
-            custom_permissions: {
-              branch_id:    form.branch_id || null,
-              shift_code:   form.shift_code || null,
-              cost_centers: form.finance.cost_centers,
-              projects:     form.finance.projects,
-              allowed_pages:effectiveAllowedPages,
-            },
-          }).eq('id', newUserId);
+          await adminEmployeeDataService.updateCustomPermissions(newUserId, {
+            branch_id:     form.branch_id || null,
+            shift_code:    form.shift_code || null,
+            cost_centers:  form.finance.cost_centers,
+            projects:      form.finance.projects,
+            allowed_pages: effectiveAllowedPages,
+          });
 
           if (form.finance.legal_entity_id && tenantId) {
-            await supabase.from('entity_memberships').insert({
-              tenant_id:       tenantId,
-              legal_entity_id: form.finance.legal_entity_id,
-              user_id:         newUserId,
-              finance_role:    form.finance.finance_role,
-              is_active:       true,
+            await adminEmployeeDataService.createMembership({
+              tenantId,
+              legalEntityId: form.finance.legal_entity_id,
+              userId: newUserId,
+              financeRole: form.finance.finance_role,
             });
           }
 

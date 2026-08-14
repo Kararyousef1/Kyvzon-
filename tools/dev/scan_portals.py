@@ -26,7 +26,13 @@ import os
 import re
 import sys
 
-ROOT = "/home/user/Kyvzon"
+# Keep Arabic JSON and reports portable on Windows consoles and CI pipes.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+# Resolve the repository from this script so the scanner works in CI, clones,
+# worktrees and developer machines instead of depending on one local path.
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 PORTALS = {
     "الموظف": "src/pages/employee",
     "الموارد البشرية": "src/pages/hr",

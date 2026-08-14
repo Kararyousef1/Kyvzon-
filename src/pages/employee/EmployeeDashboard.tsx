@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
 import { incidentService } from '../../services/sdk/IncidentService';
-import { wellnessService, wellnessEntryService } from '../../services/sdk/WellnessService';
+import { wellnessEntryService } from '../../services/sdk/WellnessService';
 import { attendanceSummaryService } from '../../services/sdk/AttendanceService';
 import { employeeLoanService, expenseRequestService } from '../../services/sdk/FinanceService';
 import { payrollRecordService } from '../../services/sdk/PayrollService';
@@ -68,26 +68,10 @@ interface Problem {
   };
 }
 
-interface WellnessEntry {
-  date: string;
-  score: number;
-  mood: string;
-  stress: number;
-  energy: number;
-  notes?: string;
-}
-
 interface AttendanceRecord {
   id?: string;
   shift_date: string;
   status?: string;
-}
-
-/** ★ المرحلة 1: سجل الصحة النفسية — score أو mood_score حسب المصدر */
-interface WellnessEntryLite {
-  date?: string;
-  score?: number;
-  mood_score?: number;
 }
 
 interface TrendDataPoint {
@@ -182,7 +166,7 @@ export default function EmployeeDashboard() {
         await Promise.all([
           employeeDashboardService.summary(),
           incidentService.findByEmployee(employeeId) as unknown as Problem[],
-          wellnessEntryService.findByUser(employeeId, 30) as unknown as WellnessEntry[],
+          wellnessEntryService.findByEmployee(employeeId, 30),
           attendanceSummaryService.findAll({
             filters: { employee_id: employeeId },
             orderBy: 'shift_date',
@@ -195,7 +179,7 @@ export default function EmployeeDashboard() {
         ]);
 
       const problemsList = problems || [];
-      const wellnessList = (wellness ?? []) as unknown as WellnessEntryLite[];
+      const wellnessList = wellness ?? [];
       const attendanceList = attendance || [];
 
       setRecentProblems(problemsList.slice(0, 5));
@@ -213,11 +197,11 @@ export default function EmployeeDashboard() {
 
       const latestPayroll = (payrollRows || [])[0] || {};
       const pendingExpenses = (expenses || [])
-        .filter((expense: any) => ['pending', 'submitted', 'in_review', 'new', 'قيد الانتظار'].includes(String(expense.status || '').toLowerCase()) || expense.status === 'قيد المراجعة')
-        .reduce((sum: number, expense: any) => sum + Number(expense.amount || 0), 0);
+        .filter((expense) => ['pending', 'submitted', 'in_review', 'new', 'قيد الانتظار'].includes(String(expense.status || '').toLowerCase()) || expense.status === 'قيد المراجعة')
+        .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
       const outstandingLoans = (loans || [])
-        .filter((loan: any) => !['rejected', 'closed', 'paid', 'مرفوض', 'مغلق', 'مسدد'].includes(String(loan.status || '').toLowerCase()))
-        .reduce((sum: number, loan: any) => sum + Number(loan.remaining_amount ?? loan.loan_amount ?? loan.amount ?? 0), 0);
+        .filter((loan) => !['rejected', 'closed', 'paid', 'مرفوض', 'مغلق', 'مسدد'].includes(String(loan.status || '').toLowerCase()))
+        .reduce((sum, loan) => sum + Number(loan.remaining_amount ?? loan.loan_amount ?? loan.amount ?? 0), 0);
       setFinancialSummary({
         latestNetSalary: Number(latestPayroll.net_salary ?? latestPayroll.total_salary ?? latestPayroll.basic_salary ?? 0),
         pendingExpenses,
@@ -239,7 +223,7 @@ export default function EmployeeDashboard() {
           problems: problemsList.filter((p: Problem) => p.created_at?.startsWith(date)).length,
           wellness: (() => {
             const w = wellnessList.find((x) => x.date === date);
-            return w?.score ?? w?.mood_score ?? 0;
+            return w?.score ?? 0;
           })(),
         };
       });

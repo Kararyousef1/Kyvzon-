@@ -26,7 +26,7 @@ const PAGE = read('src/pages/employee/LeaveRequestPage.tsx');
 const ROUTER = read('src/router/AppRouter.tsx');
 const LEGACY = read('src/router/legacyRedirect.ts');
 const SDK_INDEX = read('src/services/sdk/index.ts');
-const HR_SVC = read('src/services/sdk/HrApprovalService.ts');
+const UNIFIED_SVC = read('src/services/sdk/UnifiedApprovalService.ts');
 
 /** يجرّد التعليقات — الادّعاء في التعليق ليس تنفيذاً */
 function codeOnly(src: string): string {
@@ -348,11 +348,11 @@ describe('0339 ⑨ — طبقة SDK', () => {
     expect(SDK_INDEX).toMatch(/export \{ leaveRequestService, leaveErrorMessage \} from '\.\/LeaveRequestService'/);
   });
 
-  it('★★ findRequestIdBySource ترشّح بـrequest_type (related_id بلا FK)', () => {
-    const fn = HR_SVC.slice(HR_SVC.indexOf('async findRequestIdBySource('),
-      HR_SVC.indexOf('roleLabel('));
-    expect(fn).toMatch(/\.eq\('request_type', requestType\)/);
-    expect(fn).toMatch(/\.eq\('related_id', relatedId\)/);
+  it('★★ القرار بمعرّف المصدر يمر عبر واجهة المحرّك الموحّد', () => {
+    expect(UNIFIED_SVC).toMatch(/async decideHrAny\(/);
+    expect(UNIFIED_SVC).toMatch(/rpc\('hr_approval_decide_any'/);
+    expect(SDK_INDEX).toMatch(/unifiedApprovalService/);
+    expect(SDK_INDEX).not.toMatch(/HrApprovalService|hrApprovalService/);
   });
 });
 
@@ -373,7 +373,8 @@ describe('0339 ⑩ — الصفحة', () => {
   it('★★★ لا اعتماد مباشر — لا approveLeave ولا rejectLeave', () => {
     expect(PAGE_CODE).not.toMatch(/approveLeave/);
     expect(PAGE_CODE).not.toMatch(/rejectLeave/);
-    expect(PAGE_CODE).toMatch(/hrApprovalService\.decide\(/);
+    expect(PAGE_CODE).toMatch(/unifiedApprovalService\.decideHrAny\(row\.id/);
+    expect(PAGE_CODE).not.toMatch(/hrApprovalService|findRequestIdBySource/);
   });
 
   it('★★ لا تلمس Supabase ولا تُنشئ الطلب بـcreateLeave الخام', () => {

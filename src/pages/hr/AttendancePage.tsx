@@ -41,6 +41,7 @@ import Badge from '../../shared/components/ui/Badge';
 import Button from '../../shared/components/ui/Button';
 import { useUIStore } from '../../core/stores';
 import { departmentService } from '../../services/sdk/DepartmentService';
+import { techMetricsService, type DeviceHealth } from '../../services/sdk/TechMetricsService';
 import {
   hrAttendanceBoardService,
   type DailyAttendanceRow,
@@ -81,6 +82,7 @@ export default function AttendancePage() {
   const [rows, setRows]         = useState<DailyAttendanceRow[]>([]);
   const [summary, setSummary]   = useState<DailyAttendanceSummary | null>(null);
   const [depts, setDepts]       = useState<DeptOption[]>([]);
+  const [deviceHealth, setDeviceHealth] = useState<DeviceHealth[]>([]);
 
   // ★★ 0346: لم يكن ثمة منتقي تاريخ إطلاقاً — الصفحة تعرض اليوم فقط
   const [day, setDay]           = useState(() => format(new Date(), 'yyyy-MM-dd'));
@@ -103,6 +105,7 @@ export default function AttendancePage() {
         })),
       ))
       .catch(() => { /* الأقسام اختيارية للترشيح */ });
+    void techMetricsService.devicesHealth().then(setDeviceHealth).catch(() => setDeviceHealth([]));
   }, []);
 
   const fetchBoard = useCallback(async () => {
@@ -208,6 +211,36 @@ export default function AttendancePage() {
           </div>
         ))}
       </div>
+
+      {deviceHealth.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-4">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h3 className="font-bold text-slate-800">صحة أجهزة البصمة</h3>
+            <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+              deviceHealth.some((device) => device.isStale)
+                ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+              {deviceHealth.filter((device) => device.isStale).length} متأخر
+            </span>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {deviceHealth.map((device) => (
+              <div key={device.deviceId} className={`rounded-xl border p-3 ${
+                device.isStale ? 'border-red-200 bg-red-50/50' : 'border-slate-100 bg-slate-50'}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-bold text-slate-800">{device.name}</p>
+                  <span className={`w-2.5 h-2.5 rounded-full ${
+                    !device.isActive ? 'bg-slate-400' : device.isStale ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                </div>
+                <p className="text-xs text-slate-500 mt-1">{device.location ?? 'موقع غير محدد'}</p>
+                <p className="text-xs text-slate-600 mt-2">
+                  {device.minutesBehind == null ? 'لم يزامن قط' : `آخر مزامنة قبل ${device.minutesBehind} دقيقة`}
+                  {' · '}{device.punchesToday} بصمة اليوم
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {summary && summary.avgMinutes > 0 ? (
         <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 rounded-xl px-4 py-2.5 border border-slate-100">

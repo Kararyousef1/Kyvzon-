@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { supabase } from '../../../../services/supabase/supabase';
+import {
+  inventoryRecordService,
+  type InventoryStatusTable,
+} from '../../../../services/sdk';
 
 type Row = Record<string, unknown>;
 
 type InventoryRecordToolsProps = {
   row: Row;
   copyKeys?: string[];
-  tableName?: string;
+  tableName?: InventoryStatusTable;
   statusOptions?: Array<{ value: string; label: string }>;
   onChanged?: () => void;
 };
@@ -20,7 +23,7 @@ async function copyToClipboard(value: unknown) {
   await navigator.clipboard.writeText(String(value));
 }
 
-type InferredActions = { tableName?: string; statusOptions?: Array<{ value: string; label: string }> };
+type InferredActions = { tableName?: InventoryStatusTable; statusOptions?: Array<{ value: string; label: string }> };
 function inferActions(row: Row): InferredActions {
   if (row.asn_number) return { tableName: 'inventory_asns', statusOptions: [{ value: 'cancelled', label: 'إلغاء' }, { value: 'closed', label: 'إغلاق' }] };
   if (row.appointment_number) return { tableName: 'inventory_dock_appointments', statusOptions: [{ value: 'cancelled', label: 'إلغاء' }, { value: 'completed', label: 'إكمال' }] };
@@ -63,13 +66,12 @@ export function InventoryRecordTools({ row, copyKeys, tableName, statusOptions, 
     if (!reason.trim()) { setMsg('يجب كتابة سبب التعديل أو الإغلاق قبل التنفيذ'); return; }
     setBusy(true); setMsg('');
     try {
-      const { error } = await supabase.rpc('update_inventory_record_status', {
-        p_entity_table: effectiveTableName,
-        p_entity_id: row.id,
-        p_new_status: status,
-        p_reason: reason.trim(),
+      await inventoryRecordService.updateStatus({
+        table: effectiveTableName,
+        id: String(row.id),
+        status,
+        reason: reason.trim(),
       });
-      if (error) throw new Error(error.message);
       setMsg('تم تحديث الحالة وتسجيلها في سجل النشاط');
       setReason('');
       onChanged?.();

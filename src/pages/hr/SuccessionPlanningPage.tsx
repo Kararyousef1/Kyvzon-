@@ -29,7 +29,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Award, Crown, Loader2, Plus, Search, ShieldAlert, Target, Users,
-  UserX, Archive, TrendingUp, AlertTriangle,
+  UserX, Archive, TrendingUp, AlertTriangle, BookOpen, XCircle,
 } from 'lucide-react';
 import { useUIStore } from '../../core/stores';
 import { getErrorMessage } from '../../services/errors';
@@ -40,7 +40,8 @@ import {
 } from '../../services/sdk';
 import type {
   SuccessionPositionRow, SuccessionSummary, SuccessionCandidate,
-  ReadinessLevel, RiskLevel, PositionStatus,
+  ReadinessLevel, RiskLevel, PositionStatus, DevelopmentPlan,
+  SuccessionCourseOption,
 } from '../../services/sdk';
 import { Modal, FormField, ModalActions, EmployeePicker, DetailRow } from './LoansPage';
 
@@ -55,6 +56,10 @@ const EMPTY_CANDIDATE = {
   positionId: '', employeeId: '',
   level: 'ready_12_months' as ReadinessLevel, score: 50,
   strengths: '', gaps: '', notes: '',
+};
+
+const EMPTY_PLAN = {
+  title: '', description: '', targetDate: '', courseId: '',
 };
 
 export default function SuccessionPlanningPage() {
@@ -73,6 +78,11 @@ export default function SuccessionPlanningPage() {
   const [saving, setSaving] = useState(false);
   const [positionForm, setPositionForm] = useState({ ...EMPTY_POSITION });
   const [candidateForm, setCandidateForm] = useState({ ...EMPTY_CANDIDATE });
+  const [planCandidate, setPlanCandidate] = useState<SuccessionCandidate | null>(null);
+  const [plans, setPlans] = useState<DevelopmentPlan[]>([]);
+  const [courseOptions, setCourseOptions] = useState<SuccessionCourseOption[]>([]);
+  const [planForm, setPlanForm] = useState({ ...EMPTY_PLAN });
+  const [plansLoading, setPlansLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -193,6 +203,63 @@ export default function SuccessionPlanningPage() {
       addToast(next === 'closed' ? 'أُغلق المنصب' : 'أُعيد تفعيل المنصب', 'success');
       setDetail(null);
       await load();
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const openDevelopmentPlans = async (candidate: SuccessionCandidate) => {
+    setPlanCandidate(candidate);
+    setPlanForm({ ...EMPTY_PLAN, title: candidate.gaps ? `معالجة فجوة: ${candidate.gaps}` : '' });
+    setPlansLoading(true);
+    try {
+      const [planRows, courses] = await Promise.all([
+        successionPlanningSdk.plans(candidate.id),
+        successionPlanningSdk.trainingCourses(),
+      ]);
+      setPlans(planRows);
+      setCourseOptions(courses);
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+      setPlans([]);
+      setCourseOptions([]);
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  const handleCreatePlan = async () => {
+    if (!planCandidate) return;
+    if (!planForm.title.trim()) { addToast('عنوان خطة التطوير مطلوب', 'warning'); return; }
+    if (!planForm.courseId) { addToast('اختر دورة تدريبية', 'warning'); return; }
+    setSaving(true);
+    try {
+      await successionPlanningSdk.createPlan({
+        candidateId: planCandidate.id,
+        action: 'training',
+        title: planForm.title.trim(),
+        description: planForm.description.trim() || null,
+        targetDate: planForm.targetDate || null,
+        courseId: planForm.courseId,
+      });
+      addToast('أُنشئت خطة التطوير وكُلّف المرشح بالدورة', 'success');
+      setPlanForm({ ...EMPTY_PLAN });
+      setPlans(await successionPlanningSdk.plans(planCandidate.id));
+    } catch (err) {
+      addToast(getErrorMessage(err), 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancelPlan = async (plan: DevelopmentPlan) => {
+    setBusyId(plan.id);
+    try {
+      await successionPlanningSdk.setPlanStatus(plan.id, 'cancelled', 'ألغيت من شاشة تخطيط التعاقب');
+      if (planCandidate) setPlans(await successionPlanningSdk.plans(planCandidate.id));
+      addToast('أُلغيت خطة التطوير دون حذف سجلها', 'success');
     } catch (err) {
       addToast(getErrorMessage(err), 'error');
     } finally {
@@ -615,6 +682,13 @@ export default function SuccessionPlanningPage() {
                   {c.gaps && (
                     <p className="text-xs text-amber-700 mt-0.5">فجوة: {c.gaps}</p>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => void openDevelopmentPlans(c)}
+                    className="mt-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg px-2.5 py-1.5 flex items-center gap-1"
+                  >
+                    <BookOpen size={12} /> خطة تطوير وتدريب
+                  </button>
                 </div>
               ))}
             </div>
@@ -633,6 +707,94 @@ export default function SuccessionPlanningPage() {
               المناصب وخطط التعاقب لا تُحذف — تُغلق أو يُلغى ترشيحها.
             </p>
           </div>
+        </Modal>
+      )}
+
+      {planCandidate && (
+        <Modal
+          title={`خطة تطوير: ${planCandidate.employeeName}`}
+          onClose={() => { setPlanCandidate(null); setPlans([]); }}
+        >
+          {plansLoading ? (
+            <div className="py-8 flex justify-center"><Loader2 className="animate-spin text-indigo-600" /></div>
+          ) : (
+            <>
+              <div className="space-y-2 mb-4">
+                {plans.length === 0 ? (
+                  <p className="text-sm text-slate-500 bg-slate-50 rounded-xl p-3">لا توجد خطة تطوير لهذا المرشح.</p>
+                ) : plans.map((plan) => (
+                  <div key={plan.id} className="border border-slate-200 rounded-xl p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{plan.title}</p>
+                        <p className="text-xs text-slate-500">
+                          {plan.courseTitle ?? plan.action} · {plan.status}
+                        </p>
+                      </div>
+                      {plan.status !== 'completed' && plan.status !== 'cancelled' && (
+                        <button
+                          type="button"
+                          onClick={() => void cancelPlan(plan)}
+                          disabled={busyId === plan.id}
+                          className="text-red-600 hover:bg-red-50 rounded-lg p-1.5 disabled:opacity-50"
+                          title="إلغاء الخطة"
+                        >
+                          <XCircle size={15} />
+                        </button>
+                      )}
+                    </div>
+                    {plan.progress != null && (
+                      <div className="mt-2">
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-600" style={{ width: `${plan.progress}%` }} />
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          تقدم الدورة {plan.progress}%{plan.courseCompleted ? ' · مكتملة' : ''}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-sm font-bold text-slate-700 mb-2">إضافة خطة تدريب</p>
+                <FormField label="عنوان الخطة" required>
+                  <input value={planForm.title}
+                    onChange={(e) => setPlanForm({ ...planForm, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                </FormField>
+                <FormField label="الدورة" required>
+                  <select value={planForm.courseId}
+                    onChange={(e) => setPlanForm({ ...planForm, courseId: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg">
+                    <option value="">اختر دورة</option>
+                    {courseOptions.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.title} — {course.level}{course.mandatory ? ' · إلزامية' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+                <FormField label="التاريخ المستهدف">
+                  <input type="date" value={planForm.targetDate}
+                    onChange={(e) => setPlanForm({ ...planForm, targetDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                </FormField>
+                <FormField label="الوصف">
+                  <textarea value={planForm.description}
+                    onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
+                    rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                </FormField>
+                <ModalActions
+                  onClose={() => { setPlanCandidate(null); setPlans([]); }}
+                  onSubmit={() => { if (!saving) void handleCreatePlan(); }}
+                  submitLabel={saving ? 'جارٍ التكليف…' : 'إنشاء وتكليف الدورة'}
+                  color="blue"
+                />
+              </div>
+            </>
+          )}
         </Modal>
       )}
     </div>

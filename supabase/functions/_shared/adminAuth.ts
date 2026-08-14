@@ -120,7 +120,10 @@ export function isUuid(value: unknown): value is string {
 }
 
 // ─── Admin authorization gate ───────────────────────────────────────────────
-export async function requireAdmin(req: Request): Promise<AdminContext | Response> {
+export async function requireAdmin(
+  req: Request,
+  allowedRoles: ReadonlySet<string> = CALLER_ROLES,
+): Promise<AdminContext | Response> {
   // سياسة أصل مُشدّدة: يُرفض أي Origin غير مُدرَج في APP_ORIGIN (أو localhost في التطوير).
   const requestOrigin = req.headers.get('origin');
   if (requestOrigin && resolveAllowedOrigin(req) === '') {
@@ -147,8 +150,8 @@ export async function requireAdmin(req: Request): Promise<AdminContext | Respons
     .select('id, full_name, role, tenant_id')
     .eq('id', authData.user.id)
     .single();
-  if (profileError || !profile || !CALLER_ROLES.has(String(profile.role))) {
-    return json(req, { error: 'غير مخوّل. يتطلب صلاحية إدارية.' }, 403);
+  if (profileError || !profile || !allowedRoles.has(String(profile.role))) {
+    return json(req, { error: 'غير مخوّل لتنفيذ هذه العملية.' }, 403);
   }
   if (!profile.tenant_id) return json(req, { error: 'لا توجد شركة مرتبطة بالمستخدم الإداري.' }, 403);
 

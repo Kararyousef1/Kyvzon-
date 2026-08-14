@@ -14,11 +14,12 @@ import {
   BarChart3, Users, Layers, Search, Download,
   ArrowUp, ArrowDown, Loader2, ChevronDown,
   AlertTriangle, RefreshCw, BookOpen, Clock,
-  CheckCircle, XCircle,
+  CheckCircle, XCircle, ShieldAlert,
 } from 'lucide-react';
-import { supabase } from '../../services/supabase/supabase';
 import { useUIStore, useAuthStore } from '../../core/stores';
 import { getCurrentTenantId } from '../../services/sdk/BaseService';
+import { sopAdminService } from '../../services/sdk/SopAdminService';
+import { sopService, type SopCompliance } from '../../services/sdk/SopService';
 import { exportToStyledExcel } from '../../utils/exportToExcel';
 
 // ════════════════════════════════════════════════════════════════
@@ -96,7 +97,8 @@ export default function AdminSOPsReport() {
   const [sortBy, setSortBy]           = useState<'name' | 'completion' | 'department'>('completion');
   const [sortDir, setSortDir]         = useState<'asc' | 'desc'>('desc');
   const [expandedEmp, setExpandedEmp] = useState<string | null>(null);
-  const [selectedView, setSelectedView] = useState<'employees' | 'departments'>('employees');
+  const [selectedView, setSelectedView] = useState<'employees' | 'departments' | 'compliance'>('employees');
+  const [complianceRows, setComplianceRows] = useState<SopCompliance[]>([]);
 
   // ════════════════════════════════════════════════════════════
   //  جلب البيانات من Supabase — بيانات حقيقية 100%
@@ -108,39 +110,16 @@ export default function AdminSOPsReport() {
     try {
       const tenantId = getCurrentTenantId();
 
-      // ── 1: جلب كل الموظفين في الـ tenant ───────────────────
-      let empQuery = supabase
-        .from('employees')
-        .select('id, full_name, manufacturing_dept, department')
-        .eq('status', 'active');
-      if (tenantId) empQuery = empQuery.eq('tenant_id', tenantId);
-      const { data: employees, error: empErr } = await empQuery;
-      if (empErr) throw empErr;
-      if (!employees || employees.length === 0) {
+      const report = await sopAdminService.loadReport(tenantId || undefined);
+      const employees = report.employees;
+      if (employees.length === 0) {
         setReportData([]);
         setLoading(false);
         return;
       }
 
-      // ── 2: جلب كل SOPs النشطة في الـ tenant ─────────────────
-      let sopQuery = supabase
-        .from('sops')
-        .select('id, department, status, is_mandatory, duration')
-        .eq('status', 'active');
-      if (tenantId) sopQuery = sopQuery.eq('tenant_id', tenantId);
-      const { data: sops, error: sopErr } = await sopQuery;
-      if (sopErr) throw sopErr;
-      const allSops = sops || [];
-
-      // ── 3: جلب قراءات كل الموظفين ──────────────────────────
-      const empIds = employees.map(e => e.id);
-      const readQuery = supabase
-        .from('sop_readings')
-        .select('sop_id, employee_id, completed, approved, time_spent, last_read_at')
-        .in('employee_id', empIds);
-      const { data: readings, error: readErr } = await readQuery;
-      if (readErr) throw readErr;
-      const allReadings = readings || [];
+      const allSops = report.sops;
+      const allReadings = report.readings;
 
       // ── 4: تجميع البيانات لكل موظف ─────────────────────────
       const readingsByEmployee = new Map<string, typeof allReadings>();
@@ -216,6 +195,9 @@ export default function AdminSOPsReport() {
   }, []);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
+  useEffect(() => {
+    void sopService.compliance().then(setComplianceRows).catch(() => setComplianceRows([]));
+  }, []);
 
   // ════════════════════════════════════════════════════════════
   //  القيم المشتقة
@@ -354,6 +336,7 @@ export default function AdminSOPsReport() {
         {([
           { key: 'employees',   label: 'الموظفين',  Icon: Users },
           { key: 'departments', label: 'الأقسام',   Icon: Layers },
+          { key: 'compliance',  label: 'امتثال الإجراءات', Icon: ShieldAlert },
         ] as const).map(tab => (
           <button
             key={tab.key}
@@ -601,6 +584,41 @@ export default function AdminSOPsReport() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {!fetchError && selectedView === 'compliance' && (
+        <div className="space-y-3">
+          {complianceRows.length === 0 ? (
+            <div className="bg-white rounded-2xl border p-10 text-center text-slate-500">
+              لا توجد إجراءات نشطة لقياس الامتثال.
+            </div>
+          ) : complianceRows.map((row) => (
+            <div key={row.sopId} className="bg-white rounded-2xl border border-slate-200 p-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-indigo-700 bg-indigo-50 px-2 py-1 rounded">{row.code}</span>
+                    {row.isMandatory && <span className="text-xs text-red-700 bg-red-50 px-2 py-1 rounded">إلزامي</span>}
+                  </div>
+                  <h3 className="font-bold text-slate-800 mt-2">{row.title}</h3>
+                  <p className="text-xs text-slate-500">{row.department}</p>
+                </div>
+                <div className={`text-2xl font-black ${getProgressColor(row.compliancePct)}`}>
+                  {row.compliancePct}%
+                </div>
+              </div>
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden mt-3">
+                <div className={`h-full ${getProgressBg(row.compliancePct)}`}
+                  style={{ width: `${row.compliancePct}%` }} />
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-3 text-center text-xs">
+                <div className="bg-slate-50 rounded-lg p-2"><b>{row.targetCount}</b><br />مستهدف</div>
+                <div className="bg-blue-50 rounded-lg p-2 text-blue-700"><b>{row.readCount}</b><br />قرأ</div>
+                <div className="bg-emerald-50 rounded-lg p-2 text-emerald-700"><b>{row.approvedCount}</b><br />اعتمد</div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -14,6 +14,10 @@
  */
 
 import { supabase } from '../../services/supabase/supabase';
+import {
+  notificationGatewayService,
+  type NotificationGatewayRow,
+} from '../sdk/NotificationGatewayService';
 import type { AppNotification, NotificationType } from '../../core/constants/notificationTypes';
 import type { UserRole } from '../../shared/types/index';
 
@@ -21,22 +25,8 @@ import type { UserRole } from '../../shared/types/index';
 //  أنواع داخلية
 // ════════════════════════════════════════════════════════════════
 
-/** الشكل الخام للإشعار كما يأتي من Supabase */
-interface RawServerNotification {
-  id: string;
-  user_id?: string;
-  type: string;
-  priority: string;
-  title: string;
-  message: string;
-  is_read: boolean;
-  read_at?: string;
-  created_at: string;
-  action_url?: string;
-  group_key?: string;
-  metadata?: Record<string, unknown>;
-  expires_at?: string;
-}
+/** الشكل الخام للإشعار كما يأتي من طبقة SDK */
+type RawServerNotification = NotificationGatewayRow;
 
 export interface RealtimeNotificationEvent {
   event: 'INSERT' | 'UPDATE' | 'DELETE';
@@ -226,41 +216,10 @@ export function subscribeToRealtimeNotifications(
 //  دوال جلب المستخدمين (داخلية)
 // ════════════════════════════════════════════════════════════════
 
-/** جلب user_ids من profiles حسب الدور */
+/** جلب user_ids من خدمة SDK المتخصصة حسب الدور */
 async function getUserIdsByRole(roles: UserRole[]): Promise<string[]> {
-  const ids: string[] = [];
-
   try {
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .in('role', roles)
-      .eq('status', 'active');
-
-    if (!profileError && profileData) {
-      profileData.forEach((p) => {
-        if (p.id && !ids.includes(p.id)) ids.push(p.id);
-      });
-    }
-
-    // Fallback: employees جدول
-    if (ids.length === 0) {
-      const dbRoles = roles.map((r) => (r === 'admin' ? 'system_admin' : r));
-      const { data: empData, error: empError } = await supabase
-        .from('employees')
-        .select('user_id')
-        .in('role', dbRoles)
-        .eq('is_active', true)
-        .not('user_id', 'is', null);
-
-      if (!empError && empData) {
-        empData.forEach((e) => {
-          if (e.user_id && !ids.includes(e.user_id)) ids.push(e.user_id);
-        });
-      }
-    }
-
-    return ids;
+    return await notificationGatewayService.findUserIdsByRoles(roles);
   } catch (err) {
     console.error('❌ getUserIdsByRole failed:', err);
     return [];
@@ -270,30 +229,7 @@ async function getUserIdsByRole(roles: UserRole[]): Promise<string[]> {
 /** جلب user_id للمدير المباشر لموظف */
 async function getManagerId(employeeIdOrUserId: string): Promise<string | null> {
   try {
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('manager_id')
-      .eq('id', employeeIdOrUserId)
-      .maybeSingle();
-
-    if (profileData?.manager_id) return profileData.manager_id;
-
-    const { data: empData } = await supabase
-      .from('employees')
-      .select('manager_id, user_id')
-      .or(`id.eq.${employeeIdOrUserId},user_id.eq.${employeeIdOrUserId}`)
-      .maybeSingle();
-
-    if (empData?.manager_id) {
-      const { data: managerData } = await supabase
-        .from('employees')
-        .select('user_id')
-        .eq('id', empData.manager_id)
-        .maybeSingle();
-      return managerData?.user_id || null;
-    }
-
-    return null;
+    return await notificationGatewayService.findManagerUserId(employeeIdOrUserId);
   } catch (err) {
     console.error('❌ getManagerId failed:', err);
     return null;
@@ -302,25 +238,8 @@ async function getManagerId(employeeIdOrUserId: string): Promise<string | null> 
 
 /** جلب جميع المشرفين (مدير مباشر + HR + Admin) */
 async function getSupervisorIds(employeeIdOrUserId: string): Promise<string[]> {
-  const ids: string[] = [];
-
   try {
-    const managerId = await getManagerId(employeeIdOrUserId);
-    if (managerId) ids.push(managerId);
-
-    const { data: managers } = await supabase
-      .from('profiles')
-      .select('id')
-      .in('role', ['manager', 'hr', 'admin'])
-      .eq('status', 'active');
-
-    if (managers) {
-      managers.forEach((m) => {
-        if (m.id && !ids.includes(m.id)) ids.push(m.id);
-      });
-    }
-
-    return ids;
+    return await notificationGatewayService.findSupervisorIds(employeeIdOrUserId);
   } catch (err) {
     console.error('❌ getSupervisorIds failed:', err);
     return [];
@@ -362,24 +281,7 @@ export async function notifyUser(
   }
 
   try {
-    const { data, error } = await supabase.rpc('create_notification_safe', {
-      p_target_user: targetUserId,
-      p_type: notification.type,
-      p_priority: notification.priority,
-      p_title: notification.title,
-      p_message: notification.message,
-      p_action_url: notification.actionUrl ?? null,
-      p_group_key: notification.groupKey ?? null,
-      p_metadata: notification.metadata ?? {},
-      p_expires_at: notification.expiresAt ?? null,
-    });
-
-    if (error) {
-      console.error('❌ notifyUser RPC فشل:', error);
-      return null;
-    }
-
-    return data?.toString() ?? null;
+    return await notificationGatewayService.create(targetUserId, notification);
   } catch (err) {
     console.error('❌ notifyUser exception:', err);
     return null;
@@ -480,9 +382,7 @@ export async function notifySupervisors(
  */
 export async function fetchUnreadCountFromServer(): Promise<number | null> {
   try {
-    const { data, error } = await supabase.rpc('my_unread_notification_count');
-    if (error) throw error;
-    return typeof data === 'number' ? data : null;
+    return await notificationGatewayService.unreadCount();
   } catch (err) {
     console.error('❌ fetchUnreadCountFromServer فشل:', err);
     // null ≠ 0 — لا نُخفي الشارة لمجرد فشل الشبكة؛ المُنادي يسقط للحساب المحلي
@@ -497,23 +397,8 @@ export async function fetchNotificationsFromServer(
   unreadOnly = false
 ): Promise<AppNotification[]> {
   try {
-    let query = supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (unreadOnly) {
-      query = query.eq('is_read', false);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    return (data ?? []).map((n) =>
-      transformServerNotification(n as unknown as RawServerNotification)
-    );
+    const notifications = await notificationGatewayService.findForUser(userId, limit, unreadOnly);
+    return notifications.map(transformServerNotification);
   } catch (err) {
     console.error('❌ fetchNotificationsFromServer فشل:', err);
     return [];
@@ -526,13 +411,7 @@ export async function markAsReadOnServer(
   notificationId: string | number
 ): Promise<boolean> {
   try {
-    const { error } = await supabase
-      .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq('id', notificationId)
-      .eq('user_id', userId);
-
-    if (error) throw error;
+    await notificationGatewayService.markRead(userId, notificationId);
     return true;
   } catch (err) {
     console.error('❌ markAsReadOnServer فشل:', err);
@@ -543,15 +422,7 @@ export async function markAsReadOnServer(
 /** تحديد جميع إشعارات المستخدم كمقروءة دفعةً واحدة */
 export async function markAllAsReadOnServer(userId: string): Promise<number> {
   try {
-    const { data, error } = await supabase
-      .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq('user_id', userId)
-      .eq('is_read', false)
-      .select('id');
-
-    if (error) throw error;
-    return data?.length ?? 0;
+    return await notificationGatewayService.markAllRead(userId);
   } catch (err) {
     console.error('❌ markAllAsReadOnServer فشل:', err);
     return 0;
@@ -564,13 +435,7 @@ export async function deleteNotificationOnServer(
   notificationId: string | number
 ): Promise<boolean> {
   try {
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', notificationId)
-      .eq('user_id', userId);
-
-    if (error) throw error;
+    await notificationGatewayService.remove(userId, notificationId);
     return true;
   } catch (err) {
     console.error('❌ deleteNotificationOnServer فشل:', err);
@@ -581,14 +446,7 @@ export async function deleteNotificationOnServer(
 /** حذف جميع إشعارات المستخدم */
 export async function deleteAllNotificationsOnServer(userId: string): Promise<number> {
   try {
-    const { data, error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('user_id', userId)
-      .select('id');
-
-    if (error) throw error;
-    return data?.length ?? 0;
+    return await notificationGatewayService.removeAll(userId);
   } catch (err) {
     console.error('❌ deleteAllNotificationsOnServer فشل:', err);
     return 0;
@@ -598,9 +456,7 @@ export async function deleteAllNotificationsOnServer(userId: string): Promise<nu
 /** تنظيف الإشعارات المنتهية الصلاحية عبر RPC */
 export async function cleanOldNotifications(_daysOld = 90): Promise<number> {
   try {
-    const { data, error } = await supabase.rpc('cleanup_expired_notifications');
-    if (error) throw error;
-    return data ?? 0;
+    return await notificationGatewayService.cleanupExpired();
   } catch (err) {
     console.error('❌ cleanOldNotifications فشل:', err);
     return 0;

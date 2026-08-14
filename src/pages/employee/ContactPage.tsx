@@ -4,8 +4,17 @@ import Card from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import Badge from '../../shared/components/ui/Badge';
 import { useUIStore, useAuthStore } from '../../core/stores';
-import { employeeLetterRequestService, hrCaseService, messageService } from '../../services/sdk';
-import type { EmployeeLetterRequestRecord, HRCasePriority, HRCaseRecord } from '../../shared/types/sdk';
+import {
+  employeeLetterRequestService,
+  hrCaseCommentService,
+  hrCaseService,
+} from '../../services/sdk';
+import type {
+  EmployeeLetterRequestRecord,
+  HRCaseCommentRecord,
+  HRCasePriority,
+  HRCaseRecord,
+} from '../../shared/types/sdk';
 import { getErrorMessage } from '../../services/errors';
 import { useEmployeeId } from '../../shared/hooks/useEmployeeId';
 
@@ -52,6 +61,7 @@ export default function ContactPage() {
   const [sending, setSending] = useState(false);
   const [sendingLetter, setSendingLetter] = useState(false);
   const [cases, setCases] = useState<HRCaseRecord[]>([]);
+  const [latestReplies, setLatestReplies] = useState<Record<string, HRCaseCommentRecord>>({});
   const [letters, setLetters] = useState<EmployeeLetterRequestRecord[]>([]);
   const [form, setForm] = useState({
     case_type: 'general_inquiry',
@@ -85,15 +95,27 @@ export default function ContactPage() {
         hrCaseService.findByEmployee(employeeId),
         employeeLetterRequestService.findByEmployee(employeeId),
       ]);
-      setCases(caseRows || []);
-      setLetters(letterRows || []);
+
+      // 0374: ردود HR العامة تُحفظ في خيط الحالة، لا في نسخةٍ منفصلة
+      // لا يقرأها الموظف. نحمّل آخر ردٍّ لأول ثماني حالات المعروضة فقط.
+      const replyPairs = await Promise.all(
+        caseRows.slice(0, 8).map(async (caseRow) => {
+          const comments = await hrCaseCommentService.findByCase(caseRow.id);
+          const latest = comments.filter((comment) => !comment.is_internal).at(-1);
+          return latest ? ([caseRow.id, latest] as const) : null;
+        }),
+      );
+
+      setCases(caseRows);
+      setLatestReplies(Object.fromEntries(replyPairs.filter((pair) => pair !== null)));
+      setLetters(letterRows);
     } catch (err) {
       console.error('HR self-service load failed:', getErrorMessage(err));
       addToast('تعذر تحميل طلبات HR السابقة', 'error');
     } finally {
       setLoading(false);
     }
-  }, [addToast, user?.id]);
+  }, [addToast, employeeId, user?.id]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -119,21 +141,11 @@ export default function ContactPage() {
     }
     setSending(true);
     try {
-      await hrCaseService.createCase({
-        employee_id: employeeId,
-        case_type: form.case_type,
-        subject: form.subject.trim(),
-        description: form.description.trim(),
+      await hrCaseService.submitCase({
+        caseType: form.case_type,
+        subject: form.subject,
+        description: form.description,
         priority: form.priority,
-      });
-
-      // توافق تشغيلي مع صندوق رسائل HR الحالي حتى تظهر الطلبات للموارد البشرية قبل بناء شاشة HR Cases.
-      await messageService.createMessage({
-        employee_id: employeeId,
-        subject: `[${caseTypes.find(t => t.value === form.case_type)?.label || 'طلب HR'}] ${form.subject}`,
-        message: form.description,
-        priority: form.priority,
-        status: 'new',
       });
 
       setForm({ case_type: 'general_inquiry', subject: '', description: '', priority: 'normal' });
@@ -287,9 +299,15 @@ export default function ContactPage() {
               <p className="text-sm text-slate-400 text-center py-6">لا توجد طلبات HR سابقة.</p>
             ) : cases.slice(0, 8).map(item => (
               <div key={item.id} className="flex items-center justify-between gap-3 p-3 bg-slate-50 rounded-xl">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-700 truncate">{item.subject}</p>
                   <p className="text-xs text-slate-400 mt-0.5">{caseTypes.find(t => t.value === item.case_type)?.label || item.case_type}</p>
+                  {latestReplies[item.id] && (
+                    <div className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
+                      <p className="text-[10px] font-bold text-emerald-700">آخر رد من الموارد البشرية</p>
+                      <p className="text-xs text-slate-700 mt-1 whitespace-pre-wrap">{latestReplies[item.id].message}</p>
+                    </div>
+                  )}
                 </div>
                 <Badge variant={statusVariant(item.status)}>{caseStatusLabel(item.status)}</Badge>
               </div>

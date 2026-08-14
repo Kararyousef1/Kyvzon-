@@ -101,6 +101,68 @@ export interface InventoryBarcodeRecord {
   created_at: string;
 }
 
+const INVENTORY_LOOKUPS = {
+  inventory_items: { select: 'id,item_code,name_ar,base_uom,status', limit: 500 },
+  inventory_warehouses: { select: 'id,warehouse_code,name_ar,warehouse_type,status', limit: 500 },
+  inventory_locations: { select: 'id,warehouse_id,location_code,barcode,location_type,status', limit: 500 },
+  inventory_docks: { select: 'id,dock_code,dock_type,status', limit: 500 },
+  inventory_asns: { select: 'id,asn_number,status,expected_arrival_at', limit: 500 },
+  inventory_receiving_sessions: { select: 'id,session_number,status,source_type', limit: 500 },
+  inventory_rmas: { select: 'id,rma_number,status,reason_code', limit: 500 },
+  inventory_rma_lines: { select: 'id,expected_qty,status', limit: 500 },
+  suppliers: { select: 'id,supplier_code,legal_name,trade_name', limit: 500 },
+  profiles: { select: 'id,email,full_name,role', limit: 500 },
+  inventory_pick_orders: { select: 'id,pick_order_number,status,priority', limit: 500 },
+  inventory_pick_tasks: { select: 'id,task_number,status,required_qty', limit: 500 },
+  inventory_pick_waves: { select: 'id,wave_number,status,wave_type', limit: 500 },
+  inventory_pick_lists: { select: 'id,pick_list_number,status,route_algorithm', limit: 500 },
+  inventory_packages: { select: 'id,package_number,package_barcode,status', limit: 500 },
+  inventory_shipments: { select: 'id,shipment_number,status,tracking_number', limit: 500 },
+  inventory_loading_manifests: { select: 'id,manifest_number,status,truck_number', limit: 500 },
+  inventory_carriers: { select: 'id,carrier_code,name_ar,provider', limit: 500 },
+  inventory_cycle_count_plans: { select: 'id,plan_number,status,plan_type', limit: 500 },
+  inventory_count_tasks: { select: 'id,task_number,status,count_round', limit: 500 },
+  inventory_count_task_lines: { select: 'id,counted_qty,system_qty', limit: 500 },
+  inventory_return_receipt_lines: { select: 'id,status,received_qty', limit: 500 },
+  inventory_return_condition_assessments: { select: 'id,condition_grade,recommended_disposition,defect_type', limit: 500 },
+  inventory_return_disposition_tasks: { select: 'id,task_number,disposition,status', limit: 500 },
+  inventory_production_returns: { select: 'id,production_return_number,status,reason_code', limit: 500 },
+  inventory_labor_dispatch_tasks: { select: 'id,task_number,task_type,status', limit: 500 },
+  inventory_labor_task_interleaving_suggestions: { select: 'id,status,estimated_minutes_saved', limit: 500 },
+  inventory_labor_incentive_programs: { select: 'id,program_name,status,period_start,period_end', limit: 500 },
+  inventory_analytics_alerts: { select: 'id,title,severity,status', limit: 500 },
+  inventory_periodic_report_runs: { select: 'id,report_number,report_type,delivery_status', limit: 500 },
+} as const;
+
+export type InventoryLookupKey = keyof typeof INVENTORY_LOOKUPS;
+export type InventoryLookupRow = Record<string, unknown>;
+export type InventoryMasterEntity = 'item' | 'warehouse' | 'location';
+export type InventoryUnitKey = 'foundation' | 'receiving' | 'storage' | 'picking' | 'shipping' | 'counting' | 'returns' | 'labor' | 'analytics';
+export type InventoryStatusTable =
+  | 'inventory_asns'
+  | 'inventory_dock_appointments'
+  | 'inventory_receiving_sessions'
+  | 'inventory_osd_cases'
+  | 'inventory_quarantine_holds'
+  | 'inventory_putaway_tasks'
+  | 'inventory_cross_dock_tasks'
+  | 'inventory_receiving_scans'
+  | 'inventory_lpn_label_prints'
+  | 'inventory_inbound_notifications'
+  | 'inventory_receiving_attachments'
+  | 'inventory_quality_ncr_cases'
+  | 'inventory_pick_orders'
+  | 'inventory_pick_exceptions'
+  | 'inventory_shipments'
+  | 'inventory_packages'
+  | 'inventory_loading_manifests'
+  | 'inventory_cycle_count_plans'
+  | 'inventory_rmas'
+  | 'inventory_return_rtv_claims'
+  | 'inventory_production_returns'
+  | 'inventory_periodic_report_runs'
+  | 'inventory_analytics_alerts';
+
 export class InventoryItemService extends BaseService<InventoryItemRecord> {
   constructor() { super('inventory_items'); }
   async createSmart(input: Record<string, unknown>): Promise<string> {
@@ -226,6 +288,60 @@ class InventoryPostingService {
   }
 }
 
+class InventoryLookupService {
+  async find(key: InventoryLookupKey): Promise<InventoryLookupRow[]> {
+    const config = INVENTORY_LOOKUPS[key];
+    const { data, error } = await supabase
+      .from(key)
+      .select(config.select)
+      .limit(config.limit);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as unknown as InventoryLookupRow[];
+  }
+}
+
+class InventoryRecordService {
+  async updateStatus(input: {
+    table: InventoryStatusTable;
+    id: string;
+    status: string;
+    reason: string;
+  }): Promise<void> {
+    const { error } = await supabase.rpc('update_inventory_record_status', {
+      p_entity_table: input.table,
+      p_entity_id: input.id,
+      p_new_status: input.status,
+      p_reason: input.reason,
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  async updateMaster(input: {
+    entityType: InventoryMasterEntity;
+    id: string;
+    patch: Record<string, unknown>;
+    reason: string;
+  }): Promise<void> {
+    const { error } = await supabase.rpc('update_inventory_master_record', {
+      p_entity_type: input.entityType,
+      p_entity_id: input.id,
+      p_patch: input.patch,
+      p_reason: input.reason,
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  async findUnitActivity(unit: InventoryUnitKey, limit = 8): Promise<Record<string, unknown>[]> {
+    const { data, error } = await supabase
+      .from('inventory_unit_activity')
+      .select('*')
+      .eq('unit_key', unit)
+      .limit(Math.max(1, Math.min(limit, 50)));
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Record<string, unknown>[];
+  }
+}
+
 class InventoryAnalyticsService {
   async kpis(): Promise<Record<string, unknown>[]> {
     const { data, error } = await supabase.from('inventory_kpis').select('*').limit(1);
@@ -247,4 +363,6 @@ export const inventoryStockMovementService = new InventoryStockMovementService()
 export const inventoryCodeSequenceService = new InventoryCodeSequenceService();
 export const inventoryBarcodeService = new InventoryBarcodeService();
 export const inventoryPostingService = new InventoryPostingService();
+export const inventoryLookupService = new InventoryLookupService();
+export const inventoryRecordService = new InventoryRecordService();
 export const inventoryAnalyticsService = new InventoryAnalyticsService();

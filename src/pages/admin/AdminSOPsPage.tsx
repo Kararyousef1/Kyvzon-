@@ -16,7 +16,7 @@ import {
   Loader2, AlertCircle, CheckCircle, Clock, Tag, Eye, Download,
   BookOpen, RefreshCw, Info, Star, Calendar, Check, Layers
 } from 'lucide-react';
-import { supabase } from '../../services/supabase/supabase';
+import { sopAdminService } from '../../services/sdk/SopAdminService';
 import { useUIStore, useAuthStore } from '../../core/stores';
 import type { SOP, SOPStatus } from '../../shared/types/sops';
 import { SOP_DEPARTMENTS, SOP_CATEGORIES } from '../../shared/types/sops';
@@ -57,27 +57,39 @@ const Field = ({ label, required, children }: { label: string; required?: boolea
   </div>
 );
 
-const Input = ({ value, onChange, placeholder, dir = 'rtl', type = 'text', className = '', disabled = false }: any) => (
+type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
+const Input = ({ dir = 'rtl', type = 'text', className = '', ...props }: InputProps) => (
   <input
-    type={type} value={value} onChange={onChange} placeholder={placeholder} dir={dir} disabled={disabled}
+    {...props}
+    type={type}
+    dir={dir}
     className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-300 ${className}`}
   />
 );
 
-const Textarea = ({ value, onChange, placeholder, dir = 'rtl', rows = 3 }: any) => (
+type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
+const Textarea = ({ dir = 'rtl', rows = 3, ...props }: TextareaProps) => (
   <textarea
-    value={value} onChange={onChange} placeholder={placeholder} dir={dir} rows={rows}
+    {...props}
+    dir={dir}
+    rows={rows}
     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-300 resize-none"
   />
 );
 
-const Select = ({ value, onChange, options, placeholder }: any) => (
+interface SelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  placeholder?: string;
+}
+const Select = ({ value, onChange, options, placeholder }: SelectProps) => (
   <select
     value={value} onChange={e => onChange(e.target.value)}
     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:border-indigo-400 focus:bg-white"
   >
     {placeholder && <option value="">{placeholder}</option>}
-    {options.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
+    {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
   </select>
 );
 
@@ -115,15 +127,7 @@ export default function AdminSOPsPage() {
     setError(null);
     try {
       const tenantId = requireTenantId();
-      const { data, error } = await supabase
-        .from('sops')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      // Map DB snake_case to SOP type if needed, assume compatible
-      setSops((data as any) || []);
+      setSops(await sopAdminService.findCatalog(tenantId));
     } catch (err: any) {
       setError(getErrorMessage(err));
       // If table doesn't exist yet (early env), show empty with info
@@ -197,59 +201,31 @@ export default function AdminSOPsPage() {
       const effectiveDate = formData.effectiveDate || now.split('T')[0];
       const reviewDate = formData.reviewDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-      if (editingSop) {
-        const { error } = await supabase
-          .from('sops')
-          .update({
-            title: formData.title,
-            title_en: formData.titleEn,
-            code: formData.code,
-            description: formData.description,
-            description_en: formData.descriptionEn,
-            department: formData.department,
-            category: formData.category,
-            pdf_url: formData.pdfUrl,
-            version: formData.version,
-            status: formData.status,
-            effective_date: effectiveDate,
-            review_date: reviewDate,
-            tags,
-            duration: formData.duration,
-            is_mandatory: formData.isMandatory,
-            updated_at: now,
-          })
-          .eq('id', editingSop.id)
-          .eq('tenant_id', tenantId);
+      const input = {
+        title: formData.title,
+        titleEn: formData.titleEn,
+        code: formData.code,
+        description: formData.description,
+        descriptionEn: formData.descriptionEn,
+        department: formData.department,
+        category: formData.category,
+        fileUrl: formData.pdfUrl,
+        version: formData.version,
+        status: formData.status,
+        effectiveDate,
+        reviewDate,
+        tags,
+        duration: formData.duration,
+        isMandatory: formData.isMandatory,
+        createdBy: user?.id,
+      };
 
-        if (error) throw error;
+      if (editingSop) {
+        await sopAdminService.updateSop(editingSop.id, tenantId, input);
         showToast(`تم تحديث ${formData.code}`, 'success');
         addToast(`تم تحديث ${formData.code}`, 'success');
       } else {
-        const { error } = await supabase
-          .from('sops')
-          .insert({
-            tenant_id: tenantId,
-            title: formData.title,
-            title_en: formData.titleEn,
-            code: formData.code,
-            description: formData.description,
-            description_en: formData.descriptionEn,
-            department: formData.department,
-            category: formData.category,
-            pdf_url: formData.pdfUrl,
-            version: formData.version,
-            status: formData.status,
-            effective_date: effectiveDate,
-            review_date: reviewDate,
-            tags,
-            duration: formData.duration,
-            is_mandatory: formData.isMandatory,
-            created_by: user?.id,
-            created_at: now,
-            updated_at: now,
-          });
-
-        if (error) throw error;
+        await sopAdminService.createSop(tenantId, input);
         showToast(`تم إضافة ${formData.code}`, 'success');
         addToast(`تم إضافة ${formData.code}`, 'success');
       }
@@ -267,7 +243,7 @@ export default function AdminSOPsPage() {
    * أرشفة الإجراء — لا حذف نهائي.
    *
    * ★ النسخة السابقة كانت:
-   *      confirm(...) ثم supabase.from('sops').delete()
+   *      confirm(...) ثم حذف مباشر من جدول sops
    *   وثلاث مخالفات فيها:
    *     · confirm() محظور بسياسة المنصة
    *     · الصفحة تلمس Supabase مباشرةً بدل طبقة SDK

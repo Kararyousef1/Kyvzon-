@@ -13,7 +13,7 @@
  *      ولعزل الـFK عن الحارس: `approved_by = employees.id` بلا سلسلة ⇒
  *        violates foreign key constraint
  *        "permissions_request_approved_by_fkey"
- *      الآن القرار عبر `hrApprovalService.decide()` وحده.
+ *      الآن القرار عبر `unifiedApprovalService.decideHrAny()` وحده.
  *
  *  ★★★ الصلاحية لم تعد من مسار URL.
  *      كان: `canApprove = viewMode === 'hr' || viewMode === 'manager'`
@@ -40,7 +40,7 @@ import {
   Ban, Inbox, User, AlertTriangle,
 } from 'lucide-react';
 import { useAuthStore, useUIStore } from '../../core/stores';
-import { hrApprovalService } from '../../services/sdk';
+import { unifiedApprovalService } from '../../services/sdk';
 import {
   permissionRequestGateway, permissionErrorMessage,
   type PermissionRequestRow, type PermissionScope,
@@ -118,6 +118,8 @@ export default function PermissionsPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [inboxCount, setInboxCount] = useState(0);
+  const [executionTarget, setExecutionTarget] = useState<PermissionRequestRow | null>(null);
+  const [executionForm, setExecutionForm] = useState({ actualOut: '', actualReturn: '', note: '' });
 
   const [formData, setFormData] = useState({
     permission_type: 'عادية' as PermissionKind,
@@ -196,14 +198,10 @@ export default function PermissionsPage() {
   ) => {
     setProcessingId(row.id);
     try {
-      const requestId = await hrApprovalService.findRequestIdBySource('permission', row.id);
-      if (!requestId) {
-        addToast('لا توجد سلسلة اعتماد لهذا الطلب', 'error');
-        return;
-      }
-      // ★ القاعدة تُزامن الحالة وتملأ approved_by/reviewed_at وتُنفّذ
-      //   الزمنية في جدول permissions — لا شيء من ذلك في المتصفح.
-      const finalStatus = await hrApprovalService.decide(requestId, decision, comments);
+      // ★ واجهة المحرّك الموحّد تقبل معرّف المصدر مباشرةً؛ لا تبحث الصفحة
+      //   في hr_approval_requests. القاعدة تُزامن الحالة وتملأ
+      //   approved_by/reviewed_at وتُنفّذ الزمنية في جدول permissions.
+      const finalStatus = await unifiedApprovalService.decideHrAny(row.id, decision, comments);
       addToast(
         finalStatus === 'pending'
           ? 'سُجِّل قرارك — الطلب انتقل للمرحلة التالية'
@@ -234,6 +232,37 @@ export default function PermissionsPage() {
   };
 
   // ── المشتقّات ────────────────────────────────────────────────
+  const openExecution = (row: PermissionRequestRow) => {
+    const out = `${row.date}T${row.outTime.slice(0, 5)}`;
+    const back = row.returnTime ? `${row.date}T${row.returnTime.slice(0, 5)}` : '';
+    setExecutionTarget(row);
+    setExecutionForm({ actualOut: out, actualReturn: back, note: row.executionNote || '' });
+  };
+
+  const recordExecution = async () => {
+    if (!executionTarget || !executionForm.actualOut) return;
+    if (executionTarget.permissionType !== 'مغادرة' && !executionForm.actualReturn) {
+      addToast('وقت العودة الفعلي مطلوب', 'warning'); return;
+    }
+    setProcessingId(executionTarget.id);
+    try {
+      await permissionRequestGateway.recordExecution({
+        requestId: executionTarget.id,
+        actualOut: new Date(executionForm.actualOut).toISOString(),
+        actualReturn: executionForm.actualReturn
+          ? new Date(executionForm.actualReturn).toISOString() : null,
+        note: executionForm.note.trim() || null,
+      });
+      addToast('سُجّلت حركة الخروج والعودة الفعلية', 'success');
+      setExecutionTarget(null);
+      await fetchRows();
+    } catch (err) {
+      addToast(permissionErrorMessage(getErrorMessage(err)), 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const stats = useMemo(() => ({
     total: rows.length,
     pending: rows.filter((r) => r.status === 'انتظار').length,
@@ -503,6 +532,12 @@ export default function PermissionsPage() {
                   {row.rejectionReason && row.status !== 'انتظار' && (
                     <p className="text-sm text-red-600 mt-2">السبب: {row.rejectionReason}</p>
                   )}
+                  {row.actualOut && (
+                    <p className="text-xs text-sky-700 bg-sky-50 rounded-lg px-2 py-1 mt-2">
+                      فعلياً: خروج {new Date(row.actualOut).toLocaleString('ar-IQ')}
+                      {row.actualReturn ? ` · عودة ${new Date(row.actualReturn).toLocaleString('ar-IQ')}` : ''}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex gap-2 flex-wrap">
@@ -527,6 +562,17 @@ export default function PermissionsPage() {
                       </button>
                     </>
                   )}
+                  {row.canRecordExecution && (
+                    <button
+                      type="button"
+                      onClick={() => openExecution(row)}
+                      disabled={processingId === row.id}
+                      className="px-4 py-2 bg-sky-600 text-white rounded-xl font-bold text-sm disabled:opacity-50"
+                    >
+                      <Clock size={14} className="inline ml-1" />
+                      {row.actualOut ? 'تحديث التنفيذ' : 'تسجيل التنفيذ الفعلي'}
+                    </button>
+                  )}
                   {row.canCancel && (
                     <button
                       type="button"
@@ -541,6 +587,44 @@ export default function PermissionsPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {executionTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="presentation">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4" dir="rtl">
+            <h3 className="text-lg font-extrabold text-slate-800">تسجيل التنفيذ الفعلي</h3>
+            <p className="text-sm text-slate-600">
+              {executionTarget.employeeName} · {PERMISSION_LABELS[executionTarget.permissionType]}
+            </p>
+            <div>
+              <label className="block text-sm font-bold mb-1">الخروج الفعلي</label>
+              <input type="datetime-local" value={executionForm.actualOut}
+                onChange={(e) => setExecutionForm({ ...executionForm, actualOut: e.target.value })}
+                className="w-full border rounded-xl px-3 py-2.5" />
+            </div>
+            {executionTarget.permissionType !== 'مغادرة' && (
+              <div>
+                <label className="block text-sm font-bold mb-1">العودة الفعلية</label>
+                <input type="datetime-local" value={executionForm.actualReturn}
+                  onChange={(e) => setExecutionForm({ ...executionForm, actualReturn: e.target.value })}
+                  className="w-full border rounded-xl px-3 py-2.5" />
+              </div>
+            )}
+            <textarea value={executionForm.note}
+              onChange={(e) => setExecutionForm({ ...executionForm, note: e.target.value })}
+              rows={2} placeholder="ملاحظة التنفيذ (اختيارية)"
+              className="w-full border rounded-xl px-3 py-2.5" />
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setExecutionTarget(null)}
+                className="flex-1 px-4 py-2.5 bg-slate-100 rounded-xl font-bold">إلغاء</button>
+              <button type="button" onClick={() => void recordExecution()}
+                disabled={processingId === executionTarget.id}
+                className="flex-1 px-4 py-2.5 bg-sky-600 text-white rounded-xl font-bold disabled:opacity-50">
+                حفظ التنفيذ
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -5,6 +5,7 @@ import {
   Loader, TrendingUp, Heart, Zap, RefreshCw, ChevronLeft,
   Bell, Shield, BarChart2
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useUIStore } from '../../core/stores';
 import { incidentService } from '../../services/sdk/IncidentService';
 import { reviewService } from '../../services/sdk/ReviewService';
@@ -46,7 +47,18 @@ function CircleGauge({ value, color, size = 80 }: { value: number; color: string
 }
 
 // ── بطاقة مؤشر ──────────────────────────────────────────────
-function KPICard({ label, value, icon: Icon, color, bg, trend, trendUp, suffix = '' }: any) {
+interface KPICardProps {
+  label: string;
+  value: string | number;
+  icon: LucideIcon;
+  color: string;
+  bg: string;
+  trend?: string;
+  trendUp?: boolean;
+  suffix?: string;
+}
+
+function KPICard({ label, value, icon: Icon, color, bg, trend, trendUp, suffix = '' }: KPICardProps) {
   return (
     <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm relative overflow-hidden">
       <div className="absolute top-0 left-0 w-20 h-20 rounded-br-[60px] opacity-10" style={{ background: color }} />

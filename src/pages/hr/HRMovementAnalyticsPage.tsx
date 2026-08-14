@@ -30,6 +30,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
   gatekeeperAnalyticsService,
   subscribeHandoverAlerts,
@@ -44,7 +45,7 @@ import Card, { CardHeader, CardTitle } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import {
   Download, Users, ArrowRightLeft, Calendar, BarChart3, Clock,
-  Loader, Archive, Search, BellRing, Key, Star, MessageSquare, AlertTriangle,
+  Loader, Archive, Search, BellRing, Key, Star, MessageSquare, AlertTriangle, Plus,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -404,7 +405,13 @@ export default function HRMovementAnalyticsPage() {
           </p>
         </div>
         {!isArchive && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              to="/app/movement/employee/permits/new"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700"
+            >
+              <Plus size={16} /> تصريح حركة جديد
+            </Link>
             <select
               value={timeFilter}
               onChange={(e) => setTimeFilter(e.target.value as TimeFilter)}

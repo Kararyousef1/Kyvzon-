@@ -95,6 +95,31 @@ export interface TenantStats {
   open_incidents: number;
 }
 
+export interface TenantDetailUser {
+  id: string;
+  full_name: string | null;
+  email: string;
+  role: string;
+  status: string;
+  created_at: string;
+}
+
+export interface TenantDetailLegalEntity {
+  id: string;
+  code: string;
+  name_ar: string;
+  base_currency_code: string;
+  status: string;
+}
+
+export interface TenantDetailAuditEntry {
+  id: string;
+  action: string;
+  actor_name?: string | null;
+  description?: string | null;
+  created_at: string;
+}
+
 export interface PlatformAuditEntry {
   id: string;
   action: string;
@@ -221,6 +246,43 @@ export const tenantService = {
 
     if (error) throw new Error(getErrorMessage(error));
     return data as TenantCompany | null;
+  },
+
+  async getCompanyBySlug(slug: string): Promise<TenantCompany | null> {
+    const { data, error } = await supabase.from('tenants')
+      .select('*')
+      .eq('slug', slug)
+      .maybeSingle();
+    if (error) throw new Error(getErrorMessage(error));
+    return data as TenantCompany | null;
+  },
+
+  async getCompanyUsers(tenantId: string, limit = 10): Promise<TenantDetailUser[]> {
+    const { data, error } = await supabase.from('profiles')
+      .select('id,full_name,email,role,status,created_at')
+      .eq('tenant_id', tenantId)
+      .limit(Math.max(1, Math.min(limit, 100)));
+    if (error) throw new Error(getErrorMessage(error));
+    return (data ?? []) as TenantDetailUser[];
+  },
+
+  async getCompanyLegalEntities(tenantId: string, limit = 20): Promise<TenantDetailLegalEntity[]> {
+    const { data, error } = await supabase.from('legal_entities')
+      .select('id,code,name_ar,base_currency_code,status')
+      .eq('tenant_id', tenantId)
+      .limit(Math.max(1, Math.min(limit, 100)));
+    if (error) throw new Error(getErrorMessage(error));
+    return (data ?? []) as TenantDetailLegalEntity[];
+  },
+
+  async getCompanyAuditLogs(tenantId: string, limit = 20): Promise<TenantDetailAuditEntry[]> {
+    const { data, error } = await supabase.from('platform_audit_log')
+      .select('id,action,actor_name,description,created_at')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(Math.max(1, Math.min(limit, 100)));
+    if (error) throw new Error(getErrorMessage(error));
+    return (data ?? []) as TenantDetailAuditEntry[];
   },
 
   // ── إنشاء شركة جديدة ──────────────────────────────────────

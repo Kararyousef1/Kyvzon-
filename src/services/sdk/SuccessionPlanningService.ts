@@ -175,6 +175,42 @@ export interface PositionInput {
   requiredSkills?: string[] | null;
 }
 
+export type DevelopmentAction =
+  | 'training' | 'mentoring' | 'assignment' | 'certification' | 'other';
+export type DevelopmentStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled';
+
+export interface DevelopmentPlan {
+  id: string;
+  candidateId: string;
+  employeeName: string;
+  action: DevelopmentAction;
+  title: string;
+  description: string | null;
+  targetDate: string | null;
+  status: DevelopmentStatus;
+  courseId: string | null;
+  courseTitle: string | null;
+  progress: number | null;
+  courseCompleted: boolean;
+  createdAt: string | null;
+}
+
+export interface SuccessionCourseOption {
+  id: string;
+  title: string;
+  level: string;
+  mandatory: boolean;
+}
+
+export interface DevelopmentPlanInput {
+  candidateId: string;
+  action: DevelopmentAction;
+  title: string;
+  description?: string | null;
+  targetDate?: string | null;
+  courseId?: string | null;
+}
+
 export interface NominateInput {
   positionId: string;
   employeeId: string;
@@ -336,6 +372,63 @@ class SuccessionPlanningSdk {
   ): Promise<string> {
     const { data, error } = await supabase.rpc('succession_candidate_set_status', {
       p_id: candidateId, p_status: status,
+    });
+    if (error) throw SdkError.fromSupabaseError(error);
+    return str(data);
+  }
+
+  /** خطط تطوير المرشّح المرتبطة بالتدريب (0377). */
+  async plans(candidateId?: string): Promise<DevelopmentPlan[]> {
+    const { data, error } = await supabase.rpc('succession_plan_board', {
+      p_candidate: candidateId ?? null,
+    });
+    if (error) throw SdkError.fromSupabaseError(error);
+    return ((data ?? []) as Raw[]).map((r) => ({
+      id: str(r.out_id),
+      candidateId: str(r.out_candidate_id),
+      employeeName: str(r.out_employee_name),
+      action: str(r.out_action) as DevelopmentAction,
+      title: str(r.out_title),
+      description: strOrNull(r.out_description),
+      targetDate: strOrNull(r.out_target_date),
+      status: str(r.out_status) as DevelopmentStatus,
+      courseId: strOrNull(r.out_course_id),
+      courseTitle: strOrNull(r.out_course_title),
+      progress: numOrNull(r.out_progress),
+      courseCompleted: Boolean(r.out_course_completed),
+      createdAt: strOrNull(r.out_created_at),
+    }));
+  }
+
+  async trainingCourses(): Promise<SuccessionCourseOption[]> {
+    const { data, error } = await supabase.rpc('succession_training_courses');
+    if (error) throw SdkError.fromSupabaseError(error);
+    return ((data ?? []) as Raw[]).map((r) => ({
+      id: str(r.out_id), title: str(r.out_title), level: str(r.out_level),
+      mandatory: Boolean(r.out_mandatory),
+    }));
+  }
+
+  async createPlan(input: DevelopmentPlanInput): Promise<string> {
+    const { data, error } = await supabase.rpc('succession_plan_create', {
+      p_candidate: input.candidateId,
+      p_action: input.action,
+      p_title: input.title,
+      p_description: input.description ?? null,
+      p_target: input.targetDate ?? null,
+      p_course: input.courseId ?? null,
+    });
+    if (error) throw SdkError.fromSupabaseError(error);
+    return str(data);
+  }
+
+  async setPlanStatus(
+    planId: string,
+    status: Exclude<DevelopmentStatus, 'planned'>,
+    reason?: string,
+  ): Promise<string> {
+    const { data, error } = await supabase.rpc('succession_plan_set_status', {
+      p_plan: planId, p_status: status, p_reason: reason ?? null,
     });
     if (error) throw SdkError.fromSupabaseError(error);
     return str(data);

@@ -596,14 +596,17 @@ export interface ReviewRecord {
   tenant_id: string;
 }
 
+export type WellnessMood = 'great' | 'good' | 'neutral' | 'bad' | 'terrible';
+
 export interface WellnessEntryRecord {
   id: string;
   employee_id: string;
-  mood_score?: number;
-  stress_level?: number;
-  energy_level?: number;
-  notes?: string;
   date: string;
+  score: number;
+  mood: WellnessMood;
+  stress: number;
+  energy: number;
+  notes?: string | null;
   created_at: string;
   tenant_id: string;
 }
@@ -615,18 +618,6 @@ export interface SurveyResponseRecord {
   answers: Record<string, unknown>;
   sentiment?: string;
   submitted_at: string;
-  tenant_id: string;
-}
-
-export interface HrMessageRecord {
-  id: string;
-  employee_id?: string;
-  subject: string;
-  message: string;
-  priority: 'low' | 'normal' | 'urgent';
-  status: 'new' | 'read' | 'replied';
-  profiles?: { full_name: string; department: string } | null;
-  created_at: string;
   tenant_id: string;
 }
 

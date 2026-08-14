@@ -17,9 +17,10 @@ import { supabase } from '../supabase/supabase';
 import { logger } from '../utils/logger';
 import type { PortalUnitKey } from '../../shared/constants/portalUnits';
 
-/** البوابات التسع المصدر */
+/** وحدات المصدر التي يعيدها صندوق الاعتمادات (بما فيها مالية الموظف). */
 export type ApprovalSourceModule =
   | 'hr'
+  | 'employee_finance'
   | 'procurement'
   | 'finance'
   | 'contracts'
@@ -70,6 +71,7 @@ export type ApprovalDecision = 'approved' | 'rejected';
 /** تسميات عربية للبوابات المصدر */
 export const SOURCE_MODULE_LABELS: Record<ApprovalSourceModule, string> = {
   hr: 'الموارد البشرية',
+  employee_finance: 'طلبات الموظف المالية',
   procurement: 'المشتريات',
   finance: 'المالية',
   contracts: 'العقود',
@@ -83,6 +85,7 @@ export const SOURCE_MODULE_LABELS: Record<ApprovalSourceModule, string> = {
 /** ألوان تمييز البوابة في الواجهة */
 export const SOURCE_MODULE_TONES: Record<ApprovalSourceModule, string> = {
   hr: 'bg-emerald-100 text-emerald-700',
+  employee_finance: 'bg-fuchsia-100 text-fuchsia-700',
   procurement: 'bg-amber-100 text-amber-700',
   finance: 'bg-violet-100 text-violet-700',
   contracts: 'bg-slate-200 text-slate-700',

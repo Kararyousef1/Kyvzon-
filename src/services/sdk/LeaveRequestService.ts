@@ -13,7 +13,7 @@
  *       insert or update on table "leaves" violates foreign key
  *       constraint "leaves_approved_by_fkey"
  *     ⇒ زرّ «موافقة» كان يفشل كلما كان للمُعتمِد سجلّ موظف.
- *     الآن القرار عبر `hrApprovalService.decide()` وحده.
+ *     الآن القرار عبر `unifiedApprovalService.decideHrAny()` وحده.
  *
  *   ★ `canApprove = viewMode === 'hr' | 'supervisor' | 'manager'`
  *     مشتقّ من **مسار URL**. الآن `canDecide` يأتي من القاعدة:

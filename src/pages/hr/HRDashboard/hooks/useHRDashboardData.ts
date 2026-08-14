@@ -81,7 +81,7 @@ export function useHRDashboardData() {
 
       // Simple wellness average
       const avgWellness = wellness.length > 0 
-        ? Math.round(wellness.reduce((sum, w) => sum + (w.mood_score || 0), 0) / wellness.length)
+        ? Math.round(wellness.reduce((sum, w) => sum + w.score, 0) / wellness.length)
         : 75;
 
       setData(prev => ({
